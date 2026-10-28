@@ -1,0 +1,7 @@
+description = "Record this session's work and remaining tasks in Workbench"
+
+prompt = """
+Update the current project's Workbench entry from this conversation by following the
+"Workbench Project Tracking" steps in your GEMINI.md context: record what this session built,
+what is in progress, and what is left to do, then push with `workbench push`.
+"""

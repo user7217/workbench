@@ -1,0 +1,48 @@
+# --- Secrets and local configuration (never publish) ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+id_ed25519*
+workbench_deploy_key*
+
+# Local editor / Claude Code settings (contain machine-specific paths)
+.claude/
+
+# Personal notes and data kept next to the code, not part of the app
+ros2-learn.md
+
+# --- Python ---
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+build/
+dist/
+
+# --- Web UI ---
+web/node_modules/
+web/dist/
+web/*.tsbuildinfo
+
+# Playwright output
+test-results/
+playwright-report/
+
+# --- Tooling output ---
+# Local knowledge-graph build (graphify); regenerate with `graphify update .`
+graphify-out/
+ros2-learn.md 
+
+# --- OS / editors ---
+.DS_Store
+.idea/
+.vscode/
+*.swp
+DECISIONS.md

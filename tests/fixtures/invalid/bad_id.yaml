@@ -1,0 +1,10 @@
+schema_version: 1
+id: Bad_ID_With_Caps!
+name: Bad ID Project
+description: Has an invalid slug ID.
+status: active
+origin: manual
+updated: 2026-10-20
+repos: []
+links: []
+phases: []

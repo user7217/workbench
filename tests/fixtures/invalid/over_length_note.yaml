@@ -1,0 +1,16 @@
+schema_version: 1
+id: demo-overlength-note
+name: Overlength Note
+description: Phase note exceeds 1000 characters.
+status: active
+origin: manual
+updated: 2026-10-20
+repos: []
+links: []
+phases:
+  - id: phase-one
+    name: Phase One
+    status: in_progress
+    summary: Valid summary.
+    notes: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum. Extra padding characters to push total length well beyond the one thousand character limit for notes fields in Workbench schema version one."
+    components: []

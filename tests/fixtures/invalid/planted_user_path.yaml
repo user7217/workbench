@@ -1,0 +1,10 @@
+schema_version: 1
+id: demo-local-path
+name: Planted Local Path
+description: Loaded config from /Users/someone/secret-project/config.yaml locally.
+status: active
+origin: manual
+updated: 2026-10-20
+repos: []
+links: []
+phases: []

@@ -1,0 +1,23 @@
+services:
+  workbench:
+    build: .
+    container_name: workbench-server
+    restart: unless-stopped
+    environment:
+      WORKBENCH_DATA_REMOTE: ${WORKBENCH_DATA_REMOTE}
+      WORKBENCH_BRANCH: ${WORKBENCH_BRANCH:-main}
+      WORKBENCH_POLL_SECONDS: ${WORKBENCH_POLL_SECONDS:-600}
+      WORKBENCH_GITHUB_OWNERS: ${WORKBENCH_GITHUB_OWNERS:-}
+      WORKBENCH_GITHUB_READ_TOKEN: ${WORKBENCH_GITHUB_READ_TOKEN:-}
+      WORKBENCH_STATE_DIR: /data
+      WORKBENCH_BIND: 0.0.0.0
+      WORKBENCH_PORT: 8420
+    ports:
+      # Bind to Tailscale IP in production (e.g. 100.x.y.z:8420:8420)
+      - "${WORKBENCH_BIND:-127.0.0.1}:8420:8420"
+    volumes:
+      - workbench-data:/data
+      - ${WORKBENCH_SSH_KEY_PATH:-~/.ssh/workbench_deploy_key}:/root/.ssh/id_ed25519:ro
+
+volumes:
+  workbench-data:
