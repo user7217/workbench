@@ -796,71 +796,101 @@ def cmd_new(
     wb_dir = get_workbench_dir()
     data_dir = _get_data_repo_dir()
     cfg = load_local_config()
-    fetch_origin(data_dir, branch=cfg.branch)
+    try:
+        fetch_origin(data_dir, branch=cfg.branch)
+    except GitError as exc:
+        typer.echo(f"Error fetching origin/{cfg.branch}: {exc}", err=True)
+        raise typer.Exit(code=2)
 
     item_id = slugify_name(name)
+    kind = "learning path" if learning else "project"
     wt_dir = wb_dir / "work" / f"new-{item_id}-{secrets.token_hex(4)}"
     create_worktree(data_dir, wt_dir, ref=f"origin/{cfg.branch}")
 
+    # Pre-push checks: on failure nothing was committed, so drop the worktree.
     try:
-        if parent is not None:
-            link_error = _parent_link_error(_load_valid_projects(wt_dir), item_id, parent, under)
-            if link_error:
-                typer.echo(f"Error: {link_error}", err=True)
-                raise typer.Exit(code=1)
-        today_date = parse_iso_date_for_yaml(datetime.date.today().isoformat())
-        if learning:
-            target = wt_dir / "learning" / item_id / "path.yaml"
-            if target.exists():
-                typer.echo(f"Error: learning path '{item_id}' already exists.", err=True)
-                raise typer.Exit(code=1)
-            cm = CommentedMap()
-            cm["schema_version"] = 1
-            cm["id"] = item_id
-            cm["name"] = name[:80]
-            cm["description"] = ""
-            cm["status"] = status
-            cm["updated"] = today_date
-            cm["references"] = []
-            cm["topics"] = []
-            dump_yaml_roundtrip(cm, target)
-            vres, _, _ = validate_learning_file(target, expected_dir_id=item_id)
-        else:
-            target = wt_dir / "projects" / item_id / "project.yaml"
-            if target.exists():
-                typer.echo(f"Error: project '{item_id}' already exists.", err=True)
-                raise typer.Exit(code=1)
-            cm = CommentedMap()
-            cm["schema_version"] = 1
-            cm["id"] = item_id
-            cm["name"] = name[:80]
-            cm["description"] = ""
-            cm["status"] = status
-            if parent is not None:
-                cm["parent"] = parent
-                cm["under"] = under
-            cm["origin"] = "manual"
-            cm["updated"] = today_date
-            cm["repos"] = []
-            cm["links"] = []
-            cm["phases"] = []
-            dump_yaml_roundtrip(cm, target)
-            vres, _, _ = validate_project_file(target, expected_dir_id=item_id)
-
-        if not vres.ok:
-            for err in vres.errors:
-                typer.echo(f"Validation error: {err}", err=True)
-            raise typer.Exit(code=1)
-
-        kind = "learning path" if learning else "project"
-        sha = commit_all(wt_dir, f"Create {kind} {item_id}")
-        if not push_head_to_branch(wt_dir, branch=cfg.branch):
-            typer.echo("Error: failed to push new entry.", err=True)
-            raise typer.Exit(code=2)
-        where = f" under '{parent}/{under}'" if parent else ""
-        typer.echo(f"Created {kind} '{item_id}'{where} ({sha[:8]})")
-    finally:
+        target = _write_new_entry(wt_dir, item_id, name, learning, status, parent, under)
+    except typer.Exit:
         remove_worktree(data_dir, wt_dir)
+        raise
+    _write_new_entry_baseline(wt_dir, target)
+
+    # Same pipeline as push/attach/link: privacy review, rebase, repo-wide validation, retries.
+    _push_worktree(wt_dir, f"Create {kind} {item_id}", allow_removals=False, mark_seen=False)
+    where = f" under '{parent}/{under}'" if parent else ""
+    sha = get_head_commit(data_dir, f"origin/{cfg.branch}") or ""
+    typer.echo(f"Created {kind} '{item_id}'{where} ({sha[:8]})")
+
+
+def _write_new_entry(
+    wt_dir: Path,
+    item_id: str,
+    name: str,
+    learning: bool,
+    status: str,
+    parent: Optional[str],
+    under: Optional[str],
+) -> Path:
+    """Write a fresh project/learning YAML into wt_dir and validate it; Exit(1) on any problem."""
+    if parent is not None:
+        link_error = _parent_link_error(_load_valid_projects(wt_dir), item_id, parent, under)
+        if link_error:
+            typer.echo(f"Error: {link_error}", err=True)
+            raise typer.Exit(code=1)
+    today_date = parse_iso_date_for_yaml(datetime.date.today().isoformat())
+    cm = CommentedMap()
+    cm["schema_version"] = 1
+    cm["id"] = item_id
+    cm["name"] = name[:80]
+    cm["description"] = ""
+    cm["status"] = status
+    if learning:
+        target = wt_dir / "learning" / item_id / "path.yaml"
+        if target.exists():
+            typer.echo(f"Error: learning path '{item_id}' already exists.", err=True)
+            raise typer.Exit(code=1)
+        cm["updated"] = today_date
+        cm["references"] = []
+        cm["topics"] = []
+        dump_yaml_roundtrip(cm, target)
+        vres, _, _ = validate_learning_file(target, expected_dir_id=item_id)
+    else:
+        target = wt_dir / "projects" / item_id / "project.yaml"
+        if target.exists():
+            typer.echo(f"Error: project '{item_id}' already exists.", err=True)
+            raise typer.Exit(code=1)
+        if parent is not None:
+            cm["parent"] = parent
+            cm["under"] = under
+        cm["origin"] = "manual"
+        cm["updated"] = today_date
+        cm["repos"] = []
+        cm["links"] = []
+        cm["phases"] = []
+        dump_yaml_roundtrip(cm, target)
+        vres, _, _ = validate_project_file(target, expected_dir_id=item_id)
+    if not vres.ok:
+        for err in vres.errors:
+            typer.echo(f"Validation error: {err}", err=True)
+        raise typer.Exit(code=1)
+    return target
+
+
+def _write_new_entry_baseline(wt_dir: Path, target: Path) -> None:
+    """Record the CLI-set updated/origin so _push_worktree keeps origin 'manual' without warnings."""
+    import json
+
+    raw = to_plain_python(load_yaml_roundtrip(target))
+    (wt_dir / ".git_wb_baseline.json").write_text(
+        json.dumps(
+            {
+                "rel_path": target.relative_to(wt_dir).as_posix(),
+                "updated": raw.get("updated"),
+                "origin": raw.get("origin"),
+            }
+        ),
+        encoding="utf-8",
+    )
 
 
 def _load_valid_projects(repo_root: Path) -> dict[str, Project]:

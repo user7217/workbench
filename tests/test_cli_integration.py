@@ -256,6 +256,9 @@ def test_link_attaches_repo_to_umbrella_project_and_drops_empty_stub(
     laptop_data = Path(info["laptop_data_dir"])
     code_dir = Path(info["code_dir"])
     monkeypatch.setenv("HOME", str(info["laptop_home"]))
+    cfg = load_local_config()
+    cfg.privacy_review = "off"  # `new` runs the full push pipeline; don't call a real reviewer
+    save_local_config(cfg)
 
     def remote_head() -> str:
         run_git(["fetch", "origin", "main"], cwd=laptop_data)
@@ -417,3 +420,62 @@ def test_new_attach_detach_child_projects(tmp_path: Path, monkeypatch: any) -> N
     assert validate_data_repo(laptop_data).ok
     work_dir = Path(info["laptop_home"]) / ".workbench" / "work"
     assert not work_dir.exists() or not any(work_dir.iterdir())
+
+
+def test_new_runs_full_push_pipeline(tmp_path: Path, monkeypatch: any) -> None:
+    """`new` goes through the shared push pipeline (rebase/retry, repo-wide validation) like push."""
+    info = init_demo_environment(tmp_path / "demo_new")
+    laptop_home = Path(info["laptop_home"])
+    laptop_data = Path(info["laptop_data_dir"])
+    monkeypatch.setenv("HOME", str(laptop_home))
+
+    def remote_head() -> str:
+        run_git(["fetch", "origin", "main"], cwd=laptop_data)
+        return run_git(["rev-parse", "origin/main"], cwd=laptop_data).stdout.strip()
+
+    def remote_text(rel: str) -> str | None:
+        run_git(["fetch", "origin", "main"], cwd=laptop_data)
+        proc = run_git(["show", f"origin/main:{rel}"], cwd=laptop_data, check=False)
+        return proc.stdout if proc.returncode == 0 else None
+
+    cfg = load_local_config(home_dir=laptop_home)
+    # A push race is retried and the entry lands with origin=manual, no warnings
+    cfg.privacy_review = "off"
+    save_local_config(cfg, home_dir=laptop_home)
+    import workbench.cli as cli_mod
+
+    real_push = cli_mod.push_head_to_branch
+    calls = {"n": 0}
+
+    def flaky_push(wt_path: Path, branch: str = "main", env: dict | None = None) -> bool:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return False
+        return real_push(wt_path, branch=branch, env=env)
+
+    monkeypatch.setattr(cli_mod, "push_head_to_branch", flaky_push)
+    created = runner.invoke(app, ["new", "Lab Notebook"])
+    assert created.exit_code == 0, created.output
+    assert calls["n"] == 2
+    assert "Created project 'lab-notebook'" in created.output
+    assert "Warning" not in created.output
+    proj = to_plain_python(load_yaml_str_roundtrip(remote_text("projects/lab-notebook/project.yaml")))
+    assert (proj["origin"], proj["status"]) == ("manual", "active")
+    log = run_git(["log", "-1", "--format=%s", "origin/main"], cwd=laptop_data).stdout.strip()
+    assert log == "Create project lab-notebook"
+
+    # Learning paths go through the same pipeline
+    learning = runner.invoke(app, ["new", "Kalman Filters", "--learning"])
+    assert learning.exit_code == 0, learning.output
+    assert "Created learning path 'kalman-filters'" in learning.output
+    assert remote_text("learning/kalman-filters/path.yaml") is not None
+
+    # Duplicates are refused before anything is pushed
+    head = remote_head()
+    dup = runner.invoke(app, ["new", "Lab Notebook"])
+    assert dup.exit_code == 1
+    assert "already exists" in dup.output
+    assert remote_head() == head
+
+    run_git(["reset", "--hard", "origin/main"], cwd=laptop_data)
+    assert validate_data_repo(laptop_data).ok

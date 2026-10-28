@@ -1,4 +1,7 @@
 import React from "react";
+import { STATUS_LABELS } from "@workbench-core";
+
+export { STATUS_LABELS };
 
 /** CSS custom property holding the color for a status (palette lives in styles.css :root). */
 export function statusColorVar(status: string | undefined): string {
@@ -25,17 +28,6 @@ export function statusColorVar(status: string | undefined): string {
 export function statusTint(status: string | undefined, percent: number): string {
   return `color-mix(in srgb, ${statusColorVar(status)} ${percent}%, transparent)`;
 }
-
-export const STATUS_LABELS: Record<string, string> = {
-  planned: "Planned",
-  done: "Done",
-  in_progress: "In progress",
-  not_started: "Not started",
-  parked: "Parked",
-  paused: "Paused",
-  active: "Active",
-  archived: "Archived",
-};
 
 /** One icon per status, so every icon in the UI means something. */
 export function StatusNodeGlyph({ status, size = 14 }: { status: string; size?: number }) {

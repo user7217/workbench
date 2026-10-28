@@ -17,8 +17,16 @@ from workbench.discovery.github import run_github_discovery
 from workbench.server.sync import ServerState
 from workbench.server.writes import (
     WriteError,
+    add_project_item,
+    delete_project_item,
+    move_project_item,
+    set_project_parent,
+    update_learning_fields,
+    update_learning_item_fields,
     update_learning_item_status,
     update_learning_path_status,
+    update_project_fields,
+    update_project_item_fields,
     update_project_item_status,
     update_project_status,
 )
@@ -40,15 +48,51 @@ def _require_write_headers(request: Request) -> None:
         )
 
 
-async def _read_status_body(request: Request) -> Any:
-    """Return body["status"] from a JSON object body, or raise 400."""
+async def _read_json_object(request: Request) -> dict[str, Any]:
+    """Return the request body as a JSON object, or raise 400."""
     try:
         body = await request.json()
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid JSON body")
-    if not isinstance(body, dict) or "status" not in body:
+    if not isinstance(body, dict):
+        raise HTTPException(status_code=400, detail="Body must be a JSON object")
+    return body
+
+
+async def _read_status_body(request: Request) -> Any:
+    """Return body["status"] from a JSON object body, or raise 400."""
+    body = await _read_json_object(request)
+    if "status" not in body:
         raise HTTPException(status_code=400, detail="Missing 'status' field in body")
     return body["status"]
+
+
+def _write_response(state: ServerState, snapshot: dict[str, Any], **extra: Any) -> JSONResponse:
+    return JSONResponse(
+        content={"ok": True, "snapshot": snapshot, "status": state.get_status_dict(), **extra}
+    )
+
+
+async def _run_body_write(
+    request: Request,
+    state: ServerState,
+    write_fn: Callable[..., Any],
+    *ids: str,
+) -> JSONResponse:
+    """Shared handler for body-carrying writes: write_fn(state, *ids, body) -> snapshot.
+
+    add_project_item returns (snapshot, item_id); the id is added to the response.
+    """
+    _require_write_headers(request)
+    body = await _read_json_object(request)
+    try:
+        result = await asyncio.to_thread(write_fn, state, *ids, body)
+    except WriteError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc))
+    if isinstance(result, tuple):
+        snapshot, item_id = result
+        return _write_response(state, snapshot, item_id=item_id)
+    return _write_response(state, result)
 
 
 async def _run_status_write(
@@ -64,13 +108,7 @@ async def _run_status_write(
         updated_snapshot = await asyncio.to_thread(write_fn, state, *ids, new_status)
     except WriteError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc))
-    return JSONResponse(
-        content={
-            "ok": True,
-            "snapshot": updated_snapshot,
-            "status": state.get_status_dict(),
-        }
-    )
+    return _write_response(state, updated_snapshot)
 
 
 def create_app(
@@ -204,6 +242,52 @@ def create_app(
         return await _run_status_write(
             request, state, update_learning_item_status, path_id, item_id
         )
+
+    # Text field edits (only listed keys; "" clears an optional field)
+    @app.post("/api/projects/{project_id}/fields")
+    async def post_project_fields(project_id: str, request: Request) -> JSONResponse:
+        return await _run_body_write(request, state, update_project_fields, project_id)
+
+    @app.post("/api/projects/{project_id}/items/{item_id}/fields")
+    async def post_project_item_fields(
+        project_id: str, item_id: str, request: Request
+    ) -> JSONResponse:
+        return await _run_body_write(
+            request, state, update_project_item_fields, project_id, item_id
+        )
+
+    @app.post("/api/learning/{path_id}/fields")
+    async def post_learning_fields(path_id: str, request: Request) -> JSONResponse:
+        return await _run_body_write(request, state, update_learning_fields, path_id)
+
+    @app.post("/api/learning/{path_id}/items/{item_id}/fields")
+    async def post_learning_item_fields(
+        path_id: str, item_id: str, request: Request
+    ) -> JSONResponse:
+        return await _run_body_write(
+            request, state, update_learning_item_fields, path_id, item_id
+        )
+
+    # Project structure edits
+    @app.post("/api/projects/{project_id}/items")
+    async def post_project_item_add(project_id: str, request: Request) -> JSONResponse:
+        return await _run_body_write(request, state, add_project_item, project_id)
+
+    @app.post("/api/projects/{project_id}/items/{item_id}/move")
+    async def post_project_item_move(
+        project_id: str, item_id: str, request: Request
+    ) -> JSONResponse:
+        return await _run_body_write(request, state, move_project_item, project_id, item_id)
+
+    @app.post("/api/projects/{project_id}/items/{item_id}/delete")
+    async def post_project_item_delete(
+        project_id: str, item_id: str, request: Request
+    ) -> JSONResponse:
+        return await _run_body_write(request, state, delete_project_item, project_id, item_id)
+
+    @app.post("/api/projects/{project_id}/parent")
+    async def post_project_parent(project_id: str, request: Request) -> JSONResponse:
+        return await _run_body_write(request, state, set_project_parent, project_id)
 
     # Serve built UI static files if web/dist exists
     if dist_dir.exists() and (dist_dir / "index.html").exists():

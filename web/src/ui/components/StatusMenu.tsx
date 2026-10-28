@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { STATUS_LABELS, StatusNodeGlyph } from "./status";
-
-export const ITEM_STATUSES = ["not_started", "in_progress", "done", "parked"] as const;
-export const LEARNING_ITEM_STATUSES = ["not_started", "in_progress", "done"] as const;
-export const ENTITY_STATUSES = ["planned", "active", "paused", "done", "archived"] as const;
+import { STATUS_LABELS } from "@workbench-core";
+import { StatusNodeGlyph } from "./status";
 
 interface StatusMenuProps<S extends string> {
   status: string;

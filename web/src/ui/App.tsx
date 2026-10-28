@@ -1,57 +1,33 @@
-import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
-import type { Project, Phase, Component } from "./types/project";
-import type { LearningPath, Topic, Subtopic } from "./types/learning";
-import { VisualGraph, StatusNodeGlyph, projectUsesPhases } from "./components/VisualGraph";
-import { KindBadge, PhaseNumberBadge, STATUS_LABELS } from "./components/status";
 import {
-  StatusMenu,
+  useWorkbench,
+  getProjectGroups,
+  getGroupChildren,
+  getItemShortDescription,
+  isNewDiscoveredProject,
+  projectUsesPhases,
+  ROOT_SLOT,
+  STATUS_LABELS,
   ITEM_STATUSES,
   LEARNING_ITEM_STATUSES,
   ENTITY_STATUSES,
-} from "./components/StatusMenu";
-import {
-  getProjectGroups,
-  getGroupChildren,
-  indexProjectComponents,
-  withItemStatus,
-  findItemStatus,
-  type ComponentEntry,
-} from "./componentTree";
-import { buildChildIndex, buildParentIndex, isListedProject, ROOT_SLOT } from "./projectLinks";
+  pendingKeys,
+  type Project,
+  type Phase,
+  type Component,
+  type LearningPath,
+  type DetailItem,
+} from "@workbench-core";
+import { VisualGraph } from "./components/VisualGraph";
+import { KindBadge, PhaseNumberBadge, StatusNodeGlyph } from "./components/status";
+import { StatusMenu } from "./components/StatusMenu";
+import { AddItemInline, EditableField } from "./components/Editing";
+import { ItemStructureActions, ParentControl } from "./components/StructureControls";
 
-type ItemStatus = (typeof ITEM_STATUSES)[number];
-type EntityStatus = (typeof ENTITY_STATUSES)[number];
-
-interface SnapshotData {
-  projects: Project[];
-  learning: LearningPath[];
-  topic_markdowns: Record<string, string>;
-  commit: string | null;
-  synced_at: string | null;
-}
-
-interface StatusData {
-  last_good_commit: string | null;
-  last_checked_at: string | null;
-  last_error: {
-    commit: string;
-    file: string;
-    message: string;
-  } | null;
-}
-
-type RouteState =
-  | { page: "home" }
-  | { page: "building" }
-  | { page: "learning" }
-  | { page: "project"; id: string }
-  | { page: "learning-path"; id: string };
-
-type InspectorTarget =
-  | { kind: "phase"; phase: Phase }
-  | { kind: "component"; component: Component; phase: Phase }
-  | { kind: "learning-item"; item: Topic | Subtopic; pathId: string };
+// ---------------------------------------------------------------------------------------------
+// Layout preferences (look-only state, persisted in localStorage)
+// ---------------------------------------------------------------------------------------------
 
 const VIEW_STORAGE_KEY = "workbench_project_view_mode";
 const PANEL_WIDTHS_STORAGE_KEY = "workbench_panel_widths_v1";
@@ -72,15 +48,6 @@ interface PanelWidths {
   navWidth: number;
   contentsWidth: number;
   diagramHeight: number;
-}
-
-interface SubtopicChildItem {
-  id: string;
-  kindLabel: string;
-  text: string;
-  status: string;
-  targetComp?: { comp: Component; phase: Phase };
-  url?: string;
 }
 
 function clampVal(val: number, min: number, max: number): number {
@@ -147,180 +114,41 @@ function writeStoredPanelWidths(widths: PanelWidths): void {
   }
 }
 
-function isNewDiscoveredProject(p: Project): boolean {
-  return p.origin === "discovered" && getProjectGroups(p).length === 0;
-}
-
-function getItemShortDescription(item: {
-  summary?: string;
-  description?: string;
-}): string {
-  return (item.summary || item.description || "").trim();
-}
-
-function sortByName<T extends { name: string }>(items: T[]): T[] {
-  return [...items].sort((a, b) =>
-    a.name.toLowerCase().localeCompare(b.name.toLowerCase())
-  );
-}
-
-/**
- * Derive individual Level-3 items belonging to a project subtopic/component
- * directly from the existing project metadata without duplicating data.
- */
-function getComponentIndividualItems(
-  comp: Component,
-  allComps: Map<string, ComponentEntry>
-): SubtopicChildItem[] {
-  const items: SubtopicChildItem[] = [];
-  for (const [idx, text] of (comp.items || []).entries()) {
-    items.push({
-      id: `${comp.id}-item-${idx}`,
-      kindLabel: "Item",
-      text,
-      status: comp.status || "not_started",
-    });
-  }
-  if (comp.notes) {
-    items.push({
-      id: `${comp.id}-note`,
-      kindLabel: "Note",
-      text: comp.notes,
-      status: comp.status || "not_started",
-    });
-  }
-  for (const depId of comp.depends_on || []) {
-    const found = allComps.get(depId);
-    if (found) {
-      items.push({
-        id: `${comp.id}-dep-${depId}`,
-        kindLabel: "Prerequisite",
-        text: found.comp.name,
-        status: found.comp.status || "not_started",
-        targetComp: found,
-      });
-    }
-  }
-  for (const entry of allComps.values()) {
-    if ((entry.comp.depends_on || []).includes(comp.id)) {
-      items.push({
-        id: `${comp.id}-usedby-${entry.comp.id}`,
-        kindLabel: "Downstream Consumer",
-        text: entry.comp.name,
-        status: entry.comp.status || "not_started",
-        targetComp: entry,
-      });
-    }
-  }
-  for (const lnk of comp.links || []) {
-    items.push({
-      id: `${comp.id}-link-${lnk.label}`,
-      kindLabel: "Reference",
-      text: lnk.label,
-      status: comp.status || "not_started",
-      url: lnk.url,
-    });
-  }
-  for (const ref of comp.refs || []) {
-    items.push({
-      id: `${comp.id}-ref-${ref}`,
-      kindLabel: "Verified Commit",
-      text: ref,
-      status: "done",
-    });
-  }
-  if (items.length === 0) {
-    const desc = getItemShortDescription(comp);
-    if (desc) {
-      items.push({
-        id: `${comp.id}-spec`,
-        kindLabel: "Specification",
-        text: desc,
-        status: comp.status || "not_started",
-      });
-    }
-  }
-  return items;
-}
-
-/**
- * Derive individual Level-3 study items belonging to a learning subtopic
- * from its summary and markdown notes.
- */
-function getLearningSubtopicItems(
-  sub: Subtopic,
-  markdownText: string
-): SubtopicChildItem[] {
-  const items: SubtopicChildItem[] = [];
-  if (markdownText) {
-    const bullets = markdownText
-      .split("\n")
-      .map((l) => l.trim())
-      .filter((l) => l.startsWith("- ") || l.startsWith("* "))
-      .map((l) => l.slice(2).trim());
-    bullets.forEach((b, idx) => {
-      items.push({
-        id: `${sub.id}-md-${idx}`,
-        kindLabel: "Key Takeaway",
-        text: b,
-        status: sub.status,
-      });
-    });
-  }
-  if (items.length === 0) {
-    const desc = getItemShortDescription(sub);
-    if (desc) {
-      items.push({
-        id: `${sub.id}-concept`,
-        kindLabel: "Core Concept",
-        text: desc,
-        status: sub.status,
-      });
-    }
-  }
-  return items;
-}
-
-/** POST a status change; resolves with the server's fresh snapshot, rejects with its `detail`. */
-async function postStatus(
-  url: string,
-  status: string
-): Promise<{ snapshot?: SnapshotData; status?: StatusData }> {
-  const resp = await fetch(url, {
-    method: "POST",
-    headers: { "X-Workbench": "1", "Content-Type": "application/json" },
-    body: JSON.stringify({ status }),
-  });
-  let data: { snapshot?: SnapshotData; status?: StatusData; detail?: unknown } | null = null;
-  try {
-    data = await resp.json();
-  } catch {
-    // Non-JSON body (e.g. proxy error page)
-  }
-  if (!resp.ok) {
-    throw new Error(typeof data?.detail === "string" ? data.detail : `Server responded ${resp.status}`);
-  }
-  return data ?? {};
-}
-
+/** The current Workbench look. All data, selection and writes come from useWorkbench(). */
 export function App() {
-  const [snapshot, setSnapshot] = useState<SnapshotData>({
-    projects: [],
-    learning: [],
-    topic_markdowns: {},
-    commit: null,
-    synced_at: null,
-  });
-  const [status, setStatus] = useState<StatusData>({
-    last_good_commit: null,
-    last_checked_at: null,
-    last_error: null,
-  });
+  const wb = useWorkbench();
+  const {
+    snapshot,
+    syncStatus,
+    route,
+    selection,
+    filterText,
+    setFilter,
+    showArchived: buildingArchivedOpen,
+    setShowArchived,
+    isExpanded: expandedIn,
+    setExpanded,
+    isPending,
+    lastError,
+    dismissError,
+    childIndex,
+    filteredLearning,
+    listedProjects,
+    sidebarProjects,
+    sidebarLearning,
+    childProjectsAt,
+    selectProject,
+    selectLearningPath,
+    openProjectAt,
+    navigate,
+    clearComponentSelection,
+  } = wb;
+  const selectedPhaseId = selection.phaseId;
+  const selectedComponentId = selection.componentId;
+  const selectedTopicId = selection.topicId;
+  const selectedSubtopicId = selection.subtopicId;
 
-  const [route, setRoute] = useState<RouteState>({ page: "home" });
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [filterText, setFilterText] = useState("");
-  const [buildingArchivedOpen, setBuildingArchivedOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"list" | "visual">(readStoredViewMode);
 
   // Resizable 3-panel widths & visual/context height with localStorage persistence (§2, §5)
@@ -337,75 +165,33 @@ export function App() {
     startDiagramHeight: number;
   } | null>(null);
 
-  // Unified synchronized selection state across all 3 panels + context panel
-  const [selectedPhaseId, setSelectedPhaseId] = useState<string | null>(null);
-  const [selectedComponentId, setSelectedComponentId] = useState<string | null>(null);
-  const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
-  const [selectedSubtopicId, setSelectedSubtopicId] = useState<string | null>(null);
-
-  // Tree & subtopic expansion state (subtopic details collapsed by default per §3)
+  // Look-only disclosure state (selection-driven expand sets live in the core store)
   const [sidebarExpandedProjects, setSidebarExpandedProjects] = useState<Record<string, boolean>>({});
-  const [expandedProjectIds, setExpandedProjectIds] = useState<Record<string, boolean>>({});
-  const [expandedPhaseIds, setExpandedPhaseIds] = useState<Record<string, boolean>>({});
-  const [expandedLearningIds, setExpandedLearningIds] = useState<Record<string, boolean>>({});
-  const [expandedTopicIds, setExpandedTopicIds] = useState<Record<string, boolean>>({});
   const [expandedCardDescs, setExpandedCardDescs] = useState<Record<string, boolean>>({});
   const [collapsedPhases, setCollapsedPhases] = useState<Record<string, boolean>>({});
   const [expandedSubtopicItems, setExpandedSubtopicItems] = useState<Record<string, boolean>>({});
-  // Child projects expanded inline inside their parent (overview without leaving the parent)
-  const [expandedChildIds, setExpandedChildIds] = useState<Record<string, boolean>>({});
   const [expandedContextSubtopics, setExpandedContextSubtopics] = useState<Record<string, boolean>>({});
-  // Nested components (any depth below top level) start collapsed; shared by every panel
-  const [expandedNestedComps, setExpandedNestedComps] = useState<Record<string, boolean>>({});
-  // Status saves in flight, keyed by target; their controls are disabled until the server answers
-  const [pendingStatus, setPendingStatus] = useState<Record<string, boolean>>({});
 
   // Responsive active panel for narrower viewports (§9)
   const [mobilePanel, setMobilePanel] = useState<"nav" | "contents" | "visual">("contents");
 
-  const [inspector, setInspector] = useState<InspectorTarget | null>(null);
   const [errorExpanded, setErrorExpanded] = useState(false);
-  const [toastError, setToastError] = useState<string | null>(null);
 
   const filterInputRef = useRef<HTMLInputElement | null>(null);
-  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const showToast = useCallback((message: string) => {
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    setToastError(message);
-    toastTimerRef.current = setTimeout(() => setToastError(null), 4000);
-  }, []);
+  const toggleProjectViewMode = () => {
+    const next = viewMode === "list" ? "visual" : "list";
+    setViewMode(next);
+    writeStoredViewMode(next);
+  };
 
-  const projectsById = useMemo(
-    () => new Map(snapshot.projects.map((p) => [p.id, p])),
-    [snapshot.projects]
-  );
-  const parentOf = useMemo(() => buildParentIndex(snapshot.projects), [snapshot.projects]);
-  const childIndex = useMemo(
-    () => buildChildIndex(snapshot.projects, parentOf),
-    [snapshot.projects, parentOf]
-  );
-
-  const fetchAll = useCallback(async () => {
-    try {
-      const [snapRes, statRes] = await Promise.all([
-        fetch("/api/snapshot"),
-        fetch("/api/status"),
-      ]);
-      if (snapRes.ok) {
-        setSnapshot(await snapRes.json());
-      }
-      if (statRes.ok) {
-        setStatus(await statRes.json());
-      }
-    } catch {
-      // Offline or transient network error
-    }
-  }, []);
-
+  // A failed write shows a toast for 4s (a new failure restarts the timer)
+  const toastError = lastError?.message ?? null;
   useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
+    if (!lastError) return;
+    const timer = setTimeout(dismissError, 4000);
+    return () => clearTimeout(timer);
+  }, [lastError, dismissError]);
 
   // Handle draggable vertical & horizontal divider mouse events (§2, §5)
   useEffect(() => {
@@ -505,8 +291,7 @@ export function App() {
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key === "Escape") {
-        setInspector(null);
-        setSelectedComponentId(null);
+        clearComponentSelection();
         return;
       }
       if (
@@ -521,292 +306,7 @@ export function App() {
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
-
-  // Synchronized navigation helpers (§5, §7, §13)
-  const selectProject = useCallback(
-    (projectId: string, phaseId?: string | null, compId?: string | null) => {
-      const proj = projectsById.get(projectId);
-      const groups = proj ? getProjectGroups(proj) : [];
-      const defaultPhase =
-        phaseId !== undefined
-          ? phaseId
-          : groups.length > 0
-            ? groups[0].id
-            : null;
-      const expandNested = (ids: string[]) => {
-        if (ids.length === 0) return;
-        setExpandedNestedComps((prev) => {
-          const next = { ...prev };
-          for (const id of ids) next[id] = true;
-          return next;
-        });
-      };
-
-      setRoute({ page: "project", id: projectId });
-      setExpandedProjectIds((prev) => ({ ...prev, [projectId]: true }));
-      setSelectedPhaseId(defaultPhase);
-      setSelectedComponentId(compId ?? null);
-
-      // A child project is listed inside its parent: reveal that spot in the navigation tree
-      const ref = parentOf.get(projectId);
-      if (ref) {
-        setExpandedProjectIds((prev) => ({ ...prev, [ref.parentId]: true, [projectId]: true }));
-        if (ref.phase) setExpandedPhaseIds((prev) => ({ ...prev, [ref.phase!.id]: true }));
-        expandNested(ref.components.map((c) => c.id));
-      }
-
-      if (compId && proj) {
-        const entry = indexProjectComponents(proj).get(compId);
-        if (entry) {
-          setSelectedPhaseId(entry.phase.id);
-          setExpandedPhaseIds((prev) => ({ ...prev, [entry.phase.id]: true }));
-          expandNested(entry.ancestors.map((a) => a.id));
-          setInspector({ kind: "component", component: entry.comp, phase: entry.phase });
-          return;
-        }
-      } else if (phaseId && proj) {
-        const ph = groups.find((p) => p.id === phaseId);
-        if (ph) {
-          setExpandedPhaseIds((prev) => ({ ...prev, [ph.id]: true }));
-          setInspector({ kind: "phase", phase: ph });
-          return;
-        }
-      } else {
-        setInspector(null);
-      }
-    },
-    [projectsById, parentOf]
-  );
-
-  const selectLearningPath = useCallback(
-    (pathId: string, topicId?: string | null, subtopicId?: string | null) => {
-      const lp = snapshot.learning.find((l) => l.id === pathId);
-      const defaultTopic =
-        topicId !== undefined
-          ? topicId
-          : lp?.topics && lp.topics.length > 0
-            ? lp.topics[0].id
-            : null;
-
-      setRoute({ page: "learning-path", id: pathId });
-      setExpandedLearningIds((prev) => ({ ...prev, [pathId]: true }));
-      setSelectedTopicId(defaultTopic);
-      setSelectedSubtopicId(subtopicId ?? null);
-
-      if (subtopicId && lp) {
-        for (const top of lp.topics || []) {
-          const sub = (top.subtopics || []).find((s) => s.id === subtopicId);
-          if (sub) {
-            setSelectedTopicId(top.id);
-            setExpandedTopicIds((prev) => ({ ...prev, [top.id]: true }));
-            setInspector({ kind: "learning-item", item: sub, pathId: lp.id });
-            return;
-          }
-        }
-      } else if (topicId && lp) {
-        const top = (lp.topics || []).find((t) => t.id === topicId);
-        if (top) {
-          setExpandedTopicIds((prev) => ({ ...prev, [top.id]: true }));
-          setInspector({ kind: "learning-item", item: top, pathId: lp.id });
-          return;
-        }
-      } else {
-        setInspector(null);
-      }
-    },
-    [snapshot.learning]
-  );
-
-  const navigate = (next: RouteState) => {
-    if (next.page === "project") {
-      selectProject(next.id);
-      return;
-    }
-    if (next.page === "learning-path") {
-      selectLearningPath(next.id);
-      return;
-    }
-    setRoute(next);
-    setInspector(null);
-  };
-
-  const toggleProjectViewMode = () => {
-    const next = viewMode === "list" ? "visual" : "list";
-    setViewMode(next);
-    writeStoredViewMode(next);
-  };
-
-  const handleManualSync = async () => {
-    try {
-      const res = await fetch("/api/sync", {
-        method: "POST",
-        headers: {
-          "X-Workbench": "1",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({}),
-      });
-      if (res.ok) {
-        await fetchAll();
-      }
-    } catch {
-      // Ignore sync trigger errors
-    }
-  };
-
-  const markPending = (key: string, on: boolean) =>
-    setPendingStatus((prev) => {
-      const next = { ...prev };
-      if (on) next[key] = true;
-      else delete next[key];
-      return next;
-    });
-
-  const handleUpdateLearningStatus = async (
-    pathId: string,
-    itemId: string,
-    newStatus: "not_started" | "in_progress" | "done"
-  ) => {
-    const pendingKey = `learning-item:${pathId}:${itemId}`;
-    if (pendingStatus[pendingKey]) return;
-    markPending(pendingKey, true);
-    const prevSnapshot = snapshot;
-    const nextLearning = snapshot.learning.map((lp) => {
-      if (lp.id !== pathId) return lp;
-      return {
-        ...lp,
-        topics: (lp.topics || []).map((t) => {
-          if (t.id === itemId) {
-            return { ...t, status: newStatus };
-          }
-          return {
-            ...t,
-            subtopics: (t.subtopics || []).map((s) =>
-              s.id === itemId ? { ...s, status: newStatus } : s
-            ),
-          };
-        }),
-      };
-    });
-    setSnapshot({ ...snapshot, learning: nextLearning });
-    if (inspector && inspector.kind === "learning-item" && inspector.item.id === itemId) {
-      setInspector({
-        ...inspector,
-        item: { ...inspector.item, status: newStatus },
-      });
-    }
-
-    try {
-      const resp = await fetch(`/api/learning/${pathId}/items/${itemId}/status`, {
-        method: "POST",
-        headers: {
-          "X-Workbench": "1",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ status: newStatus }),
-      });
-      if (!resp.ok) {
-        throw new Error("Failed to update status on server");
-      }
-      const data = await resp.json();
-      if (data.snapshot) {
-        setSnapshot(data.snapshot);
-      }
-      if (data.status) {
-        setStatus(data.status);
-      }
-    } catch {
-      setSnapshot(prevSnapshot);
-      if (inspector && inspector.kind === "learning-item" && inspector.item.id === itemId) {
-        const oldLp = prevSnapshot.learning.find((l) => l.id === pathId);
-        for (const t of oldLp?.topics || []) {
-          if (t.id === itemId) setInspector({ ...inspector, item: t });
-          for (const s of t.subtopics || []) {
-            if (s.id === itemId) setInspector({ ...inspector, item: s });
-          }
-        }
-      }
-      showToast("Could not save status update — reverted change.");
-    } finally {
-      markPending(pendingKey, false);
-    }
-  };
-
-  /**
-   * Optimistic status change for a project, a project item, or a learning path: apply locally,
-   * POST, then adopt the server's snapshot. On failure only this one change is reverted.
-   */
-  const runStatusChange = async (
-    pendingKey: string,
-    url: string,
-    newStatus: string,
-    apply: (prev: SnapshotData) => SnapshotData,
-    revert: (prev: SnapshotData) => SnapshotData
-  ) => {
-    if (pendingStatus[pendingKey]) return;
-    markPending(pendingKey, true);
-    setSnapshot(apply);
-    try {
-      const data = await postStatus(url, newStatus);
-      if (data.snapshot) setSnapshot(data.snapshot);
-      if (data.status) setStatus(data.status);
-    } catch (err) {
-      setSnapshot(revert);
-      const detail = err instanceof Error && err.message ? ` ${err.message}` : "";
-      showToast(`Could not save status update — reverted change.${detail}`);
-    } finally {
-      markPending(pendingKey, false);
-    }
-  };
-
-  const mapProject = (projectId: string, fn: (p: Project) => Project) => (prev: SnapshotData) => ({
-    ...prev,
-    projects: prev.projects.map((p) => (p.id === projectId ? fn(p) : p)),
-  });
-
-  const mapLearningPath = (pathId: string, fn: (l: LearningPath) => LearningPath) => (prev: SnapshotData) => ({
-    ...prev,
-    learning: prev.learning.map((l) => (l.id === pathId ? fn(l) : l)),
-  });
-
-  /** Phase or component (any depth) of a project. */
-  const handleUpdateProjectItemStatus = (projectId: string, itemId: string, newStatus: ItemStatus) => {
-    const project = projectsById.get(projectId);
-    const prevStatus = project ? findItemStatus(project, itemId) : undefined;
-    if (!prevStatus || prevStatus === newStatus) return;
-    void runStatusChange(
-      `item:${projectId}:${itemId}`,
-      `/api/projects/${encodeURIComponent(projectId)}/items/${encodeURIComponent(itemId)}/status`,
-      newStatus,
-      mapProject(projectId, (p) => withItemStatus(p, itemId, newStatus)),
-      mapProject(projectId, (p) => withItemStatus(p, itemId, prevStatus))
-    );
-  };
-
-  const handleUpdateProjectStatus = (projectId: string, newStatus: EntityStatus) => {
-    const prevStatus = projectsById.get(projectId)?.status;
-    if (!prevStatus || prevStatus === newStatus) return;
-    void runStatusChange(
-      `project:${projectId}`,
-      `/api/projects/${encodeURIComponent(projectId)}/status`,
-      newStatus,
-      mapProject(projectId, (p) => ({ ...p, status: newStatus })),
-      mapProject(projectId, (p) => ({ ...p, status: prevStatus }))
-    );
-  };
-
-  const handleUpdateLearningPathStatus = (pathId: string, newStatus: EntityStatus) => {
-    const prevStatus = snapshot.learning.find((l) => l.id === pathId)?.status;
-    if (!prevStatus || prevStatus === newStatus) return;
-    void runStatusChange(
-      `learning:${pathId}`,
-      `/api/learning/${encodeURIComponent(pathId)}/status`,
-      newStatus,
-      mapLearningPath(pathId, (l) => ({ ...l, status: newStatus })),
-      mapLearningPath(pathId, (l) => ({ ...l, status: prevStatus }))
-    );
-  };
+  }, [clearComponentSelection]);
 
   /** Status icon of a project phase/component that opens the status menu. */
   const renderItemStatusMenu = (
@@ -817,10 +317,10 @@ export function App() {
     <StatusMenu
       status={item.status || "not_started"}
       options={ITEM_STATUSES}
-      busy={!!pendingStatus[`item:${projectId}:${item.id}`]}
+      busy={isPending(pendingKeys.projectItem(projectId, item.id))}
       testId={`${testIdPrefix}status-menu-${item.id}`}
       subject={item.name}
-      onSelect={(st) => handleUpdateProjectItemStatus(projectId, item.id, st)}
+      onSelect={(st) => wb.setItemStatus(projectId, item.id, st)}
     />
   );
 
@@ -833,51 +333,23 @@ export function App() {
     <StatusMenu
       status={item.status}
       options={LEARNING_ITEM_STATUSES}
-      busy={!!pendingStatus[`learning-item:${pathId}:${item.id}`]}
+      busy={isPending(pendingKeys.learningItem(pathId, item.id))}
       testId={`${testIdPrefix}status-menu-${item.id}`}
       subject={item.name}
-      onSelect={(st) => handleUpdateLearningStatus(pathId, item.id, st)}
+      onSelect={(st) => wb.setLearningItemStatus(pathId, item.id, st)}
     />
   );
 
-  const query = filterText.trim().toLowerCase();
-  const filteredProjects = useMemo(
-    () =>
-      sortByName(
-        snapshot.projects.filter((p) =>
-          query
-            ? p.name.toLowerCase().includes(query) ||
-              (p.description || "").toLowerCase().includes(query)
-            : true
-        )
-      ),
-    [snapshot.projects, query]
-  );
-
-  const filteredLearning = useMemo(
-    () =>
-      sortByName(
-        snapshot.learning.filter((l) =>
-          query
-            ? l.name.toLowerCase().includes(query) ||
-              (l.description || "").toLowerCase().includes(query)
-            : true
-        )
-      ),
-    [snapshot.learning, query]
-  );
-
-  const searching = query !== "";
-
-  /** A child project shown as its own row inside its parent (see projectLinks.ts). */
-  /** Open a project focused on one of its phases or components (or just the project). */
-  const openProjectAt = (projectId: string, itemId?: string) => {
-    const proj = projectsById.get(projectId);
-    if (!proj || !itemId) return selectProject(projectId);
-    if (getProjectGroups(proj).some((g) => g.id === itemId)) return selectProject(projectId, itemId, null);
-    const entry = indexProjectComponents(proj).get(itemId);
-    return entry ? selectProject(projectId, entry.phase.id, itemId) : selectProject(projectId);
-  };
+  /** An inspector section with a label when it has content; otherwise just its "+ Add …" control. */
+  const renderSection = (label: string, hasContent: boolean, field: React.ReactNode) =>
+    hasContent ? (
+      <div className="inspector-section-box">
+        <span className="inspector-field-label">{label}</span>
+        {field}
+      </div>
+    ) : (
+      field
+    );
 
   const renderInlineComponents = (ownerId: string, comps: Component[], depth: number): React.ReactNode =>
     comps.length === 0 ? null : (
@@ -930,7 +402,7 @@ export function App() {
   };
 
   const renderChildProjectRow = (child: Project, testIdPrefix = "") => {
-    const isOpen = !!expandedChildIds[child.id];
+    const isOpen = expandedIn("childProjects", child.id);
     return (
     <div key={child.id} className="child-project-block">
     <div
@@ -940,7 +412,7 @@ export function App() {
       aria-expanded={isOpen}
       onClick={(e) => {
         e.stopPropagation();
-        setExpandedChildIds((prev) => ({ ...prev, [child.id]: !isOpen }));
+        setExpanded("childProjects", child.id, !isOpen);
       }}
     >
       <span className="child-project-chevron" aria-hidden="true">{isOpen ? "⌄" : "›"}</span>
@@ -970,9 +442,6 @@ export function App() {
     );
   };
 
-  /** Child projects sitting under one phase/component (or the root) of a parent project. */
-  const childProjectsAt = (parentId: string, slotId: string): Project[] =>
-    childIndex.get(parentId)?.get(slotId) ?? [];
 
   const renderChildProjectRows = (parentId: string, slotId: string, testIdPrefix = "") => {
     const kids = childProjectsAt(parentId, slotId);
@@ -980,19 +449,6 @@ export function App() {
     return <div className="child-project-list">{kids.map((c) => renderChildProjectRow(c, testIdPrefix))}</div>;
   };
 
-  const sidebarProjects = useMemo(
-    () =>
-      sortByName(
-        snapshot.projects.filter(
-          (p) => p.status !== "archived" && isListedProject(p, projectsById, false)
-        )
-      ),
-    [snapshot.projects, projectsById]
-  );
-  const sidebarLearning = useMemo(
-    () => sortByName(snapshot.learning.filter((l) => l.status !== "archived")),
-    [snapshot.learning]
-  );
 
   const isCustomPanelWidths =
     panelWidths.navWidth !== DEFAULT_NAV_WIDTH ||
@@ -1145,7 +601,6 @@ export function App() {
   // Home View — Unified project & learning grids without separate status sections (§2)
   const renderHomeView = () => {
     // While searching, show every match; otherwise non-active child projects stay inside their parent
-    const listedProjects = filteredProjects.filter((p) => isListedProject(p, projectsById, searching));
     const visibleProjects = listedProjects.filter(
       (p) => buildingArchivedOpen || p.status !== "archived"
     );
@@ -1171,7 +626,7 @@ export function App() {
                 type="button"
                 className="archived-toggle"
                 data-testid="building-archived-toggle"
-                onClick={() => setBuildingArchivedOpen(!buildingArchivedOpen)}
+                onClick={() => setShowArchived(!buildingArchivedOpen)}
               >
                 {buildingArchivedOpen ? "Hide Archived" : "Show Archived"}
               </button>
@@ -1205,13 +660,10 @@ export function App() {
   };
 
   // Building Workspace — Three Coordinated Resizable Panels + Optional Phases + Adjustable Context Panel (§1–§5)
-  const renderBuildingWorkspace = (requestedProjectId?: string) => {
+  const renderBuildingWorkspace = () => {
     // Same visibility rule as Home: non-active child projects are listed inside their parent
-    const navProjects = filteredProjects.filter((p) => isListedProject(p, projectsById, searching));
-    const activeProject =
-      snapshot.projects.find((p) => p.id === requestedProjectId) ||
-      navProjects.find((p) => p.status !== "archived") ||
-      snapshot.projects[0];
+    const navProjects = listedProjects;
+    const { activeProject, activePhase, activeParent: parentRef } = wb;
 
     const activeProjectId = activeProject?.id || "";
     const usesPhases = activeProject ? projectUsesPhases(activeProject) : true;
@@ -1219,27 +671,15 @@ export function App() {
     const isEmptyDiscovered =
       activeProject ? isNewDiscoveredProject(activeProject) : false;
 
-    const activePhase =
-      groups.find((ph) => ph.id === selectedPhaseId) || groups[0] || null;
+    const relatedLearning = activeProject ? wb.relatedLearning(activeProject) : [];
 
-    const allComps: Map<string, ComponentEntry> = activeProject
-      ? indexProjectComponents(activeProject)
-      : new Map();
-    const parentRef = activeProject ? parentOf.get(activeProject.id) : undefined;
-    const relatedLearning = activeProject
-      ? sortByName(
-          snapshot.learning.filter((l) => (l.related_projects || []).includes(activeProject.id))
-        )
-      : [];
-
-    const toggleNested = (compId: string, open: boolean) =>
-      setExpandedNestedComps((prev) => ({ ...prev, [compId]: !open }));
+    const toggleNested = (compId: string, open: boolean) => setExpanded("nestedComponents", compId, !open);
 
     /** Collapsible "N parts" toggle for a component's nested components. */
     const renderNestedToggle = (comp: Component, testId: string) => {
       const n = (comp.components || []).length;
       if (n === 0) return null;
-      const open = !!expandedNestedComps[comp.id];
+      const open = expandedIn("nestedComponents", comp.id);
       return (
         <button
           type="button"
@@ -1266,7 +706,7 @@ export function App() {
       const nested = comp.components || [];
       const kidProjects = childProjectsAt(p.id, comp.id);
       const hasMore = nested.length > 0 || kidProjects.length > 0;
-      const open = !!expandedNestedComps[comp.id];
+      const open = expandedIn("nestedComponents", comp.id);
       return (
         <React.Fragment key={comp.id}>
           <div
@@ -1331,7 +771,7 @@ export function App() {
     );
 
     /** Level-3 detail rows (items, notes, dependencies, links) of a component. */
-    const renderComponentItems = (projectId: string, items: SubtopicChildItem[], testId?: string, withLinks = false) => (
+    const renderComponentItems = (projectId: string, items: DetailItem[], testId?: string, withLinks = false) => (
       <div className="tier-3-items-list" data-testid={testId}>
         {items.map((item) => (
           <div
@@ -1369,10 +809,10 @@ export function App() {
     const renderCentreComp = (projectId: string, ph: Phase, comp: Component, depth: number): React.ReactNode => {
       const isCompSelected = selectedComponentId === comp.id;
       const isItemsOpen = !!expandedSubtopicItems[comp.id];
-      const childItems = getComponentIndividualItems(comp, allComps);
+      const childItems = wb.componentDetails(activeProject!, comp);
       const shortDesc = getItemShortDescription(comp);
       const nested = comp.components || [];
-      const nestedOpen = !!expandedNestedComps[comp.id];
+      const nestedOpen = expandedIn("nestedComponents", comp.id);
 
       return (
         <div
@@ -1429,10 +869,10 @@ export function App() {
     const renderContextComp = (projectId: string, ph: Phase, comp: Component, depth: number): React.ReactNode => {
       const isSubSelected = selectedComponentId === comp.id;
       const isExpanded = !!expandedContextSubtopics[comp.id];
-      const items = getComponentIndividualItems(comp, allComps);
+      const items = wb.componentDetails(activeProject!, comp);
       const shortDesc = getItemShortDescription(comp);
       const nested = comp.components || [];
-      const nestedOpen = !!expandedNestedComps[comp.id];
+      const nestedOpen = expandedIn("nestedComponents", comp.id);
 
       return (
         <div
@@ -1484,9 +924,12 @@ export function App() {
       );
     };
 
-    const activeComponentEntry = selectedComponentId
-      ? allComps.get(selectedComponentId) || null
-      : null;
+    const activeComponentEntry = wb.activeComponent;
+    const structureBusy = activeProject ? isPending(pendingKeys.structure(activeProject.id)) : false;
+    const compFieldsBusy =
+      activeProject && activeComponentEntry
+        ? isPending(pendingKeys.itemFields(activeProject.id, activeComponentEntry.comp.id))
+        : false;
 
     return (
       <div className="three-panel-workspace" data-testid="building-three-panel-workspace">
@@ -1546,7 +989,7 @@ export function App() {
                   type="button"
                   className="ghost-sm-btn"
                   data-testid="building-archived-toggle"
-                  onClick={() => setBuildingArchivedOpen(!buildingArchivedOpen)}
+                  onClick={() => setShowArchived(!buildingArchivedOpen)}
                 >
                   {buildingArchivedOpen ? "Hide Archived" : "Show Archived"}
                 </button>
@@ -1559,10 +1002,7 @@ export function App() {
               .filter((p) => buildingArchivedOpen || p.status !== "archived")
               .map((p) => {
                 const isSelected = p.id === activeProjectId;
-                const isExpanded =
-                  expandedProjectIds[p.id] !== undefined
-                    ? expandedProjectIds[p.id]
-                    : isSelected;
+                const isExpanded = expandedIn("projects", p.id, isSelected);
                 const pGroups = getProjectGroups(p);
                 const pUsesPhases = projectUsesPhases(p);
                 const isNew = isNewDiscoveredProject(p);
@@ -1586,10 +1026,7 @@ export function App() {
                         aria-label={isExpanded ? "Collapse project" : "Expand project"}
                         onClick={(e) => {
                           e.stopPropagation();
-                          setExpandedProjectIds((prev) => ({
-                            ...prev,
-                            [p.id]: !isExpanded,
-                          }));
+                          setExpanded("projects", p.id, !isExpanded);
                         }}
                       >
                         {hasTree ? (isExpanded ? "⌄" : "›") : "·"}
@@ -1611,10 +1048,7 @@ export function App() {
                         {pGroups.map((ph, idx) => {
                           const isPhaseActive =
                             isSelected && activePhase?.id === ph.id;
-                          const isPhaseExpanded =
-                            expandedPhaseIds[ph.id] !== undefined
-                              ? expandedPhaseIds[ph.id]
-                              : isPhaseActive;
+                          const isPhaseExpanded = expandedIn("phases", ph.id, isPhaseActive);
                           const comps = getGroupChildren(ph);
                           const phaseChildren = childProjectsAt(p.id, ph.id);
                           const hasPhaseKids = comps.length > 0 || phaseChildren.length > 0;
@@ -1641,10 +1075,7 @@ export function App() {
                                   }
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setExpandedPhaseIds((prev) => ({
-                                      ...prev,
-                                      [ph.id]: !isPhaseExpanded,
-                                    }));
+                                    setExpanded("phases", ph.id, !isPhaseExpanded);
                                   }}
                                 >
                                   {hasPhaseKids
@@ -1728,7 +1159,17 @@ export function App() {
                 <div className="centre-project-title-row">
                   <KindBadge status={activeProject.status || "active"} isLearning={false} size={32} />
                   <div className="centre-project-title-text">
-                    <h1 className="detail-title">{activeProject.name}</h1>
+                    <EditableField
+                      id={activeProject.id}
+                      field="name"
+                      label="project name"
+                      kind="line"
+                      value={activeProject.name}
+                      busy={isPending(pendingKeys.projectFields(activeProject.id))}
+                      onSave={(v) => void wb.updateProjectFields(activeProject.id, { name: v as string })}
+                    >
+                      <h1 className="detail-title">{activeProject.name}</h1>
+                    </EditableField>
                     {parentRef && (
                       <div className="project-breadcrumb" data-testid="project-breadcrumb">
                         Part of{" "}
@@ -1760,22 +1201,33 @@ export function App() {
                         ))}
                       </div>
                     )}
+                    <div className="header-tools-row">
+                      <ParentControl project={activeProject} />
+                    </div>
                   </div>
                   <div className="header-status-control">
                     <StatusMenu
                       variant="pill"
                       status={activeProject.status}
                       options={ENTITY_STATUSES}
-                      busy={!!pendingStatus[`project:${activeProject.id}`]}
+                      busy={isPending(pendingKeys.project(activeProject.id))}
                       testId="project-status-control"
                       subject={activeProject.name}
-                      onSelect={(st) => handleUpdateProjectStatus(activeProject.id, st)}
+                      onSelect={(st) => wb.setProjectStatus(activeProject.id, st)}
                     />
                   </div>
                 </div>
-                {activeProject.description && (
+                <EditableField
+                  id={activeProject.id}
+                  field="description"
+                  label="description"
+                  kind="text"
+                  value={activeProject.description ?? ""}
+                  busy={isPending(pendingKeys.projectFields(activeProject.id))}
+                  onSave={(v) => void wb.updateProjectFields(activeProject.id, { description: v as string })}
+                >
                   <p className="centre-project-desc">{activeProject.description}</p>
-                )}
+                </EditableField>
                 {(activeProject.links || []).length > 0 && (
                   <div className="detail-links">
                     {(activeProject.links || []).map((lnk, i) => (
@@ -1853,17 +1305,26 @@ export function App() {
                           Selected Subtopic · {activeComponentEntry.phase.name}
                           {activeComponentEntry.ancestors.map((a) => ` › ${a.name}`).join("")}
                         </span>
-                        <h2 className="inspector-title" data-testid="inspector-title">
-                          {activeComponentEntry.comp.name}
-                        </h2>
+                        <EditableField
+                          id={activeComponentEntry.comp.id}
+                          field="name"
+                          label="name"
+                          kind="line"
+                          value={activeComponentEntry.comp.name}
+                          busy={compFieldsBusy}
+                          onSave={(v) => void wb.updateItemFields(activeProject.id, activeComponentEntry.comp.id, { name: v as string })}
+                        >
+                          <h2 className="inspector-title" data-testid="inspector-title">
+                            {activeComponentEntry.comp.name}
+                          </h2>
+                        </EditableField>
                       </div>
                     </div>
                     <button
                       type="button"
                       className="inspector-close-btn"
                       onClick={() => {
-                        setSelectedComponentId(null);
-                        setInspector(null);
+                        clearComponentSelection();
                       }}
                       aria-label="Close subtopic detail"
                     >
@@ -1871,32 +1332,79 @@ export function App() {
                     </button>
                   </div>
 
-                  {getItemShortDescription(activeComponentEntry.comp) && (
+                  <div className="inspector-structure-row">
+                    <ItemStructureActions project={activeProject} item={activeComponentEntry.comp} isPhase={false} />
+                    <AddItemInline
+                      testId={`add-part-${activeComponentEntry.comp.id}`}
+                      label="Add part"
+                      placeholder="Name of the nested part"
+                      busy={structureBusy}
+                      onAdd={async (name) => {
+                        const { comp, phase } = activeComponentEntry;
+                        const id = await wb.addItem(activeProject.id, { parentId: comp.id, name });
+                        if (id) selectProject(activeProject.id, phase.id, id);
+                        return id !== null;
+                      }}
+                    />
+                  </div>
+
+                  <EditableField
+                    id={activeComponentEntry.comp.id}
+                    field="summary"
+                    label="summary"
+                    kind="text"
+                    value={activeComponentEntry.comp.summary ?? ""}
+                    displayEmpty={!getItemShortDescription(activeComponentEntry.comp)}
+                    busy={compFieldsBusy}
+                    onSave={(v) => void wb.updateItemFields(activeProject.id, activeComponentEntry.comp.id, { summary: v as string })}
+                  >
                     <div className="inspector-inset-card" data-testid="inspector-summary">
                       {getItemShortDescription(activeComponentEntry.comp)}
                     </div>
-                  )}
+                  </EditableField>
 
-                  {activeComponentEntry.comp.notes && (
-                    <div className="inspector-section-box">
-                      <span className="inspector-field-label">Implementation Notes</span>
+                  {renderSection(
+                    "Implementation Notes",
+                    !!activeComponentEntry.comp.notes,
+                    <EditableField
+                      id={activeComponentEntry.comp.id}
+                      field="notes"
+                      label="notes"
+                      kind="text"
+                      value={activeComponentEntry.comp.notes ?? ""}
+                      busy={compFieldsBusy}
+                      onSave={(v) => void wb.updateItemFields(activeProject.id, activeComponentEntry.comp.id, { notes: v as string })}
+                    >
                       <div className="inspector-inset-card" data-testid="inspector-notes">
                         {activeComponentEntry.comp.notes}
                       </div>
-                    </div>
+                    </EditableField>
+                  )}
+
+                  {renderSection(
+                    "Checklist",
+                    (activeComponentEntry.comp.items || []).length > 0,
+                    <EditableField
+                      id={activeComponentEntry.comp.id}
+                      field="items"
+                      label="checklist items"
+                      kind="list"
+                      value={activeComponentEntry.comp.items ?? []}
+                      busy={compFieldsBusy}
+                      onSave={(v) => void wb.updateItemFields(activeProject.id, activeComponentEntry.comp.id, { items: v as string[] })}
+                    >
+                      <ul className="inspector-items-list" data-testid="inspector-items">
+                        {(activeComponentEntry.comp.items || []).map((it, i) => (
+                          <li key={i}>{it}</li>
+                        ))}
+                      </ul>
+                    </EditableField>
                   )}
 
                   {(() => {
                     const comp = activeComponentEntry.comp;
-                    const dependsOn = (comp.depends_on || [])
-                      .map((id) => allComps.get(id))
-                      .filter((x): x is ComponentEntry => Boolean(x));
-                    const dependedBy: ComponentEntry[] = [];
-                    for (const entry of allComps.values()) {
-                      if ((entry.comp.depends_on || []).includes(comp.id)) {
-                        dependedBy.push(entry);
-                      }
-                    }
+                    const dependsOn = wb.dependenciesOf(activeProject, comp);
+                    const dependedBy = wb.dependentsOf(activeProject, comp.id);
 
                     return (
                       <div className="inspector-deps-grid">
@@ -1985,6 +1493,7 @@ export function App() {
                     const isActivePh = activePhase?.id === ph.id;
                     const comps = getGroupChildren(ph);
                     const phDesc = getItemShortDescription(ph);
+                    const phBusy = isPending(pendingKeys.itemFields(activeProject.id, ph.id));
 
                     return (
                       <div
@@ -2007,10 +1516,46 @@ export function App() {
                                   : "TOPIC"}
                               </span>
                               {renderItemStatusMenu(activeProject.id, ph)}
-                              <span className="tier-1-phase-title">{ph.name}</span>
+                              <EditableField
+                                id={ph.id}
+                                field="name"
+                                label={`${usesPhases ? "phase" : "topic"} name`}
+                                kind="line"
+                                value={ph.name}
+                                busy={phBusy}
+                                onSave={(v) => void wb.updateItemFields(activeProject.id, ph.id, { name: v as string })}
+                              >
+                                <span className="tier-1-phase-title">{ph.name}</span>
+                              </EditableField>
                             </div>
-                            {phDesc && (
+                            <EditableField
+                              id={ph.id}
+                              field="summary"
+                              label="summary"
+                              kind="text"
+                              value={ph.summary ?? ""}
+                              displayEmpty={!phDesc}
+                              addWhenEmpty={isActivePh}
+                              busy={phBusy}
+                              onSave={(v) => void wb.updateItemFields(activeProject.id, ph.id, { summary: v as string })}
+                            >
                               <span className="tier-1-phase-summary">{phDesc}</span>
+                            </EditableField>
+                            {(isActivePh || ph.notes) && (
+                              <EditableField
+                                id={ph.id}
+                                field="notes"
+                                label="notes"
+                                kind="text"
+                                value={ph.notes ?? ""}
+                                addWhenEmpty={isActivePh}
+                                busy={phBusy}
+                                onSave={(v) => void wb.updateItemFields(activeProject.id, ph.id, { notes: v as string })}
+                              >
+                                <span className="tier-1-phase-notes" data-testid={`phase-notes-${ph.id}`}>
+                                  {ph.notes}
+                                </span>
+                              </EditableField>
                             )}
                           </div>
                           <button
@@ -2035,11 +1580,39 @@ export function App() {
                             {comps.map((comp) => renderCentreComp(activeProject.id, ph, comp, 0))}
                           </div>
                         )}
+                        <div className="phase-footer-row">
+                          {!isCollapsed && (
+                            <AddItemInline
+                              testId={`add-component-${ph.id}`}
+                              label="Add component"
+                              placeholder="Component name"
+                              busy={structureBusy}
+                              onAdd={async (name) => {
+                                const id = await wb.addItem(activeProject.id, { parentId: ph.id, name });
+                                if (id) selectProject(activeProject.id, ph.id, id);
+                                return id !== null;
+                              }}
+                            />
+                          )}
+                          <ItemStructureActions project={activeProject} item={ph} isPhase={true} />
+                        </div>
                       </div>
                     );
                   })}
                 </div>
               )}
+              <AddItemInline
+                testId="add-phase"
+                label={usesPhases ? "Add phase" : "Add topic"}
+                placeholder={usesPhases ? "Phase name" : "Topic name"}
+                busy={structureBusy}
+                className="add-phase"
+                onAdd={async (name) => {
+                  const id = await wb.addItem(activeProject.id, { parentId: null, name });
+                  if (id) selectProject(activeProject.id, id, null);
+                  return id !== null;
+                }}
+              />
             </div>
           ) : (
             <div className="empty-pane-card">
@@ -2212,36 +1785,20 @@ export function App() {
   };
 
   // Learning Workspace — Three Coordinated Resizable Panels + Adjustable Context Panel (§1–§5)
-  const renderLearningWorkspace = (requestedPathId?: string) => {
-    const activeLp =
-      snapshot.learning.find((l) => l.id === requestedPathId) ||
-      filteredLearning[0] ||
-      snapshot.learning[0];
-
+  const renderLearningWorkspace = () => {
+    const {
+      activeLearningPath: activeLp,
+      activeTopic,
+      activeLearningItem,
+      activeMarkdown: activeMd,
+    } = wb;
     const activePathId = activeLp?.id || "";
     const topics = activeLp?.topics || [];
-
-    const activeTopic =
-      topics.find((t) => t.id === selectedTopicId) || topics[0] || null;
-
-    const activeLearningItem: Topic | Subtopic | null = (() => {
-      if (selectedSubtopicId) {
-        for (const t of topics) {
-          const s = (t.subtopics || []).find((sub) => sub.id === selectedSubtopicId);
-          if (s) return s;
-        }
-      }
-      return activeTopic;
-    })();
-
-    const relatedProjects = (activeLp?.related_projects || []).map((id) => ({
-      id,
-      project: projectsById.get(id),
-    }));
-
-    const activeMd = activeLearningItem
-      ? snapshot.topic_markdowns[`${activePathId}/${activeLearningItem.id}`] || ""
-      : "";
+    const relatedProjects = activeLp ? wb.relatedProjects(activeLp) : [];
+    const learningItemBusy =
+      activeLp && activeLearningItem
+        ? isPending(pendingKeys.learningItemFields(activeLp.id, activeLearningItem.id))
+        : false;
 
     return (
       <div className="three-panel-workspace" data-testid="learning-three-panel-workspace">
@@ -2262,10 +1819,7 @@ export function App() {
           <div className="panel-independent-scroll">
             {filteredLearning.map((lp) => {
               const isSelected = lp.id === activePathId;
-              const isExpanded =
-                expandedLearningIds[lp.id] !== undefined
-                  ? expandedLearningIds[lp.id]
-                  : isSelected;
+              const isExpanded = expandedIn("learningPaths", lp.id, isSelected);
               const lpTopics = lp.topics || [];
 
               return (
@@ -2283,10 +1837,7 @@ export function App() {
                       className="tree-chevron-btn"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setExpandedLearningIds((prev) => ({
-                          ...prev,
-                          [lp.id]: !isExpanded,
-                        }));
+                        setExpanded("learningPaths", lp.id, !isExpanded);
                       }}
                     >
                       {lpTopics.length > 0 ? (isExpanded ? "⌄" : "›") : "·"}
@@ -2302,10 +1853,7 @@ export function App() {
                       {lpTopics.map((top) => {
                         const isTopActive =
                           isSelected && activeTopic?.id === top.id;
-                        const isTopExpanded =
-                          expandedTopicIds[top.id] !== undefined
-                            ? expandedTopicIds[top.id]
-                            : isTopActive;
+                        const isTopExpanded = expandedIn("topics", top.id, isTopActive);
                         const subs = top.subtopics || [];
 
                         return (
@@ -2324,10 +1872,7 @@ export function App() {
                                 className="tree-chevron-btn sm"
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setExpandedTopicIds((prev) => ({
-                                    ...prev,
-                                    [top.id]: !isTopExpanded,
-                                  }));
+                                  setExpanded("topics", top.id, !isTopExpanded);
                                 }}
                               >
                                 {subs.length > 0 ? (isTopExpanded ? "⌄" : "›") : "·"}
@@ -2419,23 +1964,41 @@ export function App() {
                 <div className="centre-project-title-row">
                   <KindBadge status={activeLp.status || "active"} isLearning={true} size={32} />
                   <div className="centre-project-title-text">
-                    <h1 className="detail-title">{activeLp.name}</h1>
+                    <EditableField
+                      id={activeLp.id}
+                      field="name"
+                      label="learning path name"
+                      kind="line"
+                      value={activeLp.name}
+                      busy={isPending(pendingKeys.learningFields(activeLp.id))}
+                      onSave={(v) => void wb.updateLearningFields(activeLp.id, { name: v as string })}
+                    >
+                      <h1 className="detail-title">{activeLp.name}</h1>
+                    </EditableField>
                   </div>
                   <div className="header-status-control">
                     <StatusMenu
                       variant="pill"
                       status={activeLp.status}
                       options={ENTITY_STATUSES}
-                      busy={!!pendingStatus[`learning:${activeLp.id}`]}
+                      busy={isPending(pendingKeys.learning(activeLp.id))}
                       testId="learning-status-control"
                       subject={activeLp.name}
-                      onSelect={(st) => handleUpdateLearningPathStatus(activeLp.id, st)}
+                      onSelect={(st) => wb.setLearningStatus(activeLp.id, st)}
                     />
                   </div>
                 </div>
-                {activeLp.description && (
+                <EditableField
+                  id={activeLp.id}
+                  field="description"
+                  label="description"
+                  kind="text"
+                  value={activeLp.description ?? ""}
+                  busy={isPending(pendingKeys.learningFields(activeLp.id))}
+                  onSave={(v) => void wb.updateLearningFields(activeLp.id, { description: v as string })}
+                >
                   <p className="centre-project-desc">{activeLp.description}</p>
-                )}
+                </EditableField>
 
                 {relatedProjects.length > 0 && (
                   <div className="related-refs" data-testid="related-projects">
@@ -2495,9 +2058,19 @@ export function App() {
                       <StatusNodeGlyph status={activeLearningItem.status} />
                       <div>
                         <span className="inspector-field-label">Selected Study Item</span>
-                        <h2 className="inspector-title" data-testid="inspector-title">
-                          {activeLearningItem.name}
-                        </h2>
+                        <EditableField
+                          id={activeLearningItem.id}
+                          field="name"
+                          label="name"
+                          kind="line"
+                          value={activeLearningItem.name}
+                          busy={learningItemBusy}
+                          onSave={(v) => void wb.updateLearningItemFields(activeLp.id, activeLearningItem.id, { name: v as string })}
+                        >
+                          <h2 className="inspector-title" data-testid="inspector-title">
+                            {activeLearningItem.name}
+                          </h2>
+                        </EditableField>
                       </div>
                     </div>
 
@@ -2513,7 +2086,7 @@ export function App() {
                               : "status-btn"
                           }
                           onClick={() =>
-                            handleUpdateLearningStatus(
+                            wb.setLearningItemStatus(
                               activeLp.id,
                               activeLearningItem.id,
                               st
@@ -2526,10 +2099,37 @@ export function App() {
                     </div>
                   </div>
 
-                  {getItemShortDescription(activeLearningItem) && (
+                  <EditableField
+                    id={activeLearningItem.id}
+                    field="summary"
+                    label="summary"
+                    kind="text"
+                    value={activeLearningItem.summary ?? ""}
+                    displayEmpty={!getItemShortDescription(activeLearningItem)}
+                    busy={learningItemBusy}
+                    onSave={(v) => void wb.updateLearningItemFields(activeLp.id, activeLearningItem.id, { summary: v as string })}
+                  >
                     <div className="inspector-inset-card" data-testid="inspector-summary">
                       {getItemShortDescription(activeLearningItem)}
                     </div>
+                  </EditableField>
+
+                  {renderSection(
+                    "Notes",
+                    !!activeLearningItem.notes,
+                    <EditableField
+                      id={activeLearningItem.id}
+                      field="notes"
+                      label="notes"
+                      kind="text"
+                      value={activeLearningItem.notes ?? ""}
+                      busy={learningItemBusy}
+                      onSave={(v) => void wb.updateLearningItemFields(activeLp.id, activeLearningItem.id, { notes: v as string })}
+                    >
+                      <div className="inspector-inset-card" data-testid="inspector-notes">
+                        {activeLearningItem.notes}
+                      </div>
+                    </EditableField>
                   )}
 
                   {activeMd && (
@@ -2576,10 +2176,7 @@ export function App() {
                           {subs.map((sub) => {
                             const isSubSelected = selectedSubtopicId === sub.id;
                             const isItemsOpen = !!expandedSubtopicItems[sub.id];
-                            const subMd =
-                              snapshot.topic_markdowns[`${activePathId}/${sub.id}`] ||
-                              "";
-                            const childItems = getLearningSubtopicItems(sub, subMd);
+                            const childItems = wb.subtopicDetails(activePathId, sub);
                             const shortDesc = getItemShortDescription(sub);
 
                             return (
@@ -2770,10 +2367,7 @@ export function App() {
                           {(activeTopic.subtopics || []).map((sub) => {
                             const isSubSelected = selectedSubtopicId === sub.id;
                             const isExpanded = !!expandedContextSubtopics[sub.id];
-                            const subMd =
-                              snapshot.topic_markdowns[`${activePathId}/${sub.id}`] ||
-                              "";
-                            const items = getLearningSubtopicItems(sub, subMd);
+                            const items = wb.subtopicDetails(activePathId, sub);
                             const shortDesc = getItemShortDescription(sub);
 
                             return (
@@ -3069,14 +2663,14 @@ export function App() {
               className="filter-input"
               placeholder="Filter projects and learning paths... (press /)"
               value={filterText}
-              onChange={(e) => setFilterText(e.target.value)}
+              onChange={(e) => setFilter(e.target.value)}
               data-testid="filter-input"
             />
             {filterText && (
               <button
                 type="button"
                 className="clear-search-btn"
-                onClick={() => setFilterText("")}
+                onClick={() => setFilter("")}
                 aria-label="Clear filter"
               >
                 ×
@@ -3091,14 +2685,14 @@ export function App() {
           >
             {route.page === "home" && renderHomeView()}
             {route.page === "building" && renderBuildingWorkspace()}
-            {route.page === "project" && renderBuildingWorkspace(route.id)}
+            {route.page === "project" && renderBuildingWorkspace()}
             {route.page === "learning" && renderLearningWorkspace()}
-            {route.page === "learning-path" && renderLearningWorkspace(route.id)}
+            {route.page === "learning-path" && renderLearningWorkspace()}
           </main>
         </div>
 
         <footer className="footer-bar" data-testid="footer-bar">
-          {status.last_error && (
+          {syncStatus.last_error && (
             <div className="footer-amber-banner" data-testid="failed-sync-banner">
               <div>
                 <span>
@@ -3118,8 +2712,8 @@ export function App() {
                   style={{ fontSize: 11, color: "var(--danger)" }}
                   data-testid="error-details-box"
                 >
-                  Commit {status.last_error.commit.slice(0, 7)} (
-                  {status.last_error.file}): {status.last_error.message}
+                  Commit {syncStatus.last_error.commit.slice(0, 7)} (
+                  {syncStatus.last_error.file}): {syncStatus.last_error.message}
                 </div>
               )}
             </div>
@@ -3139,7 +2733,7 @@ export function App() {
               href="#sync"
               onClick={(e) => {
                 e.preventDefault();
-                handleManualSync();
+                void wb.sync();
               }}
               data-testid="check-updates-button"
             >

@@ -13,12 +13,23 @@ import {
   type Edge,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import type { Project, Phase, Component } from "../types/project";
-import type { LearningPath, Topic, Subtopic } from "../types/learning";
+import {
+  getProjectGroups,
+  indexProjectComponents,
+  learningTree,
+  projectTree,
+  projectUsesPhases,
+  PROJECT_NODE_PREFIX,
+  type Project,
+  type Phase,
+  type Component,
+  type LearningPath,
+  type Topic,
+  type Subtopic,
+  type TreeItem as MapItem,
+  type TreeGroup as MapGroup,
+} from "@workbench-core";
 import { KindBadge, PhaseNumberBadge, StatusNodeGlyph, statusColorVar, statusTint } from "./status";
-import { getGroupChildren, getProjectGroups, indexProjectComponents } from "../componentTree";
-
-export { StatusNodeGlyph } from "./status";
 
 // Fit the whole map when it stays readable; below this zoom, stop shrinking and let the user pan.
 const MIN_READABLE_ZOOM = 0.85;
@@ -27,12 +38,6 @@ const FIT_PADDING = 24;
 
 const EDGE_IDLE = "color-mix(in srgb, var(--text-muted) 38%, transparent)";
 const HANDLE_BORDER = "2px solid var(--bg-panel)";
-
-export function projectUsesPhases(project: Project): boolean {
-  return project.uses_phases !== false;
-}
-
-export { getProjectGroups, getGroupChildren };
 
 function RootCardNode({ data }: { data: { label: string; isLearning?: boolean } }) {
   return (
@@ -227,8 +232,6 @@ function ComponentCardNode({
   );
 }
 
-const PROJECT_NODE_PREFIX = "project:";
-
 /** A child project sitting under a phase or component: its own build, opened on click. */
 function ChildProjectNode({
   data,
@@ -324,23 +327,6 @@ interface VisualGraphProps {
   childProjects?: Map<string, Project[]>;
   /** Open a child project, optionally focused on one of its phases or components */
   onOpenProject?: (projectId: string, itemId?: string) => void;
-}
-
-interface MapItem {
-  id: string;
-  name: string;
-  status: string;
-  children?: MapItem[];
-  /** Set for a child project node; its id is PROJECT_NODE_PREFIX + project id */
-  isProject?: boolean;
-  /** Item inside a child project (its node id is namespaced so it can't clash with the parent's ids) */
-  foreign?: { projectId: string; itemId: string };
-  /** Open by default when its parent is shown (a child project's phases) */
-  defaultOpen?: boolean;
-}
-
-interface MapGroup extends MapItem {
-  children: MapItem[];
 }
 
 const ROW_H = 42;
@@ -518,52 +504,6 @@ function buildTreeNodesAndEdges(
   return { nodes: rfNodes, edges: rfEdges, openIds };
 }
 
-/** Items inside a child project, with ids namespaced by the child project id. */
-function foreignItems(projectId: string, comps: Component[]): MapItem[] {
-  return comps.map((c) => ({
-    id: `${PROJECT_NODE_PREFIX}${projectId}::${c.id}`,
-    name: c.name,
-    status: c.status || "not_started",
-    foreign: { projectId, itemId: c.id },
-    children: c.components?.length ? foreignItems(projectId, c.components) : undefined,
-  }));
-}
-
-function projectItems(slotId: string, childProjects?: Map<string, Project[]>): MapItem[] {
-  return (childProjects?.get(slotId) ?? []).map((cp) => {
-    const groups: MapItem[] = getProjectGroups(cp).map((g) => {
-      const comps = foreignItems(cp.id, getGroupChildren(g));
-      return {
-        id: `${PROJECT_NODE_PREFIX}${cp.id}::${g.id}`,
-        name: g.name,
-        status: g.status || "not_started",
-        foreign: { projectId: cp.id, itemId: g.id },
-        defaultOpen: true,
-        children: comps.length ? comps : undefined,
-      };
-    });
-    return {
-      id: PROJECT_NODE_PREFIX + cp.id,
-      name: cp.name,
-      status: cp.status,
-      isProject: true,
-      children: groups.length ? groups : undefined,
-    };
-  });
-}
-
-function toMapItems(comps: Component[], childProjects?: Map<string, Project[]>): MapItem[] {
-  return comps.map((c) => {
-    const children = [...toMapItems(c.components ?? [], childProjects), ...projectItems(c.id, childProjects)];
-    return {
-      id: c.id,
-      name: c.name,
-      status: c.status || "not_started",
-      children: children.length ? children : undefined,
-    };
-  });
-}
-
 function VisualGraphInner({
   project,
   learningPath,
@@ -590,12 +530,7 @@ function VisualGraphInner({
   useEffect(() => {
     let built: ReturnType<typeof buildTreeNodesAndEdges> | null = null;
     if (project) {
-      const groups: MapGroup[] = getProjectGroups(project).map((ph) => ({
-        id: ph.id,
-        name: ph.name,
-        status: ph.status || "not_started",
-        children: [...toMapItems(getGroupChildren(ph), childProjects), ...projectItems(ph.id, childProjects)],
-      }));
+      const groups: MapGroup[] = projectTree(project, childProjects);
       built = buildTreeNodesAndEdges(
         project.name,
         false,
@@ -607,12 +542,7 @@ function VisualGraphInner({
         onOpenProject
       );
     } else if (learningPath) {
-      const groups: MapGroup[] = (learningPath.topics || []).map((t) => ({
-        id: t.id,
-        name: t.name,
-        status: t.status,
-        children: (t.subtopics || []).map((s) => ({ id: s.id, name: s.name, status: s.status })),
-      }));
+      const groups: MapGroup[] = learningTree(learningPath);
       built = buildTreeNodesAndEdges(learningPath.name, true, false, groups, selectedId, selectedPhaseId, toggled);
     }
     if (built) {

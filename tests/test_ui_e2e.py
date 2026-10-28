@@ -425,3 +425,76 @@ def test_full_demo_walkthrough_scripted(page: Page, demo_live_server: LiveServer
     expect(page.get_by_test_id("component-row-radiation-shield")).to_contain_text(
         "Completed PETG radiation shield assembly."
     )
+
+
+def _robot_arm_component(base_url: str, page: Page, comp_id: str) -> dict | None:
+    """The component as the server currently has it (None when it does not exist)."""
+    snap = page.request.get(f"{base_url}/api/snapshot").json()
+    project = next(p for p in snap["projects"] if p["id"] == "demo-robot-arm")
+
+    def walk(comps: list[dict]) -> dict | None:
+        for comp in comps:
+            if comp["id"] == comp_id:
+                return comp
+            found = walk(comp.get("components") or [])
+            if found is not None:
+                return found
+        return None
+
+    for phase in project.get("phases") or []:
+        found = walk(phase.get("components") or [])
+        if found is not None:
+            return found
+    return None
+
+
+def test_ui_editing_flow(page: Page, demo_live_server: LiveServerHandle) -> None:
+    """Edit a component summary inline, add a component, have a delete refused, then delete it."""
+    base_url = demo_live_server.url
+    page.goto(base_url)
+    page.get_by_test_id("project-card-demo-robot-arm").click()
+    expect(page.get_by_test_id("project-page-demo-robot-arm")).to_be_visible()
+
+    # 1. Inline edit of a component summary (textarea: Cmd/Ctrl+Enter saves)
+    page.get_by_test_id("component-row-shoulder-actuator").locator(".tier-2-subtopic-header").click()
+    expect(page.get_by_test_id("inspector-title")).to_have_text("Shoulder actuator")
+    page.get_by_test_id("edit-summary-shoulder-actuator").click()
+    editor = page.get_by_test_id("edit-input-summary-shoulder-actuator")
+    editor.fill("Edited inline from the dashboard.")
+    editor.press("Control+Enter")
+    expect(page.get_by_test_id("inspector-summary")).to_have_text("Edited inline from the dashboard.")
+    expect(page.get_by_test_id("edit-summary-shoulder-actuator")).to_be_enabled()  # write finished
+    comp = _robot_arm_component(base_url, page, "shoulder-actuator")
+    assert comp is not None and comp["summary"] == "Edited inline from the dashboard."
+
+    # Esc cancels without saving
+    page.get_by_test_id("edit-summary-shoulder-actuator").click()
+    page.get_by_test_id("edit-input-summary-shoulder-actuator").fill("Not saved")
+    page.get_by_test_id("edit-input-summary-shoulder-actuator").press("Escape")
+    expect(page.get_by_test_id("inspector-summary")).to_have_text("Edited inline from the dashboard.")
+
+    # 2. Add a component to the Mechanics phase; the new component is selected
+    page.get_by_test_id("add-component-mechanics").click()
+    page.get_by_test_id("add-component-mechanics-input").fill("E2E Gripper")
+    page.get_by_test_id("add-component-mechanics-input").press("Enter")
+    expect(page.get_by_test_id("component-row-e2e-gripper")).to_be_visible()
+    expect(page.get_by_test_id("inspector-title")).to_have_text("E2E Gripper")
+    assert _robot_arm_component(base_url, page, "e2e-gripper") is not None
+
+    # 3. A delete the server refuses (something depends on it) shows the server's reason
+    page.get_by_test_id("component-row-base-turntable").locator(".tier-2-subtopic-header").click()
+    page.get_by_test_id("delete-base-turntable").click()
+    expect(page.get_by_test_id("delete-dialog")).to_contain_text("permanently")
+    page.get_by_test_id("confirm-delete").click()
+    expect(page.get_by_test_id("delete-error")).to_contain_text("depends_on")
+    page.get_by_test_id("cancel-delete").click()
+    expect(page.get_by_test_id("component-row-base-turntable")).to_be_visible()
+
+    # 4. Delete the new component
+    page.get_by_test_id("component-row-e2e-gripper").locator(".tier-2-subtopic-header").click()
+    page.get_by_test_id("delete-e2e-gripper").click()
+    page.get_by_test_id("confirm-delete").click()
+    expect(page.get_by_test_id("delete-dialog")).to_have_count(0)
+    expect(page.get_by_test_id("component-row-e2e-gripper")).to_have_count(0)
+    expect(page.get_by_test_id("inspector-panel")).to_have_count(0)
+    assert _robot_arm_component(base_url, page, "e2e-gripper") is None

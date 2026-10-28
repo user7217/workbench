@@ -1,0 +1,182 @@
+/* Minimal look: light, typographic, no panels. Everything here is this look's own. */
+:root {
+  --ink: #1d1d1f;
+  --muted: #6e6e73;
+  --line: #e5e5ea;
+  --paper: #fbfbfd;
+  --accent: #b4441b;
+  --done: #2e7d32;
+  --doing: #b26a00;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  background: var(--paper);
+  color: var(--ink);
+  font: 15px/1.5 Georgia, "Iowan Old Style", serif;
+}
+
+.mini {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  height: 100%;
+}
+
+.mini aside {
+  border-right: 1px solid var(--line);
+  padding: 24px 16px;
+  overflow: auto;
+}
+
+.mini h1 {
+  font-size: 22px;
+  margin: 0 0 16px;
+  letter-spacing: -0.01em;
+}
+
+.mini h2 {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  margin: 20px 0 6px;
+}
+
+.mini aside input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  font: inherit;
+}
+
+.mini aside button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 4px 6px;
+  font: inherit;
+  color: var(--ink);
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.mini aside button.on,
+.mini aside button:hover {
+  background: var(--line);
+}
+
+.mini em {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.mini main {
+  padding: 32px 48px;
+  overflow: auto;
+  max-width: 860px;
+}
+
+.mini main header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mini main header h2 {
+  font-size: 28px;
+  text-transform: none;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 0;
+}
+
+.mini .desc {
+  color: var(--muted);
+  cursor: text;
+  border-bottom: 1px dashed transparent;
+}
+
+.mini .desc:hover {
+  border-bottom-color: var(--line);
+}
+
+.mini form {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 12px 0;
+}
+
+.mini textarea {
+  flex: 1;
+  font: inherit;
+  padding: 6px 8px;
+}
+
+.mini section {
+  margin-top: 24px;
+}
+
+.mini h3 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  margin: 0 0 8px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 6px;
+}
+
+.mini ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.mini li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 3px 0;
+}
+
+.mini li small {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.mini select.status {
+  font: 12px/1.2 ui-monospace, Menlo, monospace;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: white;
+  color: var(--muted);
+}
+
+.mini select.s-done {
+  color: var(--done);
+}
+
+.mini select.s-in_progress,
+.mini select.s-active {
+  color: var(--doing);
+}
+
+.mini .error {
+  background: #fdecea;
+  color: var(--accent);
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.mini .hint {
+  color: var(--muted);
+}

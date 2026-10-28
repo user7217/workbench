@@ -11,7 +11,8 @@ Workbench is a personal dashboard showing everything you are **building** (softw
 - **Projects** with phases, components, and **components nested to any depth**; statuses `not_started`, `in_progress`, `done`, `parked`; `depends_on` links drawn on an interactive map.
 - **Child projects:** a large piece of work can be its own project that sits under a phase or component of a parent (`parent:` / `under:`). The parent shows it inline (expand it in place or open it); a child only appears in the main project lists while its status is `active`.
 - **Learning paths** with topics and subtopics, Markdown notes per item, and plain `related_projects` references.
-- **Web editing:** change any item's status, and archive/unarchive projects and learning paths, directly from the UI. Every edit is validated and committed like a CLI push.
+- **Web editing:** change any item's status, edit names, summaries, notes and descriptions inline, add / reorder / move / delete phases and components, attach a project to a parent, and archive/unarchive projects and learning paths, directly from the UI. Every edit is validated and committed like a CLI push.
+- **Build your own look:** the UI is a fixed core plus a swappable look; see [web/README.md](web/README.md) ("Build your own look").
 - **Chat-friendly import:** `agent/chat/PROMPT.md` and `agent/chat/LEARNING_PROMPT.md` turn a chat's history into the exact project YAML or learning outline format; `workbench learning import` merges outlines without ever losing progress.
 
 ## Quick Start (Isolated Demo)

@@ -301,6 +301,14 @@ phases:
               - id: ekf-local
                 name: Local EKF
                 status: not_started
+  - id: testing
+    name: Testing
+    status: not_started
+    components:
+      - id: field-trials
+        name: Field Trials
+        status: not_started
+        depends_on: [ekf-local]
 """
 
 
@@ -325,6 +333,7 @@ def _remote_head(laptop_data: Path) -> tuple[str, str]:
 def _remote_yaml(laptop_data: Path, rel_path: str) -> dict:
     from workbench.yamlio import load_yaml_str_roundtrip, to_plain_python
 
+    run_git(["fetch", "origin", "main"], cwd=laptop_data)
     text = run_git(["show", f"origin/main:{rel_path}"], cwd=laptop_data).stdout
     return to_plain_python(load_yaml_str_roundtrip(text))
 
@@ -509,3 +518,280 @@ def test_status_write_rejections(write_env) -> None:
 
     # Nothing was pushed by any rejected request
     assert _remote_head(laptop_data)[1] == head_before
+
+
+ROVER = "projects/demo-nested-rover/project.yaml"
+
+
+def _rover(body: dict) -> dict:
+    return next(p for p in body["snapshot"]["projects"] if p["id"] == "demo-nested-rover")
+
+
+def _post(client, url: str, body: dict, headers: dict | None = WRITE_HEADERS):
+    return client.post(url, headers=headers, json=body) if headers else client.post(url, json=body)
+
+
+def test_text_field_edits_round_trip(write_env) -> None:
+    """Project, item (any depth), learning path and learning item text edits reach the remote."""
+    client, laptop_data = write_env
+
+    # Project name/description
+    resp = _post(client, "/api/projects/demo-nested-rover/fields",
+                 {"name": "Rover Mk2", "description": "Second rover build."})
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["ok"] is True and body["status"]["last_error"] is None
+    assert (_rover(body)["name"], _rover(body)["description"]) == ("Rover Mk2", "Second rover build.")
+    subject, sha = _remote_head(laptop_data)
+    assert subject == "Edit demo-nested-rover fields via dashboard"
+    assert body["snapshot"]["commit"] == sha
+    assert _remote_yaml(laptop_data, ROVER)["name"] == "Rover Mk2"
+
+    # Nested component: summary, multi-line notes, checklist items
+    resp = _post(client, "/api/projects/demo-nested-rover/items/ekf-local/fields",
+                 {"summary": "Wheel odometry + IMU", "notes": "line one\nline two",
+                  "items": ["tune Q", "tune R"]})
+    assert resp.status_code == 200, resp.text
+    comp = _find_component_in(_rover(resp.json())["phases"][0]["components"], "ekf-local")
+    assert (comp["summary"], comp["notes"], comp["items"]) == (
+        "Wheel odometry + IMU", "line one\nline two", ["tune Q", "tune R"]
+    )
+    assert _remote_head(laptop_data)[0] == "Edit demo-nested-rover/ekf-local fields via dashboard"
+    remote = _remote_yaml(laptop_data, ROVER)
+    assert _find_component_in(remote["phases"][0]["components"], "ekf-local")["notes"] == "line one\nline two"
+
+    # A new key lands in model order (before nested components), and groups take text fields
+    resp = _post(client, "/api/projects/demo-nested-rover/items/navigation/fields", {"summary": "Nav stack"})
+    assert resp.status_code == 200, resp.text
+    nav = _find_component_in(_remote_yaml(laptop_data, ROVER)["phases"][0]["components"], "navigation")
+    assert list(nav).index("summary") < list(nav).index("components")
+    resp = _post(client, "/api/projects/demo-nested-rover/items/build/fields", {"description": "Build phase"})
+    assert resp.status_code == 200, resp.text
+    assert _remote_yaml(laptop_data, ROVER)["phases"][0]["description"] == "Build phase"
+
+    # Empty string clears: the key is removed, even when that is most of the file's text
+    resp = _post(client, "/api/projects/demo-nested-rover/fields", {"description": ""})
+    assert resp.status_code == 200, resp.text
+    assert _rover(resp.json()).get("description", "") == ""  # snapshot omits defaults
+    assert "description" not in _remote_yaml(laptop_data, ROVER)
+    resp = _post(client, "/api/projects/demo-nested-rover/items/ekf-local/fields", {"items": [], "notes": ""})
+    assert resp.status_code == 200, resp.text
+    comp = _find_component_in(_remote_yaml(laptop_data, ROVER)["phases"][0]["components"], "ekf-local")
+    assert "items" not in comp and "notes" not in comp
+
+    # Learning path and learning items (topic and subtopic)
+    resp = _post(client, "/api/learning/demo-signal-processing/fields", {"description": "DSP refresher"})
+    assert resp.status_code == 200, resp.text
+    dsp = next(lp for lp in resp.json()["snapshot"]["learning"] if lp["id"] == "demo-signal-processing")
+    assert dsp["description"] == "DSP refresher"
+    assert _remote_head(laptop_data)[0] == "Edit demo-signal-processing fields via dashboard"
+    resp = _post(client, "/api/learning/demo-signal-processing/items/aliasing/fields",
+                 {"name": "Aliasing", "notes": "See Lyons ch. 2"})
+    assert resp.status_code == 200, resp.text
+    assert _remote_head(laptop_data)[0] == "Edit demo-signal-processing/aliasing fields via dashboard"
+    resp = _post(client, "/api/learning/demo-signal-processing/items/sampling/fields", {"summary": ""})
+    assert resp.status_code == 200, resp.text
+    lp = _remote_yaml(laptop_data, "learning/demo-signal-processing/path.yaml")
+    sampling = lp["topics"][0]
+    assert "summary" not in sampling
+    assert sampling["subtopics"][0]["name"] == "Aliasing"
+    assert sampling["subtopics"][0]["notes"] == "See Lyons ch. 2"
+
+
+def test_text_field_rejections(write_env) -> None:
+    """Disallowed keys, bad types, too-long text, unknown targets and missing headers push nothing."""
+    client, laptop_data = write_env
+    _, head = _remote_head(laptop_data)
+    urls = {
+        "/api/projects/demo-nested-rover/fields": "description",
+        "/api/projects/demo-nested-rover/items/ekf-local/fields": "summary",
+        "/api/learning/demo-signal-processing/fields": "description",
+        "/api/learning/demo-signal-processing/items/aliasing/fields": "summary",
+    }
+    for url, key in urls.items():
+        assert _post(client, url, {key: "x"}, headers=None).status_code == 403, url
+        for bad in ({"status": "done"}, {"id": "new-id"}, {key: "x", "updated": "2020-01-01"}):
+            resp = _post(client, url, bad)
+            assert resp.status_code == 400, f"{url} {bad}"
+            assert "Unsupported field" in resp.json()["detail"]
+        assert _post(client, url, {}).status_code == 400, url
+        assert _post(client, url, {key: 5}).status_code == 400, url
+        assert client.post(url, headers=WRITE_HEADERS, content="[1]").status_code == 400, url
+    # items only on components, and must be a list of strings
+    assert _post(client, "/api/learning/demo-signal-processing/items/aliasing/fields",
+                 {"items": ["a"]}).status_code == 400
+    assert _post(client, "/api/projects/demo-nested-rover/items/build/fields",
+                 {"items": ["a"]}).status_code == 400
+    assert _post(client, "/api/projects/demo-nested-rover/items/ekf/fields",
+                 {"items": "a"}).status_code == 400
+    # Length limits come from model validation -> 422; an empty name is invalid too
+    resp = _post(client, "/api/projects/demo-nested-rover/items/ekf/fields", {"summary": "s" * 301})
+    assert resp.status_code == 422, resp.text
+    assert _post(client, "/api/projects/demo-nested-rover/fields", {"name": ""}).status_code == 422
+    # 404s and bad ids
+    for url in ["/api/projects/no-such/fields", "/api/projects/demo-nested-rover/items/nope/fields",
+                "/api/learning/no-such/fields", "/api/learning/demo-signal-processing/items/nope/fields"]:
+        assert _post(client, url, {"name": "X"}).status_code == 404, url
+    assert _post(client, "/api/projects/Bad_Id/fields", {"name": "X"}).status_code == 400
+    assert _remote_head(laptop_data)[1] == head
+
+
+def test_structure_add_move_delete(write_env) -> None:
+    """Add groups/components (nested, id suffixes), reorder/move, and delete with reference checks."""
+    client, laptop_data = write_env
+    base = "/api/projects/demo-nested-rover"
+
+    # New phase at a position
+    resp = _post(client, f"{base}/items", {"parent_id": None, "name": "Integration", "position": 1})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["item_id"] == "integration"
+    assert [p["id"] for p in _rover(resp.json())["phases"]] == ["build", "integration", "testing"]
+    assert _remote_head(laptop_data)[0] == "Add phase integration to demo-nested-rover via dashboard"
+
+    # Component in a group; the slug collides with an existing id -> -2, then -3 when nested deeper
+    resp = _post(client, f"{base}/items",
+                 {"parent_id": "build", "name": "Navigation", "status": "in_progress", "summary": "Second nav"})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["item_id"] == "navigation-2"
+    assert _remote_head(laptop_data)[0] == "Add component navigation-2 to demo-nested-rover via dashboard"
+    build = _remote_yaml(laptop_data, ROVER)["phases"][0]
+    assert build["components"][-1] == {
+        "id": "navigation-2", "name": "Navigation", "status": "in_progress", "summary": "Second nav"
+    }
+    resp = _post(client, f"{base}/items", {"parent_id": "ekf-local", "name": "Navigation", "id": None})
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["item_id"] == "navigation-3"
+    ekf_local = _find_component_in(_remote_yaml(laptop_data, ROVER)["phases"][0]["components"], "ekf-local")
+    assert [c["id"] for c in ekf_local["components"]] == ["navigation-3"]
+
+    # Topic group on a project that does not use phases
+    resp = _post(client, "/api/projects/demo-fpga-logic-analyzer/items", {"parent_id": None, "name": "Docs!"})
+    assert resp.status_code == 200, resp.text
+    fpga = _remote_yaml(laptop_data, "projects/demo-fpga-logic-analyzer/project.yaml")
+    assert fpga["topics"][-1]["id"] == "docs"
+    assert _remote_head(laptop_data)[0] == "Add topic docs to demo-fpga-logic-analyzer via dashboard"
+
+    # Add rejections push nothing
+    _, head = _remote_head(laptop_data)
+    assert _post(client, f"{base}/items", {"parent_id": "build", "name": "X", "id": "ekf"}).status_code == 422
+    assert _post(client, f"{base}/items", {"parent_id": "nope", "name": "X"}).status_code == 404
+    assert _post(client, f"{base}/items", {"parent_id": None, "name": "  "}).status_code == 400
+    assert _post(client, f"{base}/items", {"parent_id": None, "name": "X", "status": "archived"}).status_code == 400
+    assert _post(client, f"{base}/items", {"parent_id": None, "name": "X", "position": 9}).status_code == 400
+    assert _post(client, f"{base}/items", {"parent_id": None, "name": "X", "colour": "red"}).status_code == 400
+    assert _post(client, f"{base}/items", {"parent_id": None, "name": "X"}, headers=None).status_code == 403
+    assert _post(client, "/api/projects/no-such/items", {"parent_id": None, "name": "X"}).status_code == 404
+    assert _remote_head(laptop_data)[1] == head
+
+    # Reorder groups
+    resp = _post(client, f"{base}/items/testing/move", {"position": 0})
+    assert resp.status_code == 200, resp.text
+    assert [p["id"] for p in _rover(resp.json())["phases"]] == ["testing", "build", "integration"]
+    assert _remote_head(laptop_data)[0] == "Move testing to position 0 in demo-nested-rover via dashboard"
+
+    # Move a nested component (with its own child) to the front of another group; ids preserved
+    resp = _post(client, f"{base}/items/ekf-local/move", {"parent_id": "integration", "position": 0})
+    assert resp.status_code == 200, resp.text
+    assert _remote_head(laptop_data)[0] == "Move ekf-local under integration in demo-nested-rover via dashboard"
+    remote = _remote_yaml(laptop_data, ROVER)
+    integration = next(p for p in remote["phases"] if p["id"] == "integration")
+    assert [c["id"] for c in integration["components"]] == ["ekf-local"]
+    assert integration["components"][0]["components"][0]["id"] == "navigation-3"
+    ekf = _find_component_in(next(p for p in remote["phases"] if p["id"] == "build")["components"], "ekf")
+    assert "components" not in ekf  # emptied list is dropped
+
+    # Reorder within the same list (parent_id omitted)
+    resp = _post(client, f"{base}/items/navigation-2/move", {"position": 0})
+    assert resp.status_code == 200, resp.text
+    build = next(p for p in _remote_yaml(laptop_data, ROVER)["phases"] if p["id"] == "build")
+    assert [c["id"] for c in build["components"]] == ["navigation-2", "navigation"]
+
+    # Move rejections
+    _, head = _remote_head(laptop_data)
+    assert _post(client, f"{base}/items/navigation/move", {"parent_id": "ekf", "position": 0}).status_code == 400
+    assert _post(client, f"{base}/items/navigation/move", {"parent_id": "navigation", "position": 0}).status_code == 400
+    assert _post(client, f"{base}/items/build/move", {"parent_id": "testing", "position": 0}).status_code == 400
+    assert _post(client, f"{base}/items/navigation/move", {"parent_id": None, "position": 0}).status_code == 400
+    assert _post(client, f"{base}/items/navigation/move", {"parent_id": "nope", "position": 0}).status_code == 404
+    assert _post(client, f"{base}/items/nope/move", {"position": 0}).status_code == 404
+    assert _post(client, f"{base}/items/navigation/move", {"position": 2}).status_code == 400
+    assert _post(client, f"{base}/items/navigation/move", {"position": -1}).status_code == 400
+    assert _post(client, f"{base}/items/navigation/move", {}).status_code == 400
+    assert _post(client, f"{base}/items/navigation/move", {"position": 0}, headers=None).status_code == 403
+    assert _remote_head(laptop_data)[1] == head
+
+    # Delete needs confirm: true; a depends_on reference blocks it and is named
+    assert _post(client, f"{base}/items/ekf-local/delete", {}).status_code == 400
+    assert _post(client, f"{base}/items/ekf-local/delete", {"confirm": "yes"}).status_code == 400
+    resp = _post(client, f"{base}/items/ekf-local/delete", {"confirm": True})
+    assert resp.status_code == 422, resp.text
+    assert "field-trials" in resp.json()["detail"]
+    resp = _post(client, f"{base}/items/integration/delete", {"confirm": True})
+    assert resp.status_code == 422, resp.text  # ekf-local sits inside integration now
+    assert _post(client, f"{base}/items/nope/delete", {"confirm": True}).status_code == 404
+    assert _post(client, f"{base}/items/navigation/delete", {"confirm": True}, headers=None).status_code == 403
+    assert _remote_head(laptop_data)[1] == head
+
+    # Deleting a subtree removes nested ids; deleting a group works too
+    resp = _post(client, f"{base}/items/navigation/delete", {"confirm": True})
+    assert resp.status_code == 200, resp.text
+    assert _remote_head(laptop_data)[0] == "Delete navigation from demo-nested-rover via dashboard"
+    rover = _rover(resp.json())
+    build = next(p for p in rover["phases"] if p["id"] == "build")
+    assert [c["id"] for c in build["components"]] == ["navigation-2"]
+    resp = _post(client, f"{base}/items/testing/delete", {"confirm": True})
+    assert resp.status_code == 200, resp.text
+    resp = _post(client, f"{base}/items/integration/delete", {"confirm": True})
+    assert resp.status_code == 200, resp.text
+    remote = _remote_yaml(laptop_data, ROVER)
+    assert [p["id"] for p in remote["phases"]] == ["build"]
+
+    run_git(["reset", "--hard", "origin/main"], cwd=laptop_data)
+    from workbench.validate import validate_data_repo
+
+    assert validate_data_repo(laptop_data).ok
+
+
+def test_parent_link_attach_clear_and_delete_guard(write_env) -> None:
+    """Attach/clear child links; cycles and bad targets are refused; deleting a child's anchor is blocked."""
+    client, laptop_data = write_env
+    url = "/api/projects/demo-weather-station/parent"
+
+    resp = _post(client, url, {"parent": "demo-nested-rover", "under": "testing"})
+    assert resp.status_code == 200, resp.text
+    assert _remote_head(laptop_data)[0] == (
+        "Attach demo-weather-station under demo-nested-rover/testing via dashboard"
+    )
+    ws_snap = next(p for p in resp.json()["snapshot"]["projects"] if p["id"] == "demo-weather-station")
+    assert (ws_snap["parent"], ws_snap["under"]) == ("demo-nested-rover", "testing")
+    ws = _remote_yaml(laptop_data, "projects/demo-weather-station/project.yaml")
+    assert list(ws).index("parent") == list(ws).index("status") + 1
+
+    _, head = _remote_head(laptop_data)
+    # Deleting the item a child project sits under is refused
+    resp = _post(client, "/api/projects/demo-nested-rover/items/testing/delete", {"confirm": True})
+    assert resp.status_code == 422, resp.text
+    assert "demo-weather-station" in resp.json()["detail"]
+    # Cycle, self, half-set, missing keys, unknown parent/under
+    resp = _post(client, "/api/projects/demo-nested-rover/parent",
+                 {"parent": "demo-weather-station", "under": "hardware"})
+    assert resp.status_code == 422, resp.text
+    assert "cycle" in resp.json()["detail"]
+    assert _post(client, url, {"parent": "demo-weather-station", "under": "hardware"}).status_code == 400
+    assert _post(client, url, {"parent": "demo-robot-arm", "under": None}).status_code == 400
+    assert _post(client, url, {"parent": None}).status_code == 400
+    assert _post(client, url, {"parent": "Bad_Id", "under": "x"}).status_code == 400
+    resp = _post(client, url, {"parent": "no-such-project", "under": "x"})
+    assert resp.status_code == 422 and "no-such-project" in resp.json()["detail"]
+    resp = _post(client, url, {"parent": "demo-robot-arm", "under": "nowhere"})
+    assert resp.status_code == 422 and "nowhere" in resp.json()["detail"]
+    assert _post(client, "/api/projects/no-such/parent", {"parent": None, "under": None}).status_code == 404
+    assert _post(client, url, {"parent": None, "under": None}, headers=None).status_code == 403
+    assert _remote_head(laptop_data)[1] == head
+
+    # Clearing removes both keys
+    resp = _post(client, url, {"parent": None, "under": None})
+    assert resp.status_code == 200, resp.text
+    assert _remote_head(laptop_data)[0] == "Detach demo-weather-station from demo-nested-rover via dashboard"
+    ws = _remote_yaml(laptop_data, "projects/demo-weather-station/project.yaml")
+    assert "parent" not in ws and "under" not in ws
