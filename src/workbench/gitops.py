@@ -69,6 +69,16 @@ def run_git(
     return proc
 
 
+def git_output_bytes(
+    args: list[str], cwd: Path, env: dict[str, str] | None = None
+) -> bytes | None:
+    """Raw stdout of a git command (no text decoding), or None if it failed."""
+    proc = subprocess.run(
+        ["git", *args], cwd=str(cwd), env=_prepare_env(env), capture_output=True, check=False
+    )
+    return proc.stdout if proc.returncode == 0 else None
+
+
 def is_git_repo(path: Path, env: dict[str, str] | None = None) -> bool:
     """Return True if path is inside a git work tree."""
     if not path.exists():
@@ -163,34 +173,6 @@ def get_commit_emails(repo_dir: Path, env: dict[str, str] | None = None) -> set[
     if proc.returncode != 0:
         return set()
     return {line.strip().lower() for line in proc.stdout.splitlines() if line.strip()}
-
-
-def get_uncommitted_changed_lines(repo_dir: Path, env: dict[str, str] | None = None) -> int:
-    """Return total added + deleted lines in working tree and index relative to HEAD."""
-    proc = run_git(["diff", "--numstat", "HEAD"], cwd=repo_dir, env=env, check=False)
-    total = 0
-    if proc.returncode == 0:
-        for line in proc.stdout.splitlines():
-            parts = line.split("\t")
-            if len(parts) >= 2:
-                added, deleted = parts[0], parts[1]
-                if added.isdigit():
-                    total += int(added)
-                if deleted.isdigit():
-                    total += int(deleted)
-    # Also count lines in untracked files
-    untracked = run_git(
-        ["ls-files", "--others", "--exclude-standard"], cwd=repo_dir, env=env, check=False
-    )
-    if untracked.returncode == 0:
-        for rel in untracked.stdout.splitlines():
-            fpath = repo_dir / rel.strip()
-            if fpath.is_file():
-                try:
-                    total += len(fpath.read_text(encoding="utf-8", errors="ignore").splitlines())
-                except OSError:
-                    pass
-    return total
 
 
 def create_worktree(

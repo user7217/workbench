@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   ReactFlow,
   Controls,
@@ -31,12 +31,63 @@ import {
 } from "@workbench-core";
 import { KindBadge, PhaseNumberBadge, StatusNodeGlyph, statusColorVar, statusTint } from "./status";
 
-// Fit the whole map when it stays readable; below this zoom, stop shrinking and let the user pan.
+// The map fills the panel's width (there is usually more width than height) without growing past
+// MAX_FIT_ZOOM; if that makes it taller than the panel, it starts at the top and scrolls vertically.
+// Below MIN_READABLE_ZOOM it stops shrinking and the user pans instead.
 const MIN_READABLE_ZOOM = 0.85;
-const MAX_FIT_ZOOM = 1.3;
+const MAX_FIT_ZOOM = 1.15;
 const FIT_PADDING = 24;
+// Space kept clear at the top for the floating toolbar (Expand all / Collapse all / Fit to view)
+const TOP_CLEARANCE = 48;
 
 const EDGE_IDLE = "color-mix(in srgb, var(--text-muted) 38%, transparent)";
+
+/** "+N" when folded, "−" when open. Clicking it folds/unfolds without selecting the node. */
+function FoldBadge({
+  count,
+  expanded,
+  onToggle,
+  testId,
+  label,
+}: {
+  count: number;
+  expanded: boolean;
+  onToggle?: () => void;
+  testId: string;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      className="nodrag"
+      data-testid={testId}
+      aria-label={expanded ? `Hide the parts of ${label}` : `Show ${count} parts of ${label}`}
+      title={expanded ? "Fold" : "Unfold"}
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle?.();
+      }}
+      style={{
+        flexShrink: 0,
+        minWidth: 22,
+        height: 18,
+        padding: "0 5px",
+        borderRadius: 5,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        fontSize: 11,
+        fontWeight: 600,
+        cursor: "pointer",
+        color: expanded ? "var(--text-muted)" : "var(--accent-bright)",
+        background: expanded ? "var(--bg-elevated)" : "color-mix(in srgb, var(--accent) 14%, transparent)",
+        border: "1px solid var(--border)",
+      }}
+    >
+      {expanded ? "−" : `+${count}`}
+    </button>
+  );
+}
 const HANDLE_BORDER = "2px solid var(--bg-panel)";
 
 function RootCardNode({ data }: { data: { label: string; isLearning?: boolean } }) {
@@ -93,6 +144,9 @@ function PhaseGroupNode({
     index: number;
     numbered: boolean;
     selected: boolean;
+    childCount: number;
+    expanded: boolean;
+    onToggle?: () => void;
   };
 }) {
   const { status, selected } = data;
@@ -139,6 +193,15 @@ function PhaseGroupNode({
       >
         {data.label}
       </span>
+      {data.childCount > 0 && (
+        <FoldBadge
+          count={data.childCount}
+          expanded={data.expanded}
+          onToggle={data.onToggle}
+          testId={`visual-phase-toggle-${data.phaseId}`}
+          label={data.label}
+        />
+      )}
       <Handle
         type="source"
         position={Position.Right}
@@ -158,6 +221,7 @@ function ComponentCardNode({
     compId: string;
     childCount: number;
     expanded: boolean;
+    onToggle?: () => void;
   };
 }) {
   return (
@@ -165,7 +229,7 @@ function ComponentCardNode({
       data-testid={`visual-node-${data.compId}`}
       title={
         data.childCount > 0
-          ? `${data.label} — click to ${data.expanded ? "hide" : "show"} its parts`
+          ? `${data.label} — use the badge to ${data.expanded ? "fold" : "unfold"} its parts`
           : data.label
       }
       style={{
@@ -197,27 +261,13 @@ function ComponentCardNode({
         {data.label}
       </span>
       {data.childCount > 0 && (
-        <span
-          data-testid={`visual-node-toggle-${data.compId}`}
-          aria-label={data.expanded ? "Hide nested parts" : `Show ${data.childCount} nested parts`}
-          style={{
-            flexShrink: 0,
-            minWidth: 22,
-            height: 18,
-            padding: "0 5px",
-            borderRadius: 5,
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            fontSize: 11,
-            fontWeight: 600,
-            color: data.expanded ? "var(--text-muted)" : "var(--accent-bright)",
-            background: data.expanded ? "var(--bg-elevated)" : "color-mix(in srgb, var(--accent) 14%, transparent)",
-            border: "1px solid var(--border)",
-          }}
-        >
-          {data.expanded ? "−" : `+${data.childCount}`}
-        </span>
+        <FoldBadge
+          count={data.childCount}
+          expanded={data.expanded}
+          onToggle={data.onToggle}
+          testId={`visual-node-toggle-${data.compId}`}
+          label={data.label}
+        />
       )}
       <Handle
         type="source"
@@ -243,6 +293,7 @@ function ChildProjectNode({
     childCount: number;
     expanded: boolean;
     onOpen?: () => void;
+    onToggle?: () => void;
   };
 }) {
   return (
@@ -271,19 +322,13 @@ function ChildProjectNode({
       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{data.label}</span>
       <StatusNodeGlyph status={data.status} />
       {data.childCount > 0 && (
-        <span
-          data-testid={`visual-child-project-toggle-${data.projectId}`}
-          style={{
-            fontSize: 10.5,
-            fontWeight: 700,
-            padding: "0 5px",
-            borderRadius: 4,
-            color: data.expanded ? "var(--text-muted)" : "var(--accent-bright)",
-            background: data.expanded ? "var(--bg-elevated)" : "color-mix(in srgb, var(--accent) 14%, transparent)",
-          }}
-        >
-          {data.expanded ? "−" : `+${data.childCount}`}
-        </span>
+        <FoldBadge
+          count={data.childCount}
+          expanded={data.expanded}
+          onToggle={data.onToggle}
+          testId={`visual-child-project-toggle-${data.projectId}`}
+          label={data.label}
+        />
       )}
       <button
         type="button"
@@ -336,6 +381,30 @@ const X_PHASE = 268;
 const X_COMP = 576;
 const COMP_COL_W = 308; // 256px card + gap: each nested level is one more column to the right
 
+/** True when an item has parts and every part (and everything under it) is done. */
+function isComplete(item: MapItem): boolean {
+  const kids = item.children ?? [];
+  return kids.length > 0 && kids.every((k) => k.status === "done" && (!k.children?.length || isComplete(k)));
+}
+
+/** Toggle keys of every foldable item: groups (as "phase:<id>") and anything with children. */
+function foldableKeys(groups: MapGroup[]): { key: string; isProject: boolean }[] {
+  const out: { key: string; isProject: boolean }[] = [];
+  const walk = (items: MapItem[]) => {
+    for (const item of items) {
+      if (item.children?.length) {
+        out.push({ key: item.id, isProject: Boolean(item.isProject) || item.id.startsWith(PROJECT_NODE_PREFIX) });
+        walk(item.children);
+      }
+    }
+  };
+  for (const g of groups) {
+    if (g.children?.length) out.push({ key: `phase:${g.id}`, isProject: false });
+    walk(g.children ?? []);
+  }
+  return out;
+}
+
 /** Ids of the item and all its ancestors, if the item is somewhere in these groups. */
 function pathTo(groups: MapGroup[], id: string | null): Set<string> {
   const found = new Set<string>();
@@ -366,6 +435,7 @@ function buildTreeNodesAndEdges(
   selectedId: string | null,
   selectedPhaseId: string | null | undefined,
   toggled: Record<string, boolean>,
+  onToggle: (key: string, open: boolean) => void,
   onOpenProject?: (projectId: string, itemId?: string) => void
 ): { nodes: Node[]; edges: Edge[]; openIds: Set<string> } {
   const rfNodes: Node[] = [];
@@ -379,6 +449,7 @@ function buildTreeNodesAndEdges(
     if (selectedPath.has(item.id) && item.id !== selectedId) return true;
     if (item.id in toggled) return toggled[item.id];
     if (item.isProject) return false; // child projects start collapsed; click to unfold them here
+    if (isComplete(item)) return false; // finished work starts folded
     return item.defaultOpen ?? depth === 0;
   };
 
@@ -413,6 +484,7 @@ function buildTreeNodesAndEdges(
           childCount: kids.length,
           expanded: open,
           onOpen: () => onOpenProject?.(projectId),
+          onToggle: () => onToggle(item.id, !open),
         },
       });
       rfEdges.push({
@@ -437,6 +509,7 @@ function buildTreeNodesAndEdges(
         compId: item.id,
         childCount: kids.length,
         expanded: open,
+        onToggle: () => onToggle(item.id, !open),
       },
     });
     rfEdges.push({
@@ -457,9 +530,17 @@ function buildTreeNodesAndEdges(
     const isPhaseSelected =
       selectedId === grp.id || selectedPhaseId === grp.id || selectedPath.has(grp.id);
     const pNodeId = `phase:${grp.id}`;
+    // Groups fold like components: open unless finished, but always open around the selection
+    const groupOpen =
+      kids.length > 0 &&
+      ((selectedPath.has(grp.id) && selectedId !== grp.id) ||
+        (toggled[pNodeId] ?? !isComplete(grp)));
+    if (groupOpen) openIds.add(pNodeId);
 
     let rows = 0;
-    for (const kid of kids) rows += place(kid, 0, currentY + rows * ROW_H, pNodeId, isPhaseSelected);
+    if (groupOpen) {
+      for (const kid of kids) rows += place(kid, 0, currentY + rows * ROW_H, pNodeId, isPhaseSelected);
+    }
 
     const blockHeight = Math.max(rows * ROW_H - (ROW_H - 34), 42);
     const phaseY = currentY + blockHeight / 2 - 21;
@@ -476,6 +557,9 @@ function buildTreeNodesAndEdges(
         index: idx,
         numbered,
         selected: isPhaseSelected,
+        childCount: kids.length,
+        expanded: groupOpen,
+        onToggle: () => onToggle(pNodeId, !groupOpen),
       },
     });
     rfEdges.push({
@@ -527,30 +611,32 @@ function VisualGraphInner({
 
   const targetKey = project?.id || learningPath?.id || "";
 
+  const groups: MapGroup[] = useMemo(
+    () => (project ? projectTree(project, childProjects) : learningPath ? learningTree(learningPath) : []),
+    [project, learningPath, childProjects]
+  );
+
+  const setFold = useCallback((key: string, open: boolean) => {
+    setToggled((prev) => ({ ...prev, [key]: open }));
+  }, []);
+
   useEffect(() => {
-    let built: ReturnType<typeof buildTreeNodesAndEdges> | null = null;
-    if (project) {
-      const groups: MapGroup[] = projectTree(project, childProjects);
-      built = buildTreeNodesAndEdges(
-        project.name,
-        false,
-        projectUsesPhases(project),
-        groups,
-        selectedId,
-        selectedPhaseId,
-        toggled,
-        onOpenProject
-      );
-    } else if (learningPath) {
-      const groups: MapGroup[] = learningTree(learningPath);
-      built = buildTreeNodesAndEdges(learningPath.name, true, false, groups, selectedId, selectedPhaseId, toggled);
-    }
-    if (built) {
-      openIdsRef.current = built.openIds;
-      setNodes(built.nodes);
-      setEdges(built.edges);
-    }
-  }, [project, learningPath, selectedId, selectedPhaseId, toggled, childProjects, onOpenProject]);
+    if (!project && !learningPath) return;
+    const built = buildTreeNodesAndEdges(
+      project ? project.name : learningPath!.name,
+      !project,
+      project ? projectUsesPhases(project) : false,
+      groups,
+      selectedId,
+      selectedPhaseId,
+      toggled,
+      setFold,
+      project ? onOpenProject : undefined
+    );
+    openIdsRef.current = built.openIds;
+    setNodes(built.nodes);
+    setEdges(built.edges);
+  }, [project, learningPath, groups, selectedId, selectedPhaseId, toggled, setFold, onOpenProject]);
 
   /** Fit the map to the panel, but never below a readable zoom: past that, anchor the root and pan. */
   const fitReadable = useCallback(() => {
@@ -562,16 +648,17 @@ function VisualGraphInner({
 
     const w = el.clientWidth;
     const h = el.clientHeight;
-    const fitZoom = Math.min(
-      (w - 2 * FIT_PADDING) / bounds.width,
-      (h - 2 * FIT_PADDING) / bounds.height,
-      MAX_FIT_ZOOM
-    );
-    const zoom = Math.max(fitZoom, MIN_READABLE_ZOOM);
+    // Fit the width, not the tighter of width and height, so wide panels are used fully
+    const widthZoom = (w - 2 * FIT_PADDING) / bounds.width;
+    const zoom = Math.min(Math.max(widthZoom, MIN_READABLE_ZOOM), MAX_FIT_ZOOM);
     const contentW = bounds.width * zoom;
     const contentH = bounds.height * zoom;
     const x = contentW <= w - 2 * FIT_PADDING ? (w - contentW) / 2 - bounds.x * zoom : FIT_PADDING - bounds.x * zoom;
-    const y = contentH <= h - 2 * FIT_PADDING ? (h - contentH) / 2 - bounds.y * zoom : FIT_PADDING - bounds.y * zoom;
+    const usableH = h - TOP_CLEARANCE - FIT_PADDING;
+    const y =
+      contentH <= usableH
+        ? TOP_CLEARANCE + (usableH - contentH) / 2 - bounds.y * zoom
+        : TOP_CLEARANCE - bounds.y * zoom;
     setViewport({ x, y, zoom }, { duration: 160 });
   }, [getNodes, getNodesBounds, setViewport]);
 
@@ -613,7 +700,10 @@ function VisualGraphInner({
         setViewport(
           {
             x: FIT_PADDING - b.x * zoom,
-            y: contentH <= h - 2 * FIT_PADDING ? (h - contentH) / 2 - b.y * zoom : FIT_PADDING - b.y * zoom,
+            y:
+              contentH <= h - TOP_CLEARANCE - FIT_PADDING
+                ? TOP_CLEARANCE + (h - TOP_CLEARANCE - FIT_PADDING - contentH) / 2 - b.y * zoom
+                : TOP_CLEARANCE - b.y * zoom,
             zoom,
           },
           { duration: 220 }
@@ -621,6 +711,45 @@ function VisualGraphInner({
       });
     },
     [getNodes, getInternalNode, getNodesBounds, getViewport, setViewport]
+  );
+
+  /** Refit once every node of a changed layout has been measured (sizes live on internal nodes). */
+  const fitWhenMeasured = useCallback(
+    (tries = 0) => {
+      requestAnimationFrame(() => {
+        const all = getNodes();
+        const measured =
+          all.length > 0 &&
+          all.every((n) => {
+            const m = getInternalNode(n.id)?.measured;
+            return Boolean(m?.width && m?.height);
+          });
+        if (!measured) {
+          if (tries < 30) fitWhenMeasured(tries + 1);
+          return;
+        }
+        fitReadable();
+      });
+    },
+    [getNodes, getInternalNode, fitReadable]
+  );
+
+  const foldable = useMemo(() => foldableKeys(groups), [groups]);
+
+  /** Expand all opens every phase/topic and nested part (child projects stay as they are); collapse all folds everything. */
+  const setAllFolds = useCallback(
+    (open: boolean) => {
+      setToggled((prev) => {
+        const next = { ...prev };
+        for (const { key, isProject } of foldable) {
+          if (open && isProject) continue;
+          next[key] = open;
+        }
+        return next;
+      });
+      fitWhenMeasured();
+    },
+    [foldable, fitWhenMeasured]
   );
 
   // Refit when the panel is resized (dividers, window, sidebar)
@@ -646,9 +775,10 @@ function VisualGraphInner({
         // A child project, or an item inside one: nodes with children unfold here; leaves open the child there
         const hasKids = Number((node.data as { childCount?: number }).childCount ?? 0) > 0;
         if (hasKids) {
-          const opening = !openIdsRef.current.has(node.id);
-          setToggled((prev) => ({ ...prev, [node.id]: opening }));
-          if (opening && node.type === "childProject") panToSubtree(node.id);
+          if (!openIdsRef.current.has(node.id)) {
+            setFold(node.id, true);
+            if (node.type === "childProject") panToSubtree(node.id);
+          }
           return;
         }
         if (node.type === "childProject") return; // an empty child project opens via its arrow
@@ -662,21 +792,20 @@ function VisualGraphInner({
         if (node.id.startsWith("phase:")) {
           const pid = node.id.slice("phase:".length);
           const ph = rawGroups.find((p) => p.id === pid);
+          if (!openIdsRef.current.has(node.id)) setFold(node.id, true);
           if (ph && onSelectPhase) onSelectPhase(ph);
           return;
         }
         const entry = indexProjectComponents(project).get(node.id);
         if (!entry) return;
-        if (entry.comp.components?.length) {
-          // A node with nested parts opens/closes its next level
-          const isOpenNow = openIdsRef.current.has(node.id);
-          setToggled((prev) => ({ ...prev, [node.id]: !isOpenNow }));
-        }
+        // Selecting a folded node opens it; folding is done with its badge
+        if (entry.comp.components?.length && !openIdsRef.current.has(node.id)) setFold(node.id, true);
         if (onSelectComponent) onSelectComponent(entry.comp, entry.phase);
       } else if (learningPath && onSelectLearningItem) {
         if (node.id.startsWith("phase:")) {
           const tid = node.id.slice("phase:".length);
           const top = (learningPath.topics || []).find((t) => t.id === tid);
+          if (!openIdsRef.current.has(node.id)) setFold(node.id, true);
           if (top) onSelectLearningItem(top, top);
           return;
         }
@@ -689,12 +818,34 @@ function VisualGraphInner({
         }
       }
     },
-    [project, learningPath, onSelectPhase, onSelectComponent, onSelectLearningItem, onOpenProject, panToSubtree]
+    [project, learningPath, onSelectPhase, onSelectComponent, onSelectLearningItem, onOpenProject, panToSubtree, setFold]
   );
 
   return (
     <div ref={wrapperRef} className="visual-graph-wrapper" data-testid="visual-graph-canvas">
       <div className="visual-toolbar">
+        {foldable.length > 0 && (
+          <>
+            <button
+              type="button"
+              className="canvas-tool-btn"
+              onClick={() => setAllFolds(true)}
+              data-testid="map-expand-all"
+              title="Open every phase and nested part (child projects stay folded)"
+            >
+              Expand all
+            </button>
+            <button
+              type="button"
+              className="canvas-tool-btn"
+              onClick={() => setAllFolds(false)}
+              data-testid="map-collapse-all"
+              title="Fold every phase and nested part"
+            >
+              Collapse all
+            </button>
+          </>
+        )}
         <button
           type="button"
           className="canvas-tool-btn"
@@ -709,6 +860,10 @@ function VisualGraphInner({
         edges={edges}
         nodeTypes={nodeTypes}
         onNodeClick={handleNodeClick}
+        // Wheel/trackpad scrolls the map (it may be taller than the panel); pinch or the controls zoom
+        panOnScroll
+        zoomOnScroll={false}
+        zoomOnPinch
         minZoom={0.3}
         maxZoom={2}
         proOptions={{ hideAttribution: true }}

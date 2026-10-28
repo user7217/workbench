@@ -9,6 +9,7 @@ from pathlib import Path
 
 from ruamel.yaml.comments import CommentedMap
 
+from workbench.commitmsg import build_message
 from workbench.gitops import (
     commit_all,
     create_worktree,
@@ -169,7 +170,10 @@ def register_discovered_repos(
         if not registered_ids:
             return []
 
-        msg = f"Register {len(registered_ids)} discovered repo(s) via {commit_source}: {', '.join(registered_ids)}"
+        msg = build_message(
+            "discover",
+            f"register {len(registered_ids)} repo(s) via {commit_source}: {', '.join(registered_ids)}",
+        )
         commit_all(wt_dir, msg, env=env)
 
         for _attempt in range(3):

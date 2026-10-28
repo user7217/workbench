@@ -3,7 +3,7 @@
 Workbench is a personal dashboard showing everything you are **building** (software projects) and **learning** (learning paths) so nothing gets forgotten — what exists, what is half-done, and what is left to do.
 
 - **Completeness over task management:** Workbench is an inventory and architectural map of your projects and learning paths, not a task tracker. There are no deadlines, countdowns, streaks, percentages, priority scores, or "overdue" indicators.
-- **Zero-friction updates:** AI coding agents (Claude Code, Gemini CLI) update project structure and status at the end of coding sessions via a Stop/AfterAgent hook and the `workbench` skill. Local and GitHub discovery jobs register new repositories automatically.
+- **Zero-friction updates:** AI coding agents (Claude Code, Gemini CLI) keep project structure and status current through two skills driven by a Stop/AfterAgent hook (`workbench hook-check`): **workbench-update** records what a single message changed for one item (a status, a note, a newly found problem) whenever files changed since the last update, and **workbench-review** reconciles the whole entry after a new commit lands, at session end, or on request. When nothing changed, the hook asks for nothing. Local and GitHub discovery jobs register new repositories automatically.
 - **Git-backed audit trail:** All metadata lives in a separate private Git repository (`workbench-data`). Every change is validated structurally, scanned for secrets/PII, and committed to `main`. Any bad change can be reverted with `workbench undo <commit>`.
 
 ## Features
@@ -47,15 +47,44 @@ Then open **http://127.0.0.1:8420** (set `WORKBENCH_PORT` to use another port). 
 
 | Command | What it does |
 |---|---|
-| `workbench setup` / `workbench install --home ~ --claude --gemini` | Configure the data repo; install the agent skill and hooks |
+| `workbench setup` / `workbench install --home ~ --claude --gemini` | Configure the data repo; install the agent skills and hooks |
 | `workbench show [--id <project>]` | Print a project's entry (from inside its repo, or by id) |
+| `workbench show [--id <project>] --brief` / `--item <item-id>` | One line per item (id, status, name) / just one item and its parts |
+| `workbench focus` | Print the current focus (`project` or `project/item`) for this repo |
+| `workbench set <project> <item-id> [--status S] [--name T] [--summary T] [--notes T]` | Quick update of one item, validated and pushed in one step |
+| `workbench add <project> [--under <item-id>] --name T [--id I] [--status S] [--summary T] [--notes T]` | Add one item (a new phase or topic when `--under` is left out) |
 | `workbench begin [--id <project>]` → edit → `workbench push <worktree> -m "…"` | Edit an entry in an isolated worktree, then validate and push |
 | `workbench new "<Name>" [--parent <id> --under <item>] [--status planned]` | Create a project (optionally as a child project) |
 | `workbench attach --id <child> --parent <id> --under <item>` / `detach --id <child>` | Move a project under a parent, or detach it |
 | `workbench link --id <project>` | Attach the current repo to a project (removes an empty discovered stub) |
 | `workbench archive-empty [--dry-run] [--keep <id>]` | Archive empty, auto-discovered projects |
 | `workbench learning import <file.md\|.yaml>` / `learning export <id>` | Import (merge) or print a learning-path outline |
-| `workbench history` / `workbench undo <commit>` | Show recent changes / revert one |
+| `workbench history [--kind K[,K]] [--project P] [-n N]` / `workbench undo <commit>` | Show recent changes, filtered by commit kind or project / revert one |
+| `workbench hook-check --mark-seen` | Tell the agent hook nothing needs recording for the current changes |
+
+### Commit format in workbench-data
+
+Every commit Workbench makes to `workbench-data` reads `<kind>(<scope>): <summary>` (or `<kind>: <summary>` when it touches several entries), so the history can be filtered by kind and project:
+
+| Kind | Made by | Example |
+|---|---|---|
+| `create` | `workbench new` | `create(robot-arm): new project Robot Arm` |
+| `update` | `workbench set` / `add` (workbench-update) | `update(robot-arm/gripper): status in_progress, notes` |
+| `review` | `workbench push` (workbench-review) | `review(robot-arm): gripper working, wrist calibration left to do` |
+| `edit` | the dashboard | `edit(robot-arm/wrist): name, summary` |
+| `import` | `workbench learning import` | `import(learning/control-theory): merge into existing learning path` |
+| `attach` | `workbench attach` | `attach(gripper-firmware): under robot-arm/gripper` |
+| `detach` | `workbench detach` | `detach(gripper-firmware): from robot-arm` |
+| `link` | `workbench link` | `link(robot-arm): add repo robot-arm-firmware` |
+| `archive` | `workbench archive-empty` | `archive: 3 empty discovered project(s)` |
+| `discover` | local or GitHub discovery | `discover: register 2 repo(s) via local discovery: new-tool, scratch` |
+| `undo` | `workbench undo` | `undo(robot-arm/gripper): revert 1a2b3c4d (update(robot-arm/gripper): status done)` |
+
+`--project` matches a project and everything under it (`robot-arm`, `robot-arm/gripper`); learning paths use `learning/<id>`. Commits made before this format don't match any filter.
+
+```bash
+workbench history --kind review,edit --project robot-arm -n 10   # milestone reviews and dashboard edits
+```
 
 ## Architecture on One Page
 
@@ -63,9 +92,9 @@ Then open **http://127.0.0.1:8420** (set `WORKBENCH_PORT` to use another port). 
  Laptop                                   GitHub                    Home server
 ┌──────────────────────────┐        ┌──────────────────┐      ┌───────────────────────────┐
 │ project repos (any)      │        │ workbench-data   │      │ workbench server (Python) │
-│  agent session ends      │        │ (private)        │◀─────│  poll every 10 min        │
+│  agent turn ends         │        │ (private)        │◀─────│  poll every 10 min        │
 │   → Stop hook            │ push   │  projects/       │ fetch│  validate → snapshot swap │
-│   → skill                │───────▶│  learning/       │      │  GitHub discovery (daily) │
+│   → skills               │───────▶│  learning/       │      │  GitHub discovery (daily) │
 │   → `workbench push`     │        └──────────────────┘◀─────│  web status edits (push)  │
 │ launchd: local discovery │──push──────────▲                 │  serves UI + JSON API     │
 └──────────────────────────┘                                  └─────────────▲─────────────┘
@@ -94,7 +123,7 @@ src/workbench/      CLI, models (single source of truth for the schema), validat
 src/workbench/server/   FastAPI app, background sync, web write path
 web/                React + TypeScript UI (React Flow map)
 schema/             JSON Schemas generated from the models (`make schema`)
-agent/              Claude skill, Gemini instructions, chat prompts
+agent/              Claude skills, Gemini instructions and commands, chat prompts
 tests/              pytest suite, including Playwright UI tests
 demo/               Demo environment runner
 ```

@@ -1,10 +1,45 @@
 <!-- WORKBENCH:START -->
 ## Workbench Project Tracking
 
-The project's Workbench entry (`project.yaml`) is its long-term memory on the dashboard. When finishing
-meaningful work on a project, creating a new project, or prompted by the Workbench hook, turn this
-conversation into an update: what exists now, what is half-done, and what is left to do. The "left to
-do" part is the point of the dashboard; never skip it.
+The project's Workbench entry (`project.yaml`) is its long-term memory on the dashboard. There are two
+modes. The Workbench AfterAgent hook asks for a **quick update** when files changed since the last
+update, and for a **full review** when a new commit landed; otherwise it asks for nothing.
+
+### Quick update (after each message)
+
+Record only what this message changed, for the one item it worked on. Do not read or rewrite the whole
+entry. Use one or two commands; each validates, privacy-scans, commits and pushes on its own.
+
+1. Find the item. The hook reminder usually names the current focus (`project` or `project/item`). If
+   not, or this message worked on something else:
+   ```bash
+   workbench focus                                 # current focus for this repo, if any
+   workbench show --id <project> --brief           # one line per item: id, status, name
+   workbench show --id <project> --item <item-id>  # just that item and its parts
+   ```
+   Inside a project's repo `--id` can be left out. Use the ids exactly as printed.
+2. Record what changed with the smallest command that says it:
+   ```bash
+   workbench set <project> <item-id> --status done|in_progress|not_started|parked
+   workbench set <project> <item-id> --notes "<current state and next step>"   # replaces the notes
+   workbench add <project> --under <item-id> --name "<Name>" --status not_started --summary "<why>"
+   ```
+   `set` also takes `--name` and `--summary`; `add` also takes `--id` and `--notes`. Leave out
+   `--under` on `add` only to create a new phase (or topic). Each command sets the repo's focus.
+3. Or, if this message changed nothing worth recording (refactor, formatting, discussion that settled
+   nothing), run `workbench hook-check --mark-seen` and reply "Workbench: no update needed".
+
+Rules: `done` only when built and working (tests pass or the user saw it work); `in_progress` when
+partly built; `not_started` for planned work; `parked` when the user put it on hold. New items only for
+work the user agreed to or problems actually found, not your own ideas. Never rename or remove items
+here; restructuring belongs in a full review. Never include secrets, API keys, local paths, emails,
+private IPs, pasted logs or error output, or personal information. Commits are filed as
+`update(<project>/<item>): ...` automatically. Reply with the one line each command printed.
+
+### Full review (after a commit, at session end, or on request)
+
+Reconcile everything this session built, finished, and left to do. The "left to do" part is the point
+of the dashboard; never skip it. Also use this when creating a new project.
 
 Sources, in order of trust: (1) this conversation — what was built, fixed, decided, deferred, still
 failing, and what the user said comes next; (2) the current entry from `workbench show` — keep it unless
@@ -51,7 +86,8 @@ the current repo to belong to that project, run `workbench link --id <project-id
      only inside its parent. Keep `parent`/`under`. Do not edit `updated` or `origin`.
    - Learning paths may list `related_projects: [<project-id>]` (a reference only; no status flows).
    - Never include secrets, local paths, emails, private IPs, pasted logs, or personal information.
-5. Run `workbench push <worktree> -m "<one-line summary>"`. If validation fails, fix the file and push
+5. Run `workbench push <worktree> -m "<one-line summary>"`; the CLI files the commit as
+   `review(<project>): <summary>`, so write only the summary. If validation fails, fix the file and push
    again. If it reports removed ids or a large deletion, restore the missing items. Pass
    `--allow-removals` only if the user explicitly asked to remove something.
 6. Report the one-line result, then list the `not_started` items you recorded so the user can correct

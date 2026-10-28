@@ -33,6 +33,7 @@ tests/
 # --- Web UI ---
 web/node_modules/
 web/dist/
+web/src/core/__tests__/
 web/*.tsbuildinfo
 
 # Playwright output

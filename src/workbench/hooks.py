@@ -1,7 +1,25 @@
-"""Agent hook logic for Claude Code Stop hook and Gemini CLI AfterAgent hook (§9.3)."""
+"""Agent hook logic for Claude Code Stop hook and Gemini CLI AfterAgent hook (§9.3).
+
+State lives in ~/.workbench/state.json:
+
+    repos[<root commit>]    = {last_seen_commit, last_seen_fingerprint, focus, updated_at}
+    sessions[<session id>] = {prompted_at, prompted_head, prompted_fingerprint, root_commit}
+
+Decision when an agent finishes a message (first match wins):
+
+    stop_hook_active / not a git repo / no commits / any error   -> allow (fail open)
+    HEAD != last_seen_commit                                     -> block: workbench-review
+    no last_seen_fingerprint stored (pre-fingerprint state.json) -> record it, allow
+    fingerprint != last_seen_fingerprint                         -> block: workbench-update
+    otherwise                                                    -> allow
+
+A session is never blocked twice in a row for the same fingerprint: an agent that ignores
+the prompt is asked again only once the working state changes again.
+"""
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import time
@@ -13,15 +31,29 @@ from workbench.gitops import (
     get_head_commit,
     get_repo_toplevel,
     get_root_commit,
-    get_uncommitted_changed_lines,
+    git_output_bytes,
     is_git_repo,
 )
 
-HOOK_REASON = (
-    "Before finishing, run the workbench skill: record what this conversation built, "
-    "finished, and left to do in the project's Workbench metadata, if anything changed."
+REVIEW_REASON = (
+    "Before finishing, run the workbench-review skill: a new commit landed, "
+    "so reconcile this project's Workbench entry{focus}."
+)
+UPDATE_REASON = (
+    "Before finishing, run the workbench-update skill: record what this message changed "
+    "in Workbench{focus}, or run `workbench hook-check --mark-seen` if nothing worth "
+    "recording changed."
 )
 SESSION_EXPIRY_SECONDS = 7 * 24 * 3600
+
+
+# ---------------------------------------------------------------------------
+# state.json
+# ---------------------------------------------------------------------------
+
+
+def _state_path(home_dir: Path | None, env: dict[str, str] | None) -> Path:
+    return get_workbench_dir(home_dir=home_dir, env=env) / "state.json"
 
 
 def _load_state(state_path: Path) -> dict[str, Any]:
@@ -31,8 +63,10 @@ def _load_state(state_path: Path) -> dict[str, Any]:
         data = json.loads(state_path.read_text(encoding="utf-8"))
         if not isinstance(data, dict):
             return {"sessions": {}, "repos": {}}
-        data.setdefault("sessions", {})
-        data.setdefault("repos", {})
+        if not isinstance(data.get("sessions"), dict):
+            data["sessions"] = {}
+        if not isinstance(data.get("repos"), dict):
+            data["repos"] = {}
         return data
     except Exception:
         return {"sessions": {}, "repos": {}}
@@ -51,9 +85,72 @@ def _save_state(state_path: Path, state: dict[str, Any], now: float | None = Non
         del sessions[sid]
 
     state_path.parent.mkdir(parents=True, exist_ok=True)
-    tmp_path = state_path.with_suffix(".tmp")
+    # Unique temp name so a hook and a CLI command writing at once never share a temp file
+    tmp_path = state_path.with_name(f"{state_path.name}.{os.getpid()}.tmp")
     tmp_path.write_text(json.dumps(state, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     tmp_path.replace(state_path)
+
+
+def _repo_entry(state: dict[str, Any], root_sha: str) -> dict[str, Any]:
+    entry = state["repos"].get(root_sha)
+    if not isinstance(entry, dict):
+        entry = {}
+        state["repos"][root_sha] = entry
+    return entry
+
+
+# ---------------------------------------------------------------------------
+# Repo identity and working-state fingerprint
+# ---------------------------------------------------------------------------
+
+
+def _repo_ids(cwd: Path, env: dict[str, str] | None) -> tuple[Path, str, str] | None:
+    """(top-level dir, root commit, HEAD) of the repo containing cwd, or None."""
+    if not is_git_repo(cwd, env=env):
+        return None
+    top = get_repo_toplevel(cwd, env=env) or cwd
+    root_sha = get_root_commit(top, env=env)
+    head_sha = get_head_commit(top, "HEAD", env=env)
+    if not root_sha or not head_sha:
+        return None
+    return top, root_sha, head_sha
+
+
+def compute_fingerprint(repo_top: Path, head_sha: str, env: dict[str, str] | None = None) -> str:
+    """HEAD plus a hash of the working state: status, diff against HEAD, untracked file stats.
+
+    Deterministic for an unchanged tree. `--no-optional-locks` keeps status from taking
+    index.lock, so the hook never races the agent's own git commands.
+    """
+    status = git_output_bytes(
+        ["--no-optional-locks", "status", "--porcelain=v1", "-z", "--untracked-files=all"],
+        repo_top,
+        env,
+    )
+    diff = git_output_bytes(
+        ["--no-optional-locks", "diff", "HEAD", "--no-color", "--no-ext-diff", "--binary"],
+        repo_top,
+        env,
+    )
+    h = hashlib.sha256()
+    h.update(status or b"")
+    h.update(b"\0--diff--\0")
+    h.update(diff or b"")
+    # Untracked files are not in `git diff`; their size and mtime catch later edits to them.
+    for entry in (status or b"").split(b"\0"):
+        if entry.startswith(b"?? "):
+            rel = entry[3:].decode("utf-8", errors="surrogateescape")
+            try:
+                st = (repo_top / rel).stat()
+                h.update(f"{rel}\0{st.st_size}\0{st.st_mtime_ns}\0".encode("utf-8", "surrogateescape"))
+            except OSError:
+                pass
+    return f"{head_sha}:{h.hexdigest()[:32]}"
+
+
+# ---------------------------------------------------------------------------
+# Public helpers used by the CLI
+# ---------------------------------------------------------------------------
 
 
 def mark_repo_seen(
@@ -61,44 +158,83 @@ def mark_repo_seen(
     home_dir: Path | None = None,
     env: dict[str, str] | None = None,
 ) -> bool:
-    """Record last_seen_commit = HEAD for the git repository at cwd (§9.3)."""
+    """Record HEAD and the working-state fingerprint as seen for the git repo at cwd (§9.3)."""
     try:
-        if not is_git_repo(cwd, env=env):
+        ids = _repo_ids(cwd, env)
+        if ids is None:
             return False
-        root_sha = get_root_commit(cwd, env=env)
-        head_sha = get_head_commit(cwd, "HEAD", env=env)
-        if not root_sha or not head_sha:
-            return False
-        wb_dir = get_workbench_dir(home_dir=home_dir, env=env)
-        state_path = wb_dir / "state.json"
+        top, root_sha, head_sha = ids
+        state_path = _state_path(home_dir, env)
         state = _load_state(state_path)
-        state["repos"][root_sha] = {
-            "last_seen_commit": head_sha,
-            "updated_at": time.time(),
-        }
+        entry = _repo_entry(state, root_sha)
+        entry["last_seen_commit"] = head_sha
+        entry["last_seen_fingerprint"] = compute_fingerprint(top, head_sha, env)
+        entry["updated_at"] = time.time()
         _save_state(state_path, state)
         return True
     except Exception:
         return False
 
 
-def _block_and_record(
-    state: dict[str, Any],
-    state_path: Path,
-    session_id: str,
-    root_sha: str,
-    head_sha: str,
-    ts: float,
-) -> str:
-    """Record that this session was prompted at head_sha and return the blocking hook output."""
-    if session_id:
-        state["sessions"][session_id] = {
-            "prompted_at": ts,
-            "prompted_head": head_sha,
-            "root_commit": root_sha,
-        }
-        _save_state(state_path, state, now=ts)
-    return json.dumps({"decision": "block", "reason": HOOK_REASON})
+def get_repo_focus(
+    cwd: Path, home_dir: Path | None = None, env: dict[str, str] | None = None
+) -> tuple[bool, str | None]:
+    """(cwd is a git repo with commits, focus "project[/item]" or None)."""
+    ids = _repo_ids(cwd, env)
+    if ids is None:
+        return False, None
+    entry = _load_state(_state_path(home_dir, env))["repos"].get(ids[1])
+    focus = entry.get("focus") if isinstance(entry, dict) else None
+    return True, focus if isinstance(focus, str) and focus else None
+
+
+def set_repo_focus(
+    cwd: Path,
+    focus: str | None,
+    home_dir: Path | None = None,
+    env: dict[str, str] | None = None,
+) -> bool:
+    """Set (or clear, with None) the focus for the git repo at cwd; False outside a repo."""
+    ids = _repo_ids(cwd, env)
+    if ids is None:
+        return False
+    state_path = _state_path(home_dir, env)
+    state = _load_state(state_path)
+    entry = _repo_entry(state, ids[1])
+    if focus:
+        entry["focus"] = focus
+    else:
+        entry.pop("focus", None)
+    _save_state(state_path, state)
+    return True
+
+
+# ---------------------------------------------------------------------------
+# Hook decision
+# ---------------------------------------------------------------------------
+
+
+def _focus_hint(entry: dict[str, Any]) -> str:
+    focus = entry.get("focus")
+    return f" (focus: {focus})" if isinstance(focus, str) and focus else ""
+
+
+def _already_prompted(
+    sess: Any, root_sha: str, head_sha: str, fingerprint: str, ts: float, reviewing: bool
+) -> bool:
+    """This session was last blocked for exactly this state (so do not loop on it)."""
+    if not isinstance(sess, dict):
+        return False
+    if (ts - float(sess.get("prompted_at", 0))) > SESSION_EXPIRY_SECONDS:
+        return False
+    if sess.get("root_commit") not in (None, root_sha):
+        return False
+    prompted_fp = sess.get("prompted_fingerprint")
+    if prompted_fp is None:
+        # Entry written before fingerprints existed: it could only have been a review prompt
+        # at the HEAD it recorded, so it covers a review at that HEAD and nothing else.
+        return reviewing and sess.get("prompted_head") == head_sha
+    return prompted_fp == fingerprint
 
 
 def evaluate_hook_input(
@@ -117,54 +253,53 @@ def evaluate_hook_input(
         payload = json.loads(stdin_text)
         if not isinstance(payload, dict):
             return None
-
-        # 1. Allow if stop_hook_active is true
         if payload.get("stop_hook_active") is True:
             return None
 
         session_id = str(payload.get("session_id") or "").strip()
-        cwd_str = str(payload.get("cwd") or os.getcwd()).strip()
-        cwd = Path(cwd_str)
+        cwd = Path(str(payload.get("cwd") or os.getcwd()).strip())
 
-        # 2. Allow if cwd is not inside a git repo
-        if not is_git_repo(cwd, env=env):
+        ids = _repo_ids(cwd, env)
+        if ids is None:
+            # Outside a git repo, or a repo with no commits yet
             return None
+        repo_top, root_sha, head_sha = ids
 
-        repo_top = get_repo_toplevel(cwd, env=env) or cwd
-        root_sha = get_root_commit(repo_top, env=env)
-        head_sha = get_head_commit(repo_top, "HEAD", env=env)
-        if not root_sha or not head_sha:
-            # Ignore repos with no commits
-            return None
-
-        wb_dir = get_workbench_dir(home_dir=home_dir, env=env)
-        state_path = wb_dir / "state.json"
+        state_path = _state_path(home_dir, env)
         ts = now if now is not None else time.time()
         state = _load_state(state_path)
+        raw_entry = state["repos"].get(root_sha)
+        entry: dict[str, Any] = raw_entry if isinstance(raw_entry, dict) else {}
+        fingerprint = compute_fingerprint(repo_top, head_sha, env)
 
-        repo_entry = state["repos"].get(root_sha, {})
-        last_seen = repo_entry.get("last_seen_commit") if isinstance(repo_entry, dict) else None
-        has_new_commits = last_seen != head_sha
+        reviewing = entry.get("last_seen_commit") != head_sha
+        if reviewing:
+            reason = REVIEW_REASON.format(focus=_focus_hint(entry))
+        else:
+            seen_fp = entry.get("last_seen_fingerprint")
+            if seen_fp is None:
+                # Upgrade path: state.json from before fingerprints. HEAD was already seen, so
+                # take the current working state as the baseline instead of prompting right
+                # after the upgrade; later edits are then compared against it.
+                _repo_entry(state, root_sha)["last_seen_fingerprint"] = fingerprint
+                _save_state(state_path, state, now=ts)
+                return None
+            if seen_fp == fingerprint:
+                return None
+            reason = UPDATE_REASON.format(focus=_focus_hint(entry))
 
-        # 3. A session already prompted (within 7 days) is re-prompted only when HEAD moved past
-        #    both the last push/mark-seen and the HEAD it was last prompted at, so later work in a
-        #    long session is captured without nagging on every stop.
         if session_id:
-            sess_entry = state["sessions"].get(session_id)
-            if isinstance(sess_entry, dict):
-                prompted_at = float(sess_entry.get("prompted_at", 0))
-                if (ts - prompted_at) <= SESSION_EXPIRY_SECONDS:
-                    if not has_new_commits or sess_entry.get("prompted_head") == head_sha:
-                        return None
-                    return _block_and_record(state, state_path, session_id, root_sha, head_sha, ts)
-
-        # 4. Compare repo HEAD with last_seen_commit in state.json, or >50 changed lines uncommitted
-        changed_lines = 0 if has_new_commits else get_uncommitted_changed_lines(repo_top, env=env)
-
-        if has_new_commits or changed_lines > 50:
-            return _block_and_record(state, state_path, session_id, root_sha, head_sha, ts)
-
-        return None
+            sess = state["sessions"].get(session_id)
+            if _already_prompted(sess, root_sha, head_sha, fingerprint, ts, reviewing):
+                return None
+            state["sessions"][session_id] = {
+                "prompted_at": ts,
+                "prompted_head": head_sha,
+                "prompted_fingerprint": fingerprint,
+                "root_commit": root_sha,
+            }
+            _save_state(state_path, state, now=ts)
+        return json.dumps({"decision": "block", "reason": reason})
     except Exception:
         # Never block when anything fails (§9.3)
         return None

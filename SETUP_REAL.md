@@ -105,7 +105,7 @@ docker compose logs -f workbench
 6. Verify from your laptop over Tailscale:
    - `http://100.101.102.103:8420/api/status` shows a `last_good_commit` and `last_error: null`.
    - `http://100.101.102.103:8420` shows your projects and learning paths.
-   - Change one status in the dashboard and confirm a "... via dashboard" commit appears in `workbench-data` on GitHub (this proves the deploy key can push), then change it back.
+   - Change one status in the dashboard and confirm an `edit(<project-id>): ...` commit appears in `workbench-data` on GitHub (this proves the deploy key can push), then change it back.
 
 7. To update the server later:
 
@@ -158,9 +158,10 @@ Because every project and learning path appears on the Home screen grouped by st
 Every metadata update is a plain commit on `main` in `workbench-data`. To inspect recent changes and revert a bad commit:
 
 ```bash
-# View recent commits across the data repo (or pass a project/path ID to filter)
+# View recent commits across the data repo, or filter by project/path ID or commit kind
 workbench history
-workbench history <project-id>
+workbench history --project <project-id>
+workbench history --kind review,edit -n 10   # milestone reviews and dashboard edits only
 
 # Revert a specific commit SHA and push the revert to origin/main
 workbench undo <commit-sha>

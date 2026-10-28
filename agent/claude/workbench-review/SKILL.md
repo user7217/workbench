@@ -1,9 +1,13 @@
 ---
-name: workbench
-description: Record what this session built, finished, and left to do in the project's Workbench dashboard entry. Use when finishing meaningful work on a project, creating a new project, or responding to a Workbench Stop hook reminder.
+name: workbench-review
+description: Full review of a project's Workbench dashboard entry - reconcile everything this session built, finished, and left to do. Use when a Workbench hook reminder asks for a review (after a commit), at the end of a session, when creating a new project, or when the user runs /workbench-review. For a small change after one message, use workbench-update instead.
 ---
 
-# Workbench: record this session on the dashboard
+# Workbench review: reconcile the whole entry
+
+This is the full, milestone update (after a commit, at the end of a session, or on request). For the
+small per-message update — one item's status, a new problem found — use the **workbench-update**
+skill instead; it is much cheaper.
 
 The project's dashboard entry (`project.yaml`) is its long-term memory: each session adds what it
 learned. You are the only one who knows what this session did, so your job is to turn this
@@ -106,7 +110,8 @@ The "left to do" part is the point of the dashboard; never skip it.
      summary: Atlas nodes for a second project, to test the pipeline beyond one codebase.
    ```
 
-5. **Push**: run `workbench push <worktree> -m "<one-line summary>"`.
+5. **Push**: run `workbench push <worktree> -m "<one-line summary>"`. The CLI files the commit as
+   `review(<project>): <summary>`, so write only the summary.
    - If validation or privacy checks fail, fix the file in the worktree and push again.
    - If push reports removed ids or a large deletion, you rewrote instead of merging: restore the
      missing items and push again. Pass `--allow-removals` only if the user explicitly asked to

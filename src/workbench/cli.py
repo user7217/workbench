@@ -9,11 +9,12 @@ import secrets
 import shutil
 import sys
 from pathlib import Path
-from typing import Optional, get_args
+from typing import Any, Callable, Optional, get_args
 
 import typer
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
+from workbench import commitmsg, edits
 from workbench.config import (
     WorkbenchLocalConfig,
     get_workbench_dir,
@@ -39,7 +40,7 @@ from workbench.gitops import (
     run_git,
     show_file_at_ref,
 )
-from workbench.hooks import evaluate_hook_input, mark_repo_seen
+from workbench.hooks import evaluate_hook_input, get_repo_focus, mark_repo_seen, set_repo_focus
 from workbench.identity import (
     AmbiguousRepoIdentityError,
     find_project_for_repo,
@@ -106,6 +107,12 @@ def _load_all_projects(data_dir: Path) -> list:
 @app.command("show")
 def cmd_show(
     project_id: Optional[str] = typer.Option(None, "--id", help="Explicit project ID to show"),
+    item_id: Optional[str] = typer.Option(
+        None, "--item", help="Show only this phase/topic/component (any depth) and its parts"
+    ),
+    brief: bool = typer.Option(
+        False, "--brief", help="Compact outline: one line per item (id, status, name)"
+    ),
 ) -> None:
     """In a project repo: print that project's YAML, or 'unregistered' plus instructions."""
     data_dir = _get_data_repo_dir()
@@ -118,13 +125,13 @@ def cmd_show(
 
     if project_id:
         pfile = data_dir / "projects" / project_id / "project.yaml"
-        if pfile.exists():
-            typer.echo(pfile.read_text(encoding="utf-8"), nl=False)
+        if not pfile.exists():
+            typer.echo(
+                f"unregistered: project '{project_id}' is not registered in Workbench.\n"
+                "Run 'workbench begin' inside the project repository to register and edit it."
+            )
             return
-        typer.echo(
-            f"unregistered: project '{project_id}' is not registered in Workbench.\n"
-            "Run 'workbench begin' inside the project repository to register and edit it."
-        )
+        _print_project(data_dir, pfile, item_id, brief)
         return
 
     cwd = Path.cwd()
@@ -155,7 +162,64 @@ def cmd_show(
         return
 
     pfile = data_dir / "projects" / matched.id / "project.yaml"
-    typer.echo(pfile.read_text(encoding="utf-8"), nl=False)
+    _print_project(data_dir, pfile, item_id, brief)
+
+
+def _print_project(data_dir: Path, pfile: Path, item_id: str | None, brief: bool) -> None:
+    """Print the whole file, one item's subtree (--item), or an outline (--brief)."""
+    if item_id is None and not brief:
+        typer.echo(pfile.read_text(encoding="utf-8"), nl=False)
+        return
+    doc = load_yaml_roundtrip(pfile)
+    project_id = str(doc.get("id") or pfile.parent.name)
+    node = doc
+    if item_id is not None:
+        loc = edits.locate_project_item(doc, item_id)
+        if loc is None:
+            typer.echo(f"Error: item '{item_id}' not found in project '{project_id}'.", err=True)
+            raise typer.Exit(code=1)
+        node = loc.node
+    if not brief:
+        typer.echo(dump_yaml_roundtrip(node), nl=False)
+        return
+    child_projects = _child_projects_by_under(data_dir, project_id)
+    lines: list[str] = []
+    if node is doc:
+        lines.append(_outline_line(doc, 0, prefix="[project] "))
+        for group in edits.children(doc, edits.GROUP_KEYS):
+            _outline_item(group, 1, child_projects, lines)
+    else:
+        _outline_item(node, 0, child_projects, lines)
+    typer.echo("\n".join(lines))
+
+
+def _outline_line(node: Any, depth: int, prefix: str = "") -> str:
+    status = node.get("status") or "not_started"
+    return f"{'  ' * depth}{prefix}{node.get('id')}  {status}  {node.get('name') or ''}"
+
+
+def _outline_item(
+    node: Any, depth: int, child_projects: dict[str, list[dict]], lines: list[str]
+) -> None:
+    """Append node and everything nested under it (child projects last) to lines."""
+    lines.append(_outline_line(node, depth))
+    for child in edits.children(node, edits.GROUP_CHILD_KEYS):
+        _outline_item(child, depth + 1, child_projects, lines)
+    for proj in child_projects.get(str(node.get("id")), []):
+        lines.append(_outline_line(proj, depth + 1, prefix="[project] "))
+
+
+def _child_projects_by_under(data_dir: Path, parent_id: str) -> dict[str, list[dict]]:
+    """Projects whose parent is parent_id, grouped by the item they sit under (sorted by id)."""
+    out: dict[str, list[dict]] = {}
+    for pfile in sorted((data_dir / "projects").glob("*/project.yaml")):
+        try:
+            plain = to_plain_python(load_yaml_roundtrip(pfile))
+        except Exception:
+            continue
+        if isinstance(plain, dict) and plain.get("parent") == parent_id and plain.get("under"):
+            out.setdefault(str(plain["under"]), []).append(plain)
+    return out
 
 
 @app.command("begin")
@@ -332,14 +396,40 @@ def cmd_push(
         False, "--allow-removals", help="Allow removing existing IDs or >30% content deletion"
     ),
 ) -> None:
-    """Validate, privacy-check, commit, rebase, and push changes from a worktree (§8)."""
-    _push_worktree(worktree, message, allow_removals, mark_seen=True)
+    """Validate, privacy-check, commit, rebase, and push changes from a worktree (§8).
+
+    The commit is filed as `review(<project>): <message>` (scope omitted when several entries
+    changed); a message that already uses a standard kind, e.g. `update(x/y): ...`, is kept.
+    """
+    _push_worktree(
+        worktree,
+        lambda files: commitmsg.review_message(message, commitmsg.scope_for_paths(files)),
+        allow_removals,
+        mark_seen=True,
+    )
+
+
+PushMessage = str | Callable[[list[str]], str]
 
 
 def _push_worktree(
-    worktree: Path, message: str, allow_removals: bool, mark_seen: bool
-) -> None:
-    """Shared push pipeline; mark_seen records the cwd repo as seen for the Stop hook."""
+    worktree: Path,
+    message: PushMessage,
+    allow_removals: bool,
+    mark_seen: bool,
+    *,
+    llm_review: bool = True,
+    announce: bool = True,
+    fetched: bool = False,
+) -> str | None:
+    """Shared push pipeline; returns the pushed commit sha, or None when nothing changed.
+
+    `message` may be a callable that gets the changed paths. mark_seen records the cwd repo
+    as seen for the Stop hook. llm_review=False skips only the LLM privacy reviewer (the
+    deterministic privacy scan always runs). announce=False suppresses the result lines so
+    the caller prints its own. fetched=True skips the first fetch before rebasing when the
+    caller just fetched (a push race still re-fetches on retry).
+    """
     data_dir = _get_data_repo_dir()
     cfg = load_local_config()
     wt_dir = _resolve_worktree_root(worktree)
@@ -366,8 +456,9 @@ def _push_worktree(
         remove_worktree(data_dir, wt_dir)
         if mark_seen:
             mark_repo_seen(Path.cwd())
-        typer.echo("Workbench: no changes to push (worktree removed).")
-        return
+        if announce:
+            typer.echo("Workbench: no changes to push (worktree removed).")
+        return None
 
     # 1. Check allowed paths (§4.2, §6.1)
     path_res = validate_changed_paths(changed_files)
@@ -514,7 +605,7 @@ def _push_worktree(
 
     # 3. LLM privacy reviewer on free-text changes (§7.2)
     full_ft_diff = "\n".join(combined_free_text_diffs)
-    if full_ft_diff.strip():
+    if llm_review and full_ft_diff.strip():
         rev_res = run_llm_privacy_reviewer(
             diff_text=full_ft_diff,
             mode=cfg.privacy_review,
@@ -528,6 +619,8 @@ def _push_worktree(
             raise typer.Exit(code=1)
 
     # 4. Commit in worktree
+    if callable(message):
+        message = message(changed_files)
     try:
         commit_sha = commit_all(wt_dir, message)
     except GitError as exc:
@@ -537,7 +630,8 @@ def _push_worktree(
     # 5. Fetch + rebase onto origin/main + re-validate + push (retry push race up to 3 times)
     for attempt in range(3):
         try:
-            fetch_origin(data_dir, branch=cfg.branch)
+            if attempt > 0 or not fetched:
+                fetch_origin(data_dir, branch=cfg.branch)
         except GitError as exc:
             typer.echo(f"Git fetch error: {exc}", err=True)
             raise typer.Exit(code=2)
@@ -575,7 +669,9 @@ def _push_worktree(
         pass
     if mark_seen:
         mark_repo_seen(Path.cwd())
-    typer.echo(f"Pushed {commit_sha[:8]} to {cfg.branch}: {message}")
+    if announce:
+        typer.echo(f"Pushed {commit_sha[:8]} to {cfg.branch}: {message}")
+    return commit_sha
 
 
 @app.command("archive-empty")
@@ -634,7 +730,7 @@ def cmd_archive_empty(
 
     _push_worktree(
         wt_dir,
-        f"Archive {len(to_archive)} empty project(s)",
+        commitmsg.build_message("archive", f"{len(to_archive)} empty discovered project(s)"),
         allow_removals=False,
         mark_seen=False,
     )
@@ -730,7 +826,12 @@ def cmd_link(
 
     _push_worktree(
         wt_dir,
-        f"Link {repo_name} to {project_id}",
+        commitmsg.build_message(
+            "link",
+            f"add repo {repo_name[:80]}"
+            + (f", remove empty {', '.join(stubs_to_remove)}" if stubs_to_remove else ""),
+            project_id,
+        ),
         allow_removals=bool(stubs_to_remove),
         mark_seen=False,
     )
@@ -816,7 +917,14 @@ def cmd_new(
     _write_new_entry_baseline(wt_dir, target)
 
     # Same pipeline as push/attach/link: privacy review, rebase, repo-wide validation, retries.
-    _push_worktree(wt_dir, f"Create {kind} {item_id}", allow_removals=False, mark_seen=False)
+    scope = f"learning/{item_id}" if learning else item_id
+    summary = f"new {kind} {name[:80]}" + (f" under {parent}/{under}" if parent else "")
+    _push_worktree(
+        wt_dir,
+        commitmsg.build_message("create", summary, scope),
+        allow_removals=False,
+        mark_seen=False,
+    )
     where = f" under '{parent}/{under}'" if parent else ""
     sha = get_head_commit(data_dir, f"origin/{cfg.branch}") or ""
     typer.echo(f"Created {kind} '{item_id}'{where} ({sha[:8]})")
@@ -992,7 +1100,10 @@ def cmd_attach(
         doc.insert(pos + 1, "under", under)
     dump_yaml_roundtrip(doc, target)
     _push_worktree(
-        wt_dir, f"Attach {child_id} to {parent}/{under}", allow_removals=False, mark_seen=False
+        wt_dir,
+        commitmsg.build_message("attach", f"under {parent}/{under}", child_id),
+        allow_removals=False,
+        mark_seen=False,
     )
 
 
@@ -1012,8 +1123,192 @@ def cmd_detach(
     doc.pop("under", None)
     dump_yaml_roundtrip(doc, target)
     _push_worktree(
-        wt_dir, f"Detach {child_id} from {old_parent}", allow_removals=False, mark_seen=False
+        wt_dir,
+        commitmsg.build_message("detach", f"from {old_parent}", child_id),
+        allow_removals=False,
+        mark_seen=False,
     )
+
+
+def _fail(message: str, code: int = 1) -> None:
+    typer.echo(f"Error: {message}", err=True)
+    raise typer.Exit(code=code)
+
+
+def _check_input(check: Callable[[], Any]) -> Any:
+    """Run an edits.require_* check before touching git; an EditError becomes Exit(1)."""
+    try:
+        return check()
+    except edits.EditError as exc:
+        _fail(str(exc))
+
+
+def _quick_edit(
+    prefix: str, project_id: str, mutate: Callable[[Any], Any], message: Callable[[Any], str]
+) -> tuple[Any, str | None]:
+    """Edit one project.yaml in a fresh worktree and push it on the quick path.
+
+    Quick path = the full push pipeline (validation, deterministic privacy scan, semantic
+    check without removals, rebase/retry) minus the LLM privacy reviewer, reusing the fetch
+    made when the worktree was opened. Returns (mutate's result, pushed sha or None when
+    nothing changed). The worktree is always removed; the cwd repo is marked seen.
+    """
+    data_dir, wt_dir, target = _open_project_worktree(prefix, project_id)
+    try:
+        doc = load_yaml_roundtrip(target)
+        try:
+            result = mutate(doc)
+        except edits.EditError as exc:
+            hint = (
+                f" (list ids with `workbench show --id {project_id} --brief`)"
+                if exc.status_code == 404
+                else ""
+            )
+            _fail(f"{exc}{hint}")
+        dump_yaml_roundtrip(doc, target)
+        sha = _push_worktree(
+            wt_dir,
+            message(result),
+            allow_removals=False,
+            mark_seen=True,
+            llm_review=False,
+            announce=False,
+            fetched=True,
+        )
+    finally:
+        if wt_dir.exists():
+            remove_worktree(data_dir, wt_dir)
+    return result, sha
+
+
+@app.command("set")
+def cmd_set(
+    project_id: str = typer.Argument(..., help="Project id"),
+    item_id: str = typer.Argument(..., help="Phase/topic/component id (any depth)"),
+    status: Optional[str] = typer.Option(
+        None, "--status", help="not_started, in_progress, done or parked"
+    ),
+    name: Optional[str] = typer.Option(None, "--name", help="New display name"),
+    summary: Optional[str] = typer.Option(None, "--summary", help="Summary (empty clears it)"),
+    notes: Optional[str] = typer.Option(None, "--notes", help="Notes, replaced whole (empty clears them)"),
+) -> None:
+    """Quick update of one phase/component: status and/or text fields, committed and pushed."""
+    fields = {
+        k: v for k, v in (("name", name), ("summary", summary), ("notes", notes)) if v is not None
+    }
+    if status is None and not fields:
+        _fail("give at least one of --status, --name, --summary, --notes.")
+    _check_input(lambda: edits.require_slug(project_id, "project id"))
+    _check_input(lambda: edits.require_slug(item_id, "item id"))
+    if status is not None:
+        _check_input(lambda: edits.require_status(status, edits.PHASE_STATUSES))
+    if name is not None and not name.strip():
+        _fail("--name cannot be empty.")
+    what = commitmsg.describe_item_change(status=status, fields=fields)
+
+    def mutate(doc: Any) -> None:
+        if status is not None:
+            edits.set_project_item_status(doc, project_id, item_id, status)
+        if fields:
+            edits.set_project_item_fields(doc, project_id, item_id, fields)
+
+    _, sha = _quick_edit(
+        "set",
+        project_id,
+        mutate,
+        lambda _r: commitmsg.build_message("update", what, f"{project_id}/{item_id}"),
+    )
+    set_repo_focus(Path.cwd(), f"{project_id}/{item_id}")
+    if sha is None:
+        typer.echo(f"Unchanged {project_id}/{item_id}: {what} (already recorded)")
+    else:
+        typer.echo(f"Updated {project_id}/{item_id}: {what} ({sha[:8]})")
+
+
+@app.command("add")
+def cmd_add(
+    project_id: str = typer.Argument(..., help="Project id"),
+    under: Optional[str] = typer.Option(
+        None, "--under", help="Phase/topic/component to add under (omit for a new phase/topic)"
+    ),
+    name: str = typer.Option(..., "--name", help="Display name of the new item"),
+    new_id: Optional[str] = typer.Option(None, "--id", help="Explicit id (default: slug of name)"),
+    status: str = typer.Option("not_started", "--status", help="not_started, in_progress, done or parked"),
+    summary: str = typer.Option("", "--summary", help="What it is and why it is needed"),
+    notes: str = typer.Option("", "--notes", help="Current state / next step"),
+) -> None:
+    """Quick add of a component under an item, or of a new phase/topic; prints the new id."""
+    _check_input(lambda: edits.require_slug(project_id, "project id"))
+    if under is not None:
+        _check_input(lambda: edits.require_slug(under, "--under id"))
+    if new_id is not None:
+        _check_input(lambda: edits.require_slug(new_id, "--id"))
+    _check_input(lambda: edits.require_status(status, edits.PHASE_STATUSES))
+    if not name.strip():
+        _fail("--name cannot be empty.")
+
+    def mutate(doc: Any) -> tuple[str, str]:
+        return edits.add_project_item(
+            doc,
+            project_id,
+            parent_id=under,
+            name=name,
+            item_id=new_id,
+            status=status,
+            summary=summary,
+            notes=notes,
+        )
+
+    def message(result: tuple[str, str]) -> str:
+        added, label = result
+        if under is None:
+            return commitmsg.build_message("update", f"add {label} {added}", project_id)
+        return commitmsg.build_message("update", f"add {added}", f"{project_id}/{under}")
+
+    (added, label), sha = _quick_edit("add", project_id, mutate, message)
+    # The focus stays on the item being worked on: the parent, or the new phase/topic itself.
+    set_repo_focus(Path.cwd(), f"{project_id}/{under or added}")
+    where = f"under {under}" if under else f"as a new {label}"
+    typer.echo(f"Added {project_id}/{added} {where} ({(sha or '')[:8]})")
+
+
+@app.command("focus")
+def cmd_focus(
+    set_to: Optional[str] = typer.Option(
+        None, "--set", help="<project> or <project>/<item> to focus on in this repo"
+    ),
+    clear: bool = typer.Option(False, "--clear", help="Clear this repo's focus"),
+) -> None:
+    """Show, set or clear the item this git repo is currently working on (used in hook reminders)."""
+    if set_to is not None and clear:
+        _fail("use either --set or --clear, not both.")
+    cwd = Path.cwd()
+    if set_to is not None:
+        parts = set_to.strip("/").split("/")
+        if len(parts) > 2:
+            _fail("--set takes <project> or <project>/<item>.")
+        _check_input(lambda: edits.require_slug(parts[0], "project id"))
+        if len(parts) == 2:
+            _check_input(lambda: edits.require_slug(parts[1], "item id"))
+        focus = "/".join(parts)
+        if not set_repo_focus(cwd, focus):
+            typer.echo("Not in a git repository with commits; focus is per repo, nothing set.")
+            return
+        typer.echo(f"Focus set to {focus}")
+        return
+    if clear:
+        if not set_repo_focus(cwd, None):
+            typer.echo("Not in a git repository with commits; focus is per repo, nothing to clear.")
+            return
+        typer.echo("Focus cleared.")
+        return
+    in_repo, focus = get_repo_focus(cwd)
+    if not in_repo:
+        typer.echo("Not in a git repository with commits; focus is per repo.")
+    elif focus:
+        typer.echo(f"Focus: {focus}")
+    else:
+        typer.echo("No focus set for this repo.")
 
 
 @learning_app.command("import")
@@ -1063,13 +1358,20 @@ def cmd_learning_import(
             typer.echo(f"Learning path '{item_id}' already matches; nothing to import.")
             return
         typer.echo(f"Merging into existing learning path '{item_id}'.")
+        import_summary = "merge into existing learning path"
     else:
         merged = incoming
         typer.echo(f"Creating learning path '{item_id}'.")
+        import_summary = "new learning path"
 
     merged["updated"] = parse_iso_date_for_yaml(datetime.date.today().isoformat())
     dump_yaml_roundtrip(merged, target)
-    _push_worktree(wt_dir, f"Import learning path {item_id}", allow_removals=False, mark_seen=False)
+    _push_worktree(
+        wt_dir,
+        commitmsg.build_message("import", import_summary, f"learning/{item_id}"),
+        allow_removals=False,
+        mark_seen=False,
+    )
 
 
 @learning_app.command("export")
@@ -1114,17 +1416,53 @@ def cmd_discover(
 def cmd_history(
     item_id: Optional[str] = typer.Argument(None, help="Optional project or learning path ID"),
     limit: int = typer.Option(20, "-n", "--limit", help="Max commits to show"),
+    kind: Optional[str] = typer.Option(
+        None, "--kind", help=f"Only these commit kinds, comma-separated ({', '.join(commitmsg.KINDS)})"
+    ),
+    project: Optional[str] = typer.Option(
+        None,
+        "--project",
+        help="Only commits scoped to this project (or learning/<id>), including its items",
+    ),
 ) -> None:
-    """Show recent data-repo commits."""
+    """Show recent data-repo commits, optionally filtered by kind and scope."""
+    kinds: set[str] = set()
+    if kind:
+        kinds = {k.strip() for k in kind.split(",") if k.strip()}
+        unknown = sorted(kinds - set(commitmsg.KINDS))
+        if unknown:
+            typer.echo(
+                f"Error: unknown kind(s) {', '.join(unknown)} (choose from {', '.join(commitmsg.KINDS)}).",
+                err=True,
+            )
+            raise typer.Exit(code=1)
+
     data_dir = _get_data_repo_dir()
     cfg = load_local_config()
     fetch_origin(data_dir, branch=cfg.branch)
 
-    args = ["log", f"origin/{cfg.branch}", f"-n{limit}", "--oneline"]
-    if item_id:
-        args.extend(["--", f"projects/{item_id}", f"learning/{item_id}"])
-    proc = run_git(args, cwd=data_dir)
-    typer.echo(proc.stdout, nl=False)
+    paths = ["--", f"projects/{item_id}", f"learning/{item_id}"] if item_id else []
+    if not kinds and not project:
+        args = ["log", f"origin/{cfg.branch}", f"-n{limit}", "--oneline", *paths]
+        typer.echo(run_git(args, cwd=data_dir).stdout, nl=False)
+        return
+
+    # Filter on the parsed `<kind>(<scope>): ...` subject; legacy messages never match a filter.
+    proc = run_git(["log", f"origin/{cfg.branch}", "--format=%h %s", *paths], cwd=data_dir)
+    shown = 0
+    for line in proc.stdout.splitlines():
+        if shown >= limit:
+            break
+        _, _, subject = line.partition(" ")
+        parsed = commitmsg.parse_message(subject)
+        if parsed is None:
+            continue
+        if kinds and parsed.kind not in kinds:
+            continue
+        if project and not commitmsg.scope_matches(parsed.scope, project):
+            continue
+        typer.echo(line)
+        shown += 1
 
 
 @app.command("undo")
@@ -1140,9 +1478,24 @@ def cmd_undo(
     wt_dir = wb_dir / "work" / f"undo-{secrets.token_hex(4)}"
     create_worktree(data_dir, wt_dir, ref=f"origin/{cfg.branch}")
     try:
-        proc = run_git(["revert", "--no-edit", commit], cwd=wt_dir, check=False)
+        target = run_git(
+            ["log", "-1", "--format=%H%n%s", commit], cwd=wt_dir, check=False
+        )
+        if target.returncode != 0:
+            typer.echo(f"Error reverting {commit}: unknown commit.", err=True)
+            raise typer.Exit(code=2)
+        full_sha, _, subject = target.stdout.strip().partition("\n")
+        proc = run_git(["revert", "--no-commit", full_sha], cwd=wt_dir, check=False)
         if proc.returncode != 0:
             typer.echo(f"Error reverting {commit}: {proc.stderr.strip()}", err=True)
+            raise typer.Exit(code=2)
+        parsed = commitmsg.parse_message(subject)
+        message = commitmsg.build_message(
+            "undo", f"revert {full_sha[:8]} ({subject})", parsed.scope if parsed else None
+        )
+        proc = run_git(["commit", "-m", message], cwd=wt_dir, check=False)
+        if proc.returncode != 0:
+            typer.echo(f"Error reverting {commit}: {proc.stdout.strip() or proc.stderr.strip()}", err=True)
             raise typer.Exit(code=2)
 
         if not push_head_to_branch(wt_dir, branch=cfg.branch):
@@ -1154,7 +1507,7 @@ def cmd_undo(
             run_git(["reset", "--hard", f"origin/{cfg.branch}"], cwd=data_dir, check=False)
         except GitError:
             pass
-        typer.echo(f"Reverted {commit[:8]} -> pushed {new_sha[:8]}")
+        typer.echo(f"Reverted {full_sha[:8]} -> pushed {new_sha[:8]}")
     finally:
         remove_worktree(data_dir, wt_dir)
 
@@ -1246,10 +1599,12 @@ def cmd_setup(
         typer.echo(f"Cloned data repository to {data_dir}")
 
     planned_paths = [
-        target_home / ".claude" / "skills" / "workbench" / "SKILL.md",
+        target_home / ".claude" / "skills" / "workbench-update" / "SKILL.md",
+        target_home / ".claude" / "skills" / "workbench-review" / "SKILL.md",
         target_home / ".claude" / "settings.json",
         target_home / ".gemini" / "GEMINI.md",
-        target_home / ".gemini" / "commands" / "workbench.toml",
+        target_home / ".gemini" / "commands" / "workbench-update.toml",
+        target_home / ".gemini" / "commands" / "workbench-review.toml",
         target_home / ".gemini" / "settings.json",
         target_home / "Library" / "LaunchAgents" / "com.workbench.discover.plist",
     ]

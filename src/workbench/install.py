@@ -9,9 +9,23 @@ from pathlib import Path
 from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-CLAUDE_SKILL_TEMPLATE = REPO_ROOT / "agent" / "claude" / "SKILL.md"
+CLAUDE_SKILL_NAMES: tuple[str, ...] = ("workbench-update", "workbench-review")
+CLAUDE_SKILL_TEMPLATES = {
+    name: REPO_ROOT / "agent" / "claude" / name / "SKILL.md" for name in CLAUDE_SKILL_NAMES
+}
 GEMINI_MD_TEMPLATE = REPO_ROOT / "agent" / "gemini" / "GEMINI.md"
-GEMINI_CMD_TEMPLATE = REPO_ROOT / "agent" / "gemini" / "commands" / "workbench.toml"
+GEMINI_CMD_TEMPLATES = {
+    f"{name}.toml": REPO_ROOT / "agent" / "gemini" / "commands" / f"{name}.toml"
+    for name in CLAUDE_SKILL_NAMES
+}
+
+# The single skill / command shipped before the update/review split. They are removed on
+# install only when they are recognisably ours, never a user's own file of the same name.
+LEGACY_CLAUDE_SKILL_NAME = "workbench"
+LEGACY_GEMINI_CMD = "workbench.toml"
+LEGACY_GEMINI_DESCRIPTIONS: tuple[str, ...] = (
+    "Record this session's work and remaining tasks in Workbench",
+)
 
 WORKBENCH_HOOK_CMD = "workbench hook-check"
 LAUNCHD_LABEL = "com.workbench.discover"
@@ -74,21 +88,74 @@ def _merge_hook_into_settings(
     settings_path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
 
 
+def _frontmatter_name(text: str) -> str | None:
+    """The `name:` value of a SKILL.md YAML frontmatter block, if there is one."""
+    lines = text.splitlines()
+    if not lines or lines[0].strip() != "---":
+        return None
+    for line in lines[1:]:
+        if line.strip() == "---":
+            return None
+        key, sep, value = line.partition(":")
+        if sep and key.strip() == "name":
+            return value.strip().strip("'\"")
+    return None
+
+
+def _remove_legacy_claude_skill(skills_dir: Path) -> Path | None:
+    """Remove the old single `workbench` skill if its frontmatter says it is ours."""
+    legacy = skills_dir / LEGACY_CLAUDE_SKILL_NAME / "SKILL.md"
+    if not legacy.is_file():
+        return None
+    try:
+        if _frontmatter_name(legacy.read_text(encoding="utf-8")) != LEGACY_CLAUDE_SKILL_NAME:
+            return None
+    except (OSError, UnicodeDecodeError):
+        return None
+    legacy.unlink()
+    try:
+        legacy.parent.rmdir()  # only succeeds when the folder is now empty
+    except OSError:
+        pass
+    return legacy
+
+
+def _remove_legacy_gemini_command(commands_dir: Path) -> Path | None:
+    """Remove the old /workbench command if it still carries the description we shipped."""
+    legacy = commands_dir / LEGACY_GEMINI_CMD
+    if not legacy.is_file():
+        return None
+    try:
+        text = legacy.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+    shipped = {f'description = "{d}"' for d in LEGACY_GEMINI_DESCRIPTIONS}
+    if not any(line.strip() in shipped for line in text.splitlines()):
+        return None
+    legacy.unlink()
+    return legacy
+
+
 def install_claude_integration(home_dir: Path, workbench_bin: str = "workbench") -> list[Path]:
-    """Install Claude Code skill and Stop hook into <home_dir>/.claude."""
+    """Install the workbench-update and workbench-review skills and the Stop hook into <home_dir>/.claude."""
     claude_dir = home_dir / ".claude"
-    skill_dest = claude_dir / "skills" / "workbench" / "SKILL.md"
-    skill_dest.parent.mkdir(parents=True, exist_ok=True)
-    skill_dest.write_text(CLAUDE_SKILL_TEMPLATE.read_text(encoding="utf-8"), encoding="utf-8")
+    skills_dir = claude_dir / "skills"
+    installed: list[Path] = []
+    for name, template in CLAUDE_SKILL_TEMPLATES.items():
+        skill_dest = skills_dir / name / "SKILL.md"
+        skill_dest.parent.mkdir(parents=True, exist_ok=True)
+        skill_dest.write_text(template.read_text(encoding="utf-8"), encoding="utf-8")
+        installed.append(skill_dest)
+    _remove_legacy_claude_skill(skills_dir)
 
     settings_path = claude_dir / "settings.json"
     hook_cmd = f"{workbench_bin} hook-check" if workbench_bin != "workbench" else WORKBENCH_HOOK_CMD
     _merge_hook_into_settings(settings_path, event_name="Stop", hook_cmd=hook_cmd)
-    return [skill_dest, settings_path]
+    return [*installed, settings_path]
 
 
 def install_gemini_integration(home_dir: Path, workbench_bin: str = "workbench") -> list[Path]:
-    """Install Gemini CLI GEMINI.md section, /workbench command, and AfterAgent hook into <home_dir>/.gemini."""
+    """Install Gemini CLI GEMINI.md section, /workbench-update and /workbench-review commands, and AfterAgent hook."""
     gemini_dir = home_dir / ".gemini"
     gemini_dir.mkdir(parents=True, exist_ok=True)
 
@@ -108,17 +175,22 @@ def install_gemini_integration(home_dir: Path, workbench_bin: str = "workbench")
     else:
         gemini_md_path.write_text(section_text + "\n", encoding="utf-8")
 
-    # 2. Install ~/.gemini/commands/workbench.toml
-    cmd_dest = gemini_dir / "commands" / "workbench.toml"
-    cmd_dest.parent.mkdir(parents=True, exist_ok=True)
-    cmd_dest.write_text(GEMINI_CMD_TEMPLATE.read_text(encoding="utf-8"), encoding="utf-8")
+    # 2. Install ~/.gemini/commands/workbench-update.toml and workbench-review.toml
+    commands_dir = gemini_dir / "commands"
+    commands_dir.mkdir(parents=True, exist_ok=True)
+    cmd_paths: list[Path] = []
+    for filename, template in GEMINI_CMD_TEMPLATES.items():
+        cmd_dest = commands_dir / filename
+        cmd_dest.write_text(template.read_text(encoding="utf-8"), encoding="utf-8")
+        cmd_paths.append(cmd_dest)
+    _remove_legacy_gemini_command(commands_dir)
 
     # 3. Install AfterAgent hook in ~/.gemini/settings.json
     settings_path = gemini_dir / "settings.json"
     hook_cmd = f"{workbench_bin} hook-check" if workbench_bin != "workbench" else WORKBENCH_HOOK_CMD
     _merge_hook_into_settings(settings_path, event_name="AfterAgent", hook_cmd=hook_cmd)
 
-    return [gemini_md_path, cmd_dest, settings_path]
+    return [gemini_md_path, *cmd_paths, settings_path]
 
 
 def install_launchd_job(home_dir: Path, workbench_bin: str | None = None) -> Path:

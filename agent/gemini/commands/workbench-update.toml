@@ -1,0 +1,9 @@
+description = "Quick Workbench update for what this message changed"
+
+prompt = """
+Record what this message changed in the current project's Workbench entry, scoped to the one item it
+worked on, by following the "Quick update (after each message)" section of the Workbench Project
+Tracking instructions in your GEMINI.md context: find the item with `workbench focus` or
+`workbench show --brief`, then run the smallest `workbench set` or `workbench add` command, or
+`workbench hook-check --mark-seen` if nothing changed.
+"""

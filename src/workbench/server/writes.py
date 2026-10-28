@@ -9,15 +9,25 @@ pushes with up to three fetch/rebase/validate/push attempts before resyncing.
 from __future__ import annotations
 
 import datetime
-import re
 import secrets
 from pathlib import Path
-from dataclasses import dataclass
 from typing import Any, Callable, Literal, get_args
 
-from ruamel.yaml.comments import CommentedMap, CommentedSeq
-from ruamel.yaml.scalarstring import LiteralScalarString
-
+from workbench import edits
+from workbench.commitmsg import build_message, describe_item_change
+from workbench.edits import (
+    EditError,
+    child_list as _child_list,
+    collect_item_ids as _collect_item_ids,
+    field_order as _field_order,
+    iter_component_nodes as _iter_component_nodes,
+    locate_project_item as _locate_project_item,
+    require_position as _require_position,
+    check_position as _check_position,
+    require_slug as _require_slug,
+    require_status as _require_status,
+    subtree_ids as _subtree_ids,
+)
 from workbench.gitops import (
     commit_all,
     create_worktree,
@@ -27,9 +37,7 @@ from workbench.gitops import (
     remove_worktree,
     show_file_at_ref,
 )
-from workbench.identity import slugify_name
 from workbench.models import (
-    SLUG_PATTERN,
     Component,
     LearningItemStatus,
     LearningPath,
@@ -37,8 +45,6 @@ from workbench.models import (
     PhaseStatus,
     Project,
     ProjectStatus,
-    Subtopic,
-    Topic,
 )
 from workbench.semantic import check_semantic_diff
 from workbench.server.sync import ServerState
@@ -54,7 +60,6 @@ from workbench.yamlio import (
 # Kept for existing imports; the learning item status set is LearningItemStatus.
 AllowedLearningStatus = LearningItemStatus
 
-_SLUG_RE = re.compile(SLUG_PATTERN)
 _PROJECT_STATUSES: tuple[str, ...] = get_args(ProjectStatus)
 _PHASE_STATUSES: tuple[str, ...] = get_args(PhaseStatus)
 _LEARNING_ITEM_STATUSES: tuple[str, ...] = get_args(LearningItemStatus)
@@ -65,42 +70,17 @@ Mutation = Callable[[Any], None]
 RepoCheck = Callable[[Path], None]
 CommitMessage = str | Callable[[], str]
 
-# Lists that hold groups (top level) and nested items inside a project or learning file.
-_GROUP_KEYS: tuple[str, ...] = ("phases", "topics")
-_GROUP_CHILD_KEYS: tuple[str, ...] = ("components", "topics", "subtopics")
-_ITEM_LIST_KEYS: tuple[str, ...] = ("phases", "topics", "subtopics", "components")
-
-
-class WriteError(RuntimeError):
-    """A dashboard write failed; status_code is the HTTP status to report."""
-
-    def __init__(self, message: str, status_code: int = 400) -> None:
-        super().__init__(message)
-        self.status_code = status_code
-
+# A dashboard write failed; status_code is the HTTP status to report. The shared document
+# edits (workbench.edits) raise the same type, so their 400/404/422 codes pass straight through.
+WriteError = EditError
 
 # Backwards-compatible name for the original learning-only error type.
 LearningWriteError = WriteError
 
 
-# ---------------------------------------------------------------------------
-# Input checks
-# ---------------------------------------------------------------------------
-
-
-def _require_slug(value: object, label: str) -> str:
-    if not isinstance(value, str) or len(value) > 48 or not _SLUG_RE.match(value):
-        raise WriteError(f"Invalid {label}: {value!r}", status_code=400)
-    return value
-
-
-def _require_status(value: object, allowed: tuple[str, ...]) -> str:
-    if not isinstance(value, str) or value not in allowed:
-        raise WriteError(
-            f"Invalid status: {value!r} (expected one of {', '.join(allowed)})",
-            status_code=400,
-        )
-    return value
+def _edit_message(summary: str, scope: str) -> str:
+    """Standard commit subject for a dashboard edit: edit(<scope>): <summary>."""
+    return build_message("edit", summary, scope)
 
 
 # ---------------------------------------------------------------------------
@@ -123,23 +103,6 @@ def _validate_edited_file(kind: EntityKind, path: Path, entity_id: str) -> dict[
     if not vres.ok:
         raise WriteError(f"Validation failed: {'; '.join(vres.errors)}", status_code=422)
     return plain
-
-
-def _collect_item_ids(node: Any) -> set[str]:
-    """Ids of every group/component/topic/subtopic nested anywhere under a plain or YAML node."""
-    ids: set[str] = set()
-    if not hasattr(node, "get"):
-        return ids
-    for key in _ITEM_LIST_KEYS:
-        children = node.get(key)
-        if not isinstance(children, list):
-            continue
-        for child in children:
-            if hasattr(child, "get"):
-                if isinstance(child.get("id"), str):
-                    ids.add(child["id"])
-                ids |= _collect_item_ids(child)
-    return ids
 
 
 def _check_against_origin(
@@ -242,52 +205,6 @@ def _commit_edit(
         return state.get_snapshot_dict()
 
 
-# ---------------------------------------------------------------------------
-# Item lookup inside a document
-# ---------------------------------------------------------------------------
-
-
-def _children(node: Any, keys: tuple[str, ...]) -> list[Any]:
-    out: list[Any] = []
-    for key in keys:
-        for child in node.get(key) or []:
-            if hasattr(child, "get"):
-                out.append(child)
-    return out
-
-
-def _find_component(nodes: list[Any], item_id: str) -> Any | None:
-    """Depth-first search through components and their nested `components`."""
-    for node in nodes:
-        if node.get("id") == item_id:
-            return node
-        found = _find_component(_children(node, ("components",)), item_id)
-        if found is not None:
-            return found
-    return None
-
-
-def _find_project_item(doc: Any, item_id: str) -> Any | None:
-    """Find a phase (phases/topics groups) or a component at any nesting depth."""
-    groups = _children(doc, ("phases", "topics"))
-    for group in groups:
-        if group.get("id") == item_id:
-            return group
-    for group in groups:
-        found = _find_component(_children(group, ("components", "topics", "subtopics")), item_id)
-        if found is not None:
-            return found
-    return None
-
-
-def _find_learning_item(doc: Any, item_id: str) -> Any | None:
-    for topic in _children(doc, ("topics",)):
-        if topic.get("id") == item_id:
-            return topic
-        for sub in _children(topic, ("subtopics",)):
-            if sub.get("id") == item_id:
-                return sub
-    return None
 
 
 # ---------------------------------------------------------------------------
@@ -304,15 +221,14 @@ def update_project_item_status(
     status = _require_status(new_status, _PHASE_STATUSES)
 
     def mutate(doc: Any) -> None:
-        item = _find_project_item(doc, item_id)
-        if item is None:
-            raise WriteError(
-                f"Item '{item_id}' not found in project '{project_id}'", status_code=404
-            )
-        item["status"] = status
+        edits.set_project_item_status(doc, project_id, item_id, status)
 
     return _commit_edit(
-        state, "project", project_id, mutate, f"Mark {item_id} {status} via dashboard"
+        state,
+        "project",
+        project_id,
+        mutate,
+        _edit_message(describe_item_change(status=status), f"{project_id}/{item_id}"),
     )
 
 
@@ -325,7 +241,7 @@ def update_project_status(state: ServerState, project_id: str, new_status: str) 
         doc["status"] = status
 
     return _commit_edit(
-        state, "project", project_id, mutate, f"Set project {project_id} to {status} via dashboard"
+        state, "project", project_id, mutate, _edit_message(f"status {status}", project_id)
     )
 
 
@@ -338,11 +254,7 @@ def update_learning_path_status(state: ServerState, path_id: str, new_status: st
         doc["status"] = status
 
     return _commit_edit(
-        state,
-        "learning",
-        path_id,
-        mutate,
-        f"Set learning path {path_id} to {status} via dashboard",
+        state, "learning", path_id, mutate, _edit_message(f"status {status}", f"learning/{path_id}")
     )
 
 
@@ -355,15 +267,14 @@ def update_learning_item_status(
     status = _require_status(new_status, _LEARNING_ITEM_STATUSES)
 
     def mutate(doc: Any) -> None:
-        item = _find_learning_item(doc, item_id)
-        if item is None:
-            raise WriteError(
-                f"Item '{item_id}' not found in learning path '{path_id}'", status_code=404
-            )
-        item["status"] = status
+        edits.set_learning_item_status(doc, path_id, item_id, status)
 
     return _commit_edit(
-        state, "learning", path_id, mutate, f"Mark {item_id} {status} via dashboard"
+        state,
+        "learning",
+        path_id,
+        mutate,
+        _edit_message(f"status {status}", f"learning/{path_id}/{item_id}"),
     )
 
 
@@ -407,60 +318,20 @@ def _parse_text_fields(body: object, allowed: tuple[str, ...]) -> dict[str, Any]
     return fields
 
 
-def _yaml_text(value: str) -> str:
-    """Multi-line text is written as a YAML literal block (LF line endings) so the file stays readable."""
-    value = value.replace("\r\n", "\n")
-    return LiteralScalarString(value) if "\n" in value else value
-
-
-def _set_key(node: Any, key: str, value: Any, order: list[str]) -> None:
-    """Set node[key]; a new key goes after the keys that precede it in the model's field order."""
-    if key in node:
-        node[key] = value
-        return
-    rank = order.index(key) if key in order else len(order)
-    pos = 0
-    for i, existing in enumerate(node.keys()):
-        if existing in order and order.index(existing) < rank:
-            pos = i + 1
-    node.insert(pos, key, value)
-
-
-def _apply_text_fields(node: Any, fields: dict[str, Any], order: list[str]) -> None:
-    """Write text fields; an empty value removes optional keys (models default them to "")."""
-    for key, value in fields.items():
-        if key == "name":
-            # Required; an empty name fails model validation (422) rather than being dropped.
-            _set_key(node, "name", _yaml_text(value), order)
-        elif key == "items":
-            if value:
-                _set_key(node, "items", CommentedSeq(_yaml_text(v) for v in value), order)
-            else:
-                node.pop("items", None)
-        elif value == "":
-            node.pop(key, None)
-        else:
-            _set_key(node, key, _yaml_text(value), order)
-
-
-def _field_order(model: type) -> list[str]:
-    return list(model.model_fields)
-
-
 def update_project_fields(state: ServerState, project_id: str, body: object) -> dict[str, Any]:
     """Edit a project's name/description."""
     _require_slug(project_id, "project id")
     fields = _parse_text_fields(body, _PROJECT_FIELDS)
 
     def mutate(doc: Any) -> None:
-        _apply_text_fields(doc, fields, _field_order(Project))
+        edits.apply_text_fields(doc, fields, _field_order(Project))
 
     return _commit_edit(
         state,
         "project",
         project_id,
         mutate,
-        f"Edit {project_id} fields via dashboard",
+        _edit_message(describe_item_change(fields=fields), project_id),
         allow_text_removal=True,
     )
 
@@ -474,21 +345,14 @@ def update_project_item_fields(
     fields = _parse_text_fields(body, _PROJECT_ITEM_FIELDS)
 
     def mutate(doc: Any) -> None:
-        loc = _locate_project_item(doc, item_id)
-        if loc is None:
-            raise WriteError(
-                f"Item '{item_id}' not found in project '{project_id}'", status_code=404
-            )
-        if loc.is_group and "items" in fields:
-            raise WriteError("'items' can only be set on components, not phases/topics", 400)
-        _apply_text_fields(loc.node, fields, _field_order(Phase if loc.is_group else Component))
+        edits.set_project_item_fields(doc, project_id, item_id, fields)
 
     return _commit_edit(
         state,
         "project",
         project_id,
         mutate,
-        f"Edit {project_id}/{item_id} fields via dashboard",
+        _edit_message(describe_item_change(fields=fields), f"{project_id}/{item_id}"),
         allow_text_removal=True,
     )
 
@@ -499,14 +363,14 @@ def update_learning_fields(state: ServerState, path_id: str, body: object) -> di
     fields = _parse_text_fields(body, _LEARNING_FIELDS)
 
     def mutate(doc: Any) -> None:
-        _apply_text_fields(doc, fields, _field_order(LearningPath))
+        edits.apply_text_fields(doc, fields, _field_order(LearningPath))
 
     return _commit_edit(
         state,
         "learning",
         path_id,
         mutate,
-        f"Edit {path_id} fields via dashboard",
+        _edit_message(describe_item_change(fields=fields), f"learning/{path_id}"),
         allow_text_removal=True,
     )
 
@@ -520,20 +384,14 @@ def update_learning_item_fields(
     fields = _parse_text_fields(body, _LEARNING_ITEM_FIELDS)
 
     def mutate(doc: Any) -> None:
-        is_topic = any(t.get("id") == item_id for t in _children(doc, ("topics",)))
-        item = _find_learning_item(doc, item_id)
-        if item is None:
-            raise WriteError(
-                f"Item '{item_id}' not found in learning path '{path_id}'", status_code=404
-            )
-        _apply_text_fields(item, fields, _field_order(Topic if is_topic else Subtopic))
+        edits.set_learning_item_fields(doc, path_id, item_id, fields)
 
     return _commit_edit(
         state,
         "learning",
         path_id,
         mutate,
-        f"Edit {path_id}/{item_id} fields via dashboard",
+        _edit_message(describe_item_change(fields=fields), f"learning/{path_id}/{item_id}"),
         allow_text_removal=True,
     )
 
@@ -543,104 +401,10 @@ def update_learning_item_fields(
 # ---------------------------------------------------------------------------
 
 
-@dataclass
-class _Location:
-    """Where an item sits: its node, the YAML list holding it, that list's key, and the list's owner."""
-
-    node: Any
-    seq: Any
-    key: str
-    owner: Any
-    is_group: bool
-
-    @property
-    def index(self) -> int:
-        return next(i for i, n in enumerate(self.seq) if n is self.node)
-
-
-def _locate_in(owner: Any, keys: tuple[str, ...], item_id: str) -> _Location | None:
-    for key in keys:
-        seq = owner.get(key)
-        if not isinstance(seq, list):
-            continue
-        for node in seq:
-            if not hasattr(node, "get"):
-                continue
-            if node.get("id") == item_id:
-                return _Location(node, seq, key, owner, is_group=False)
-            found = _locate_in(node, ("components",), item_id)
-            if found is not None:
-                return found
-    return None
-
-
-def _locate_project_item(doc: Any, item_id: str) -> _Location | None:
-    """Find a group (phases/topics) first, then a component at any depth."""
-    for key in _GROUP_KEYS:
-        seq = doc.get(key)
-        if not isinstance(seq, list):
-            continue
-        for node in seq:
-            if hasattr(node, "get") and node.get("id") == item_id:
-                return _Location(node, seq, key, doc, is_group=True)
-    for group in _children(doc, _GROUP_KEYS):
-        found = _locate_in(group, _GROUP_CHILD_KEYS, item_id)
-        if found is not None:
-            return found
-    return None
-
-
-def _all_project_ids(doc: Any) -> set[str]:
-    return _collect_item_ids(doc)
-
-
-def _subtree_ids(node: Any) -> set[str]:
-    return {node["id"]} | _collect_item_ids(node)
-
-
-def _drop_if_empty(loc: _Location, doc: Any) -> None:
+def _drop_if_empty(loc: edits.Location, doc: Any) -> None:
     """Remove an emptied nested list key (top-level phases/topics stay)."""
     if loc.owner is not doc and isinstance(loc.seq, list) and not loc.seq:
         loc.owner.pop(loc.key, None)
-
-
-def _child_list(node: Any, order: list[str]) -> Any:
-    """The node's `components` list, created in model field order if missing."""
-    seq = node.get("components")
-    if not isinstance(seq, list):
-        seq = CommentedSeq()
-        _set_key(node, "components", seq, order)
-    return seq
-
-
-def _require_position(value: object, label: str = "position") -> int:
-    if isinstance(value, bool) or not isinstance(value, int) or value < 0:
-        raise WriteError(f"'{label}' must be a non-negative integer", status_code=400)
-    return value
-
-
-def _check_position(position: int, length: int) -> None:
-    if position > length:
-        raise WriteError(
-            f"Position {position} is out of range (0..{length})", status_code=400
-        )
-
-
-def _unique_id(base: str, taken: set[str]) -> str:
-    if base not in taken:
-        return base
-    n = 2
-    while True:
-        suffix = f"-{n}"
-        candidate = base[: 48 - len(suffix)].rstrip("-") + suffix
-        if candidate not in taken:
-            return candidate
-        n += 1
-
-
-def _slug_for_item(name: str) -> str:
-    # slugify_name falls back to "project"; an item with no usable characters is "item".
-    return slugify_name(name) if re.search(r"[a-z0-9]", name.lower()) else "item"
 
 
 _ADD_KEYS: tuple[str, ...] = ("parent_id", "name", "id", "status", "summary", "position")
@@ -653,6 +417,7 @@ def add_project_item(
     _require_slug(project_id, "project id")
     data = _require_body(body)
     _reject_unknown_keys(data, _ADD_KEYS)
+    # Check the request before touching git; edits.add_project_item repeats these checks.
     parent_id = data.get("parent_id")
     if parent_id is not None:
         _require_slug(parent_id, "parent_id")
@@ -673,52 +438,23 @@ def add_project_item(
     created: dict[str, str] = {}
 
     def mutate(doc: Any) -> None:
-        if parent_id is None:
-            key = "phases" if doc.get("uses_phases", True) is not False else "topics"
-            seq = doc.get(key)
-            if not isinstance(seq, list):
-                seq = CommentedSeq()
-                _set_key(doc, key, seq, _field_order(Project))
-            label = "phase" if key == "phases" else "topic"
-        else:
-            parent = _locate_project_item(doc, parent_id)
-            if parent is None:
-                raise WriteError(
-                    f"Parent item '{parent_id}' not found in project '{project_id}'",
-                    status_code=404,
-                )
-            seq = _child_list(parent.node, _field_order(Phase if parent.is_group else Component))
-            label = "component"
-
-        taken = _all_project_ids(doc)
-        if explicit_id is not None:
-            if explicit_id in taken:
-                raise WriteError(
-                    f"Id '{explicit_id}' is already used in project '{project_id}'",
-                    status_code=422,
-                )
-            new_id = explicit_id
-        else:
-            new_id = _unique_id(_slug_for_item(name), taken)
-
-        pos = len(seq) if position is None else position
-        _check_position(pos, len(seq))
-        node = CommentedMap()
-        node["id"] = new_id
-        node["name"] = name
-        node["status"] = status
-        if summary:
-            node["summary"] = _yaml_text(summary)
-        seq.insert(pos, node)
+        new_id, label = edits.add_project_item(
+            doc,
+            project_id,
+            parent_id=parent_id,
+            name=name,
+            item_id=explicit_id,
+            status=status,
+            summary=summary,
+            position=position,
+        )
         created.update(id=new_id, label=label)
 
-    snapshot = _commit_edit(
-        state,
-        "project",
-        project_id,
-        mutate,
-        lambda: f"Add {created['label']} {created['id']} to {project_id} via dashboard",
-    )
+    def message() -> str:
+        scope = f"{project_id}/{parent_id}" if parent_id else project_id
+        return _edit_message(f"add {created['label']} {created['id']}", scope)
+
+    snapshot = _commit_edit(state, "project", project_id, mutate, message)
     return snapshot, created["id"]
 
 
@@ -741,11 +477,7 @@ def move_project_item(
     moved_under: dict[str, str] = {}
 
     def mutate(doc: Any) -> None:
-        loc = _locate_project_item(doc, item_id)
-        if loc is None:
-            raise WriteError(
-                f"Item '{item_id}' not found in project '{project_id}'", status_code=404
-            )
+        loc = edits.require_project_item(doc, project_id, item_id)
         target_seq = loc.seq
         if loc.is_group:
             if reparent and parent_id is not None:
@@ -778,23 +510,12 @@ def move_project_item(
             _drop_if_empty(loc, doc)
 
     def message() -> str:
+        scope = f"{project_id}/{item_id}"
         if "parent" in moved_under:
-            return f"Move {item_id} under {moved_under['parent']} in {project_id} via dashboard"
-        return f"Move {item_id} to position {position} in {project_id} via dashboard"
+            return _edit_message(f"move under {moved_under['parent']}", scope)
+        return _edit_message(f"move to position {position}", scope)
 
     return _commit_edit(state, "project", project_id, mutate, message)
-
-
-def _iter_component_nodes(doc: Any):
-    """Every component node (any depth) under the project's groups."""
-
-    def walk(nodes: list[Any]):
-        for node in nodes:
-            yield node
-            yield from walk(_children(node, ("components",)))
-
-    for group in _children(doc, _GROUP_KEYS):
-        yield from walk(_children(group, _GROUP_CHILD_KEYS))
 
 
 def _project_files(wt_dir: Path) -> dict[str, Path]:
@@ -830,11 +551,7 @@ def delete_project_item(
     removed: set[str] = set()
 
     def mutate(doc: Any) -> None:
-        loc = _locate_project_item(doc, item_id)
-        if loc is None:
-            raise WriteError(
-                f"Item '{item_id}' not found in project '{project_id}'", status_code=404
-            )
+        loc = edits.require_project_item(doc, project_id, item_id)
         ids = _subtree_ids(loc.node)
         loc.seq.pop(loc.index)
         _drop_if_empty(loc, doc)
@@ -865,12 +582,17 @@ def delete_project_item(
                 status_code=422,
             )
 
+    def message() -> str:
+        nested = len(removed) - 1
+        extra = f" (and {nested} nested item(s))" if nested > 0 else ""
+        return _edit_message(f"delete{extra}", f"{project_id}/{item_id}")
+
     return _commit_edit(
         state,
         "project",
         project_id,
         mutate,
-        f"Delete {item_id} from {project_id} via dashboard",
+        message,
         allow_removals=True,
         check_repo=check_children,
     )
@@ -941,9 +663,9 @@ def set_project_parent(state: ServerState, project_id: str, body: object) -> dic
 
     def message() -> str:
         if parent is not None:
-            return f"Attach {project_id} under {parent}/{under} via dashboard"
+            return _edit_message(f"attach under {parent}/{under}", project_id)
         if previous.get("parent"):
-            return f"Detach {project_id} from {previous['parent']} via dashboard"
-        return f"Clear parent of {project_id} via dashboard"
+            return _edit_message(f"detach from {previous['parent']}", project_id)
+        return _edit_message("clear parent", project_id)
 
     return _commit_edit(state, "project", project_id, mutate, message, check_repo=check_link)

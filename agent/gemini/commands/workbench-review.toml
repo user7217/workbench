@@ -1,0 +1,8 @@
+description = "Full Workbench review of this project's entry"
+
+prompt = """
+Reconcile the current project's Workbench entry with this conversation by following the
+"Full review (after a commit, at session end, or on request)" section of the Workbench Project
+Tracking instructions in your GEMINI.md context: record what this session built, what is in
+progress, and what is left to do, then push with `workbench push`.
+"""
