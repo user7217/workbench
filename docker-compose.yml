@@ -4,7 +4,7 @@ services:
     container_name: workbench-server
     restart: unless-stopped
     environment:
-      WORKBENCH_DATA_REMOTE: ${WORKBENCH_DATA_REMOTE}
+      WORKBENCH_DATA_REMOTE: ${WORKBENCH_DATA_REMOTE:?Set WORKBENCH_DATA_REMOTE in .env}
       WORKBENCH_BRANCH: ${WORKBENCH_BRANCH:-main}
       WORKBENCH_POLL_SECONDS: ${WORKBENCH_POLL_SECONDS:-600}
       WORKBENCH_GITHUB_OWNERS: ${WORKBENCH_GITHUB_OWNERS:-}
@@ -13,11 +13,14 @@ services:
       WORKBENCH_BIND: 0.0.0.0
       WORKBENCH_PORT: 8420
     ports:
-      # Bind to Tailscale IP in production (e.g. 100.x.y.z:8420:8420)
+      # Bind to the server's Tailscale IP in production (WORKBENCH_BIND=100.x.y.z in .env)
       - "${WORKBENCH_BIND:-127.0.0.1}:8420:8420"
     volumes:
       - workbench-data:/data
-      - ${WORKBENCH_SSH_KEY_PATH:-~/.ssh/workbench_deploy_key}:/root/.ssh/id_ed25519:ro
+      # Deploy key with write access to the workbench-data repo only (see SETUP_REAL.md).
+      # GitHub's host keys are built into the image; mount your own known_hosts at
+      # /root/.ssh/known_hosts only if the data repo is on another git host.
+      - ${WORKBENCH_SSH_KEY_PATH:-./secrets/deploy_key}:/root/.ssh/id_ed25519:ro
 
 volumes:
   workbench-data:

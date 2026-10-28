@@ -1,0 +1,17 @@
+# Keep the build context small and free of host-specific or secret files.
+# node_modules from a Mac checkout would overwrite the Linux build's own install.
+.git
+.env
+.env.*
+secrets/
+.claude/
+.venv/
+**/__pycache__/
+.pytest_cache/
+graphify-out/
+test-results/
+playwright-report/
+web/node_modules/
+web/dist/
+web/docs/
+web/*.tsbuildinfo

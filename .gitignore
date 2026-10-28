@@ -6,6 +6,9 @@
 *.key
 id_ed25519*
 workbench_deploy_key*
+# Server deploy key and other server-only files (see SETUP_REAL.md)
+secrets/
+docker-compose.override.yml
 
 # Local editor / Claude Code settings (contain machine-specific paths)
 .claude/

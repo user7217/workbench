@@ -8,7 +8,9 @@ RUN npm run generate-types && npm run build
 
 FROM python:3.13-slim
 RUN apt-get update && apt-get install -y --no-install-recommends git openssh-client && rm -rf /var/lib/apt/lists/*
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.13.1 /uv /usr/local/bin/uv
+# Trust GitHub's published SSH host keys so the first clone of the data repo works non-interactively
+COPY docker/github_known_hosts /etc/ssh/ssh_known_hosts
 
 WORKDIR /app
 COPY pyproject.toml README.md ./

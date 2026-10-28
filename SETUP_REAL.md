@@ -34,15 +34,7 @@ Workbench uses three minimal, scoped credentials:
 Your laptop uses your existing SSH key or Git credential helper to pull and push to `git@github.com:<YOUR_GITHUB_USER>/workbench-data.git`.
 
 ### 2.2 Home Server Push Credential (SSH Deploy Key)
-Generate a dedicated SSH keypair for the home server and register it as a **Deploy Key** on `<YOUR_GITHUB_USER>/workbench-data` ONLY (with **Allow write access** enabled):
-
-```bash
-ssh-keygen -t ed25519 -C "workbench-server-deploy-key" -f ~/.ssh/workbench_data_deploy_key -N ""
-cat ~/.ssh/workbench_data_deploy_key.pub
-```
-
-1. Open `https://github.com/<YOUR_GITHUB_USER>/workbench-data/settings/keys`.
-2. Click **Add deploy key**, paste the `.pub` output, check **Allow write access**, and save.
+The server pushes dashboard edits and discovery results with its own SSH key, registered as a **Deploy Key** on `<YOUR_GITHUB_USER>/workbench-data` ONLY (with **Allow write access** enabled). You create it on the server in section 3, step 3.
 
 ### 2.3 Server GitHub Discovery Token (Fine-Grained Read-Only PAT)
 1. Open GitHub **Settings → Developer settings → Personal access tokens → Fine-grained tokens**.
@@ -56,28 +48,72 @@ cat ~/.ssh/workbench_data_deploy_key.pub
 
 ## 3. Deploy the Home Server (Tailscale + Docker Compose)
 
-1. Install and authenticate [Tailscale](https://tailscale.com) on your home server and find its Tailscale IPv4 address:
+Requirements on the server: Docker with the Compose plugin, git, and Tailscale.
+
+1. Install and authenticate [Tailscale](https://tailscale.com) on the server and note its Tailscale IPv4 address:
 
 ```bash
 tailscale ip -4
 # Example output: 100.101.102.103
 ```
 
-2. Clone `workbench` onto your home server, copy your deploy key into `./secrets/id_ed25519`, and configure environment variables so the server binds **only** to the Tailscale IP:
+2. Clone `workbench` fresh on the server (don't copy a working folder from your laptop):
 
 ```bash
-export WORKBENCH_DATA_REMOTE="git@github.com:<YOUR_GITHUB_USER>/workbench-data.git"
-export WORKBENCH_BRANCH="main"
-export WORKBENCH_POLL_SECONDS="600"
-export WORKBENCH_GITHUB_OWNERS="<YOUR_GITHUB_USER>"
-export WORKBENCH_GITHUB_READ_TOKEN="github_pat_..."
-export WORKBENCH_BIND="100.101.102.103"
-export WORKBENCH_PORT="8420"
-
-docker compose up -d --build
+git clone https://github.com/<YOUR_GITHUB_USER>/workbench.git ~/workbench
+cd ~/workbench
 ```
 
-Verify the server is reachable over Tailscale at `http://100.101.102.103:8420/api/status`.
+3. Create the server's deploy key in `./secrets/` (gitignored) and register it:
+
+```bash
+mkdir -p secrets
+ssh-keygen -t ed25519 -C "workbench-server-deploy-key" -f secrets/deploy_key -N ""
+cat secrets/deploy_key.pub
+```
+
+   1. Open `https://github.com/<YOUR_GITHUB_USER>/workbench-data/settings/keys`.
+   2. Click **Add deploy key**, paste the `.pub` output, check **Allow write access**, and save.
+
+   `docker-compose.yml` mounts `./secrets/deploy_key` by default; set `WORKBENCH_SSH_KEY_PATH` in `.env` to use a key stored elsewhere. Make sure the file exists before starting the container — if it is missing, Docker creates an empty directory in its place.
+
+   GitHub's SSH host keys are built into the image (`docker/github_known_hosts`, taken from `https://api.github.com/meta`), so the first clone works without a trust prompt. If your data repo lives on another git host, mount your own known_hosts at `/root/.ssh/known_hosts`.
+
+4. Put the settings in `.env` (gitignored; Compose reads it on every start, so they survive reboots). Bind **only** to the Tailscale IP — the server has no login of its own:
+
+```bash
+cat > .env << 'EOF'
+WORKBENCH_DATA_REMOTE=git@github.com:<YOUR_GITHUB_USER>/workbench-data.git
+WORKBENCH_BRANCH=main
+WORKBENCH_POLL_SECONDS=600
+WORKBENCH_BIND=100.101.102.103
+WORKBENCH_GITHUB_OWNERS=<YOUR_GITHUB_USER>
+WORKBENCH_GITHUB_READ_TOKEN=
+EOF
+chmod 600 .env secrets/deploy_key
+```
+
+   Paste the token from section 2.3 into `WORKBENCH_GITHUB_READ_TOKEN`, or leave it empty to skip server-side GitHub discovery.
+
+5. Build and start:
+
+```bash
+docker compose up -d --build
+docker compose logs -f workbench
+```
+
+6. Verify from your laptop over Tailscale:
+   - `http://100.101.102.103:8420/api/status` shows a `last_good_commit` and `last_error: null`.
+   - `http://100.101.102.103:8420` shows your projects and learning paths.
+   - Change one status in the dashboard and confirm a "... via dashboard" commit appears in `workbench-data` on GitHub (this proves the deploy key can push), then change it back.
+
+7. To update the server later:
+
+```bash
+cd ~/workbench && git pull && docker compose up -d --build
+```
+
+   The snapshot lives in a Docker volume and the real data is on GitHub, so rebuilding loses nothing.
 
 ---
 
