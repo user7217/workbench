@@ -47,9 +47,14 @@ The "left to do" part is the point of the dashboard; never skip it.
      - what the user said should happen next or later ("next we need…", "after that…", "TODO");
      - work deferred, descoped for now, or split off during the session;
      - known failures that were not fixed (failing tests or checks, open bugs);
-     - follow-ups you proposed that the user agreed to.
+     - follow-ups you proposed that the user agreed to;
+     - recommendations from this session that are not on the dashboard yet — **ask first**: use
+       the AskUserQuestion tool with `multiSelect: true` (one option per suggestion, short label and
+       one-line description, up to 4 options per question and 4 questions), and record only the
+       ones the user selects. Without that tool, list them numbered and ask in text.
 
-     This does **not** count: your own ideas the user did not agree to, or speculative features.
+     This does **not** count: unselected or declined suggestions, or speculative features you never
+     put to the user.
 
 3. **Decide whether to update**: if the three lists add nothing to the entry (pure refactor,
    formatting, a small fix with no status change), run `workbench hook-check --mark-seen`, reply
@@ -71,6 +76,10 @@ The "left to do" part is the point of the dashboard; never skip it.
      `not_started` when planned; `parked` when the user put it on hold. A phase follows its
      children: `done` when all are done, `in_progress` when any has started.
    - **`depends_on`** — list component ids a component needs first (existing ids only, no cycles).
+     Link related work wherever one item really needs another.
+   - **Build the tree, don't flatten it** — put each sub-task under the item it belongs to, so the
+     entry keeps gaining depth as work is broken down; when items already exist elsewhere in the
+     entry, link to them with `depends_on` instead of duplicating them.
    - **Nesting** — a component can hold its own `components:` list, to any depth, for a part made of
      smaller parts. Ids stay unique across the whole project, nested ones included.
    - **Child projects** — a piece of work too big for one entry can be its own project. The

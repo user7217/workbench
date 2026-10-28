@@ -277,6 +277,41 @@ def set_project_item_fields(doc: Any, project_id: str, item_id: str, fields: dic
     apply_text_fields(loc.node, fields, field_order(Phase if loc.is_group else Component))
 
 
+def _check_dependencies(doc: Any, project_id: str, item_id: str | None, deps: list[str]) -> list[str]:
+    """Dependencies must be other existing components of the same project, without repeats."""
+    known = {
+        str(c.get("id"))
+        for c in iter_component_nodes(doc)
+        if c.get("id") is not None
+    }
+    out: list[str] = []
+    for dep in deps:
+        require_slug(dep, "depends_on id")
+        if dep == item_id:
+            raise EditError(f"'{item_id}' cannot depend on itself", status_code=400)
+        if dep not in known:
+            raise EditError(
+                f"depends_on '{dep}' is not a component of project '{project_id}'", status_code=404
+            )
+        if dep not in out:
+            out.append(dep)
+    return out
+
+
+def set_project_item_dependencies(doc: Any, project_id: str, item_id: str, deps: list[str]) -> None:
+    """Replace a component's depends_on list (an empty list removes it). Phases/topics have none."""
+    loc = require_project_item(doc, project_id, item_id)
+    if loc.is_group:
+        raise EditError("depends_on can only be set on components, not phases/topics", 400)
+    deps = _check_dependencies(doc, project_id, item_id, deps)
+    if deps:
+        seq = CommentedSeq(deps)
+        seq.fa.set_flow_style()
+        set_key(loc.node, "depends_on", seq, field_order(Component))
+    elif "depends_on" in loc.node:
+        del loc.node["depends_on"]
+
+
 def add_project_item(
     doc: Any,
     project_id: str,
@@ -288,6 +323,7 @@ def add_project_item(
     summary: str = "",
     notes: str = "",
     position: int | None = None,
+    depends_on: list[str] | None = None,
 ) -> tuple[str, str]:
     """Add a group (parent_id None) or a component under a group/component.
 
@@ -340,6 +376,12 @@ def add_project_item(
         node["summary"] = yaml_text(summary)
     if notes:
         node["notes"] = yaml_text(notes)
+    if depends_on:
+        if parent_id is None:
+            raise EditError("depends_on can only be set on components, not phases/topics", 400)
+        deps = CommentedSeq(_check_dependencies(doc, project_id, new_id, depends_on))
+        deps.fa.set_flow_style()
+        node["depends_on"] = deps
     seq.insert(pos, node)
     return new_id, label
 

@@ -31,7 +31,7 @@ entry. Use one or two commands; each validates, privacy-scans, commits and pushe
 
 Rules: `done` only when built and working (tests pass or the user saw it work); `in_progress` when
 partly built; `not_started` for planned work; `parked` when the user put it on hold. New items only for
-work the user agreed to or problems actually found, not your own ideas. Never rename or remove items
+work the user agreed to, problems actually found, or suggestions the user picked: if this message ended with suggestions not yet on the dashboard, list them numbered, ask which to track, and add only the chosen ones. Put sub-tasks --under the item they belong to so the tree keeps gaining depth; link items with --depends-on <ids>. Never rename or remove items
 here; restructuring belongs in a full review. Never include secrets, API keys, local paths, emails,
 private IPs, pasted logs or error output, or personal information. Commits are filed as
 `update(<project>/<item>): ...` automatically. Reply with the one line each command printed.
@@ -58,7 +58,7 @@ the current repo to belong to that project, run `workbench link --id <project-id
    - In progress (started, not complete or not working yet) → `in_progress`.
    - Left to do → `not_started`: what the user said comes next or later, work deferred or split off,
      known unfixed failures (failing tests or checks, open bugs), and follow-ups you proposed that the
-     user agreed to. Not your own unagreed ideas or speculative features.
+     user agreed to, and suggestions from this session the user picked when asked (list them numbered and ask which to track). Not unpicked suggestions or speculative features you never raised.
 3. If the lists add nothing to the entry (pure refactor, formatting, a small fix with no status change),
    run `workbench hook-check --mark-seen`, reply "Workbench: no update needed", and stop. A newly agreed
    next step or newly known failure is an update. (Outside a git repo, just reply and stop.)
@@ -72,7 +72,8 @@ the current repo to belong to that project, run `workbench link --id <project-id
      or `topics:` / `subtopics:`). Only a `parked` or not-yet-planned phase may have none.
    - Child status: `done` only when implemented and working; `in_progress` when partly built;
      `not_started` when planned; `parked` when on hold. A phase follows its children.
-   - `depends_on` lists component ids needed first (existing ids, no cycles).
+   - `depends_on` lists component ids needed first (existing ids, no cycles); link related work instead of duplicating it.
+   - Build the tree: put each sub-task under the item it belongs to, to any depth, rather than flat at the top.
    - A component may hold its own `components:` list (any depth); ids stay unique across the project.
    - A big piece of work can be its own child project: the child carries `parent: <project-id>` and
      `under: <phase-or-component-id>` (an item in the parent, any depth). Only if the user agrees,

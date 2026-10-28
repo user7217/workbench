@@ -1181,6 +1181,13 @@ def _quick_edit(
     return result, sha
 
 
+def _split_ids(value: Optional[str]) -> Optional[list[str]]:
+    """Parse a comma-separated id list option; None when the option was not given."""
+    if value is None:
+        return None
+    return [part.strip() for part in value.split(",") if part.strip()]
+
+
 @app.command("set")
 def cmd_set(
     project_id: str = typer.Argument(..., help="Project id"),
@@ -1191,26 +1198,35 @@ def cmd_set(
     name: Optional[str] = typer.Option(None, "--name", help="New display name"),
     summary: Optional[str] = typer.Option(None, "--summary", help="Summary (empty clears it)"),
     notes: Optional[str] = typer.Option(None, "--notes", help="Notes, replaced whole (empty clears them)"),
+    depends_on: Optional[str] = typer.Option(
+        None, "--depends-on", help="Comma-separated component ids this needs first, replaced whole (empty clears)"
+    ),
 ) -> None:
     """Quick update of one phase/component: status and/or text fields, committed and pushed."""
     fields = {
         k: v for k, v in (("name", name), ("summary", summary), ("notes", notes)) if v is not None
     }
-    if status is None and not fields:
-        _fail("give at least one of --status, --name, --summary, --notes.")
+    deps = _split_ids(depends_on)
+    if status is None and not fields and deps is None:
+        _fail("give at least one of --status, --name, --summary, --notes, --depends-on.")
     _check_input(lambda: edits.require_slug(project_id, "project id"))
     _check_input(lambda: edits.require_slug(item_id, "item id"))
     if status is not None:
         _check_input(lambda: edits.require_status(status, edits.PHASE_STATUSES))
     if name is not None and not name.strip():
         _fail("--name cannot be empty.")
-    what = commitmsg.describe_item_change(status=status, fields=fields)
+    described = dict(fields)
+    if deps is not None:
+        described["depends_on"] = deps
+    what = commitmsg.describe_item_change(status=status, fields=described)
 
     def mutate(doc: Any) -> None:
         if status is not None:
             edits.set_project_item_status(doc, project_id, item_id, status)
         if fields:
             edits.set_project_item_fields(doc, project_id, item_id, fields)
+        if deps is not None:
+            edits.set_project_item_dependencies(doc, project_id, item_id, deps)
 
     _, sha = _quick_edit(
         "set",
@@ -1236,6 +1252,9 @@ def cmd_add(
     status: str = typer.Option("not_started", "--status", help="not_started, in_progress, done or parked"),
     summary: str = typer.Option("", "--summary", help="What it is and why it is needed"),
     notes: str = typer.Option("", "--notes", help="Current state / next step"),
+    depends_on: Optional[str] = typer.Option(
+        None, "--depends-on", help="Comma-separated component ids this needs first"
+    ),
 ) -> None:
     """Quick add of a component under an item, or of a new phase/topic; prints the new id."""
     _check_input(lambda: edits.require_slug(project_id, "project id"))
@@ -1257,6 +1276,7 @@ def cmd_add(
             status=status,
             summary=summary,
             notes=notes,
+            depends_on=_split_ids(depends_on),
         )
 
     def message(result: tuple[str, str]) -> str:
