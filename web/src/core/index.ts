@@ -28,7 +28,7 @@
  *   countDescendants, locateProjectItem, getDependencies, getDependents, findItemStatus,
  *   withItemStatus, findLearningItem, withLearningItemStatus, buildParentIndex, buildChildIndex,
  *   childProjectsAt, isChildProject, isListedProject, ROOT_SLOT, projectUsesPhases,
- *   isNewDiscoveredProject, getItemShortDescription, sortByName, matchesQuery, filterByQuery,
+ *   isNewDiscoveredProject, getItemShortDescription, sortByName, sortByRecent, matchesQuery, filterByQuery,
  *   getRelatedLearning, getRelatedProjects, getComponentDetailItems, getLearningSubtopicItems,
  *   projectTree, learningTree, PROJECT_NODE_PREFIX, parseProjectNodeId, mapProjectItem,
  *   mapLearningItem, locateItemPlacement, applyTextFields, readTextFields, changedTextFields, subtreeIds.

@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from workbench.gitops import (
+    run_git,
     GitError,
     clone_repo,
     create_worktree,
@@ -168,6 +169,7 @@ class ServerState:
                 "projects": projects_list,
                 "learning": learning_list,
                 "topic_markdowns": topic_mds,
+                "updated_at": _last_changed(staging_wt, self.env),
                 "commit": fetched_commit,
                 "synced_at": now_iso,
             }
@@ -201,6 +203,29 @@ class ServerState:
     def get_snapshot_dict(self) -> dict[str, Any]:
         with self._lock:
             return self.snapshot
+
+
+def _last_changed(repo_root: Path, env: dict[str, str] | None = None) -> dict[str, dict[str, str]]:
+    """When each project and learning path last changed, from git history (ISO 8601, newest wins).
+
+    The YAML `updated` field is only a date, so this gives the UI a precise "recently changed" order.
+    """
+    out: dict[str, dict[str, str]] = {"projects": {}, "learning": {}}
+    proc = run_git(
+        ["log", "--format=%x00%cI", "--name-only", "HEAD"], cwd=repo_root, env=env, check=False
+    )
+    if proc.returncode != 0:
+        return out
+    when = ""
+    for line in proc.stdout.splitlines():
+        if line.startswith("\x00"):
+            when = line[1:]
+            continue
+        parts = line.strip().split("/")
+        if len(parts) >= 2 and parts[0] in ("projects", "learning") and when:
+            # git log lists newest commits first, so the first time seen is the latest change
+            out[parts[0]].setdefault(parts[1], when)
+    return out
 
 
 def _read_all_projects(repo_root: Path) -> list[dict[str, Any]]:

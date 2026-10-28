@@ -134,6 +134,8 @@ export function App() {
     childIndex,
     filteredLearning,
     listedProjects,
+    recentProjects,
+    recentLearning,
     sidebarProjects,
     sidebarLearning,
     childProjectsAt,
@@ -601,7 +603,8 @@ export function App() {
   // Home View — Unified project & learning grids without separate status sections (§2)
   const renderHomeView = () => {
     // While searching, show every match; otherwise non-active child projects stay inside their parent
-    const visibleProjects = listedProjects.filter(
+    // Home cards show the most recently changed work first
+    const visibleProjects = recentProjects.filter(
       (p) => buildingArchivedOpen || p.status !== "archived"
     );
     const hasArchived = listedProjects.some((p) => p.status === "archived");
@@ -652,7 +655,7 @@ export function App() {
           </div>
 
           <div className="unified-cards-grid" data-testid="unified-learning-grid">
-            {filteredLearning.map(renderUnifiedLearningCard)}
+            {recentLearning.map(renderUnifiedLearningCard)}
           </div>
         </section>
       </div>

@@ -12,6 +12,8 @@ export interface SnapshotData {
   learning: LearningPath[];
   /** Markdown notes keyed by `${pathId}/${topicOrSubtopicId}`. */
   topic_markdowns: Record<string, string>;
+  /** When each project / learning path last changed in git (ISO 8601), keyed by id. Older servers omit it. */
+  updated_at?: { projects?: Record<string, string>; learning?: Record<string, string> };
   commit: string | null;
   synced_at: string | null;
 }

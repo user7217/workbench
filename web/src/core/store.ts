@@ -51,6 +51,7 @@ import {
   projectTree,
   readTextFields,
   sortByName,
+  sortByRecent,
   withItemStatus,
   withLearningItemStatus,
   type ChildIndex,
@@ -254,6 +255,10 @@ export interface WorkbenchView extends ProjectIndexes {
   filteredLearning: LearningPath[];
   /** Matching projects that are listed (child projects only while active, unless searching). Includes archived. */
   listedProjects: Project[];
+  /** listedProjects ordered most recently changed first (for Home cards). */
+  recentProjects: Project[];
+  /** filteredLearning ordered most recently changed first (for Home cards). */
+  recentLearning: LearningPath[];
   /** Sidebar shortcuts: listed, non-archived projects (ignores the search). */
   sidebarProjects: Project[];
   /** Sidebar shortcuts: non-archived learning paths (ignores the search). */
@@ -353,6 +358,8 @@ export function selectView(state: WorkbenchState): WorkbenchView {
     filteredProjects,
     filteredLearning,
     listedProjects,
+    recentProjects: sortByRecent(listedProjects, snapshot.updated_at?.projects),
+    recentLearning: sortByRecent(filteredLearning, snapshot.updated_at?.learning),
     sidebarProjects: sortByName(
       snapshot.projects.filter((p) => p.status !== "archived" && isListedProject(p, projectsById, false))
     ),

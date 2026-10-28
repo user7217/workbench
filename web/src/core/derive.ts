@@ -26,6 +26,23 @@ export function getItemShortDescription(item: { summary?: string; description?: 
 }
 
 /** Case-insensitive sort by name (copy; input untouched). */
+/**
+ * Most recently changed first: by the git change time when known, else by the YAML `updated` date,
+ * then by name so the order is stable.
+ */
+export function sortByRecent<T extends { id: string; name: string; updated?: string }>(
+  items: T[],
+  changedAt: Record<string, string> | undefined
+): T[] {
+  const key = (item: T) => changedAt?.[item.id] || item.updated || "";
+  return [...items].sort((a, b) => {
+    const ka = key(a);
+    const kb = key(b);
+    if (ka !== kb) return ka < kb ? 1 : -1;
+    return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+  });
+}
+
 export function sortByName<T extends { name: string }>(items: T[]): T[] {
   return [...items].sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
 }
