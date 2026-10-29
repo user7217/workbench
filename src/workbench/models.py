@@ -123,6 +123,17 @@ class Phase(StrictModel):
     subtopics: list[Component] = Field(default_factory=list)
 
 
+class Suggestion(StrictModel):
+    """A suggested next step waiting in the project's inbox: Keep adds it to the tree, Dismiss drops it."""
+
+    id: SlugId
+    name: ShortName
+    summary: SummaryStr = ""
+    # The phase/topic/component it would go under; None means a new phase/topic
+    under: Optional[SlugId] = None
+    added: DateStr
+
+
 class Project(StrictModel):
     schema_version: Literal[1] = 1
     id: SlugId
@@ -136,6 +147,7 @@ class Project(StrictModel):
     links: list[Link] = Field(default_factory=list)
     phases: list[Phase] = Field(default_factory=list)
     topics: list[Phase] = Field(default_factory=list)
+    suggestions: list[Suggestion] = Field(default_factory=list)
     # A child project names its single parent and the phase or component it sits under
     parent: Optional[SlugId] = None
     under: Optional[SlugId] = None
@@ -180,6 +192,12 @@ class Project(StrictModel):
                     raise ValueError(
                         f"Component '{comp.id}' depends on unknown component '{dep}'"
                     )
+
+        suggestion_ids: set[str] = set()
+        for sug in self.suggestions:
+            if sug.id in suggestion_ids:
+                raise ValueError(f"Duplicate suggestion id: '{sug.id}'")
+            suggestion_ids.add(sug.id)
 
         # Cycle detection using DFS with path reporting
         visited: set[str] = set()

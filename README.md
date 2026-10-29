@@ -3,7 +3,7 @@
 Workbench is a personal dashboard showing everything you are **building** (software projects) and **learning** (learning paths) so nothing gets forgotten — what exists, what is half-done, and what is left to do.
 
 - **Completeness over task management:** Workbench is an inventory and architectural map of your projects and learning paths, not a task tracker. There are no deadlines, countdowns, streaks, percentages, priority scores, or "overdue" indicators.
-- **Zero-friction updates:** AI coding agents (Claude Code, Gemini CLI) keep project structure and status current through two skills driven by a Stop/AfterAgent hook (`workbench hook-check`): **workbench-update** records what a single message changed for one item (a status, a note, a newly found problem) whenever files changed since the last update, and **workbench-review** reconciles the whole entry after a new commit lands, at session end, or on request. When nothing changed, the hook asks for nothing. Local and GitHub discovery jobs register new repositories automatically.
+- **Zero-friction updates:** AI coding agents (Claude Code, Gemini CLI) keep project structure and status current through two skills driven by a Stop/AfterAgent hook (`workbench hook-check`): **workbench-update** records what a single message changed for one item (a status, a note, a newly found problem) whenever files changed since the last update, and **workbench-review** reconciles the whole entry after a new commit lands, at session end, or on request. When nothing changed, the hook asks for nothing. With `update_mode = "headless"` the per-message update runs in a background agent instead (Haiku by default), so the coding session spends no tokens on it, suggestions land in the project's **Inbox** on the dashboard, and full reviews run only when you call `/workbench-review`. Local and GitHub discovery jobs register new repositories automatically.
 - **Git-backed audit trail:** All metadata lives in a separate private Git repository (`workbench-data`). Every change is validated structurally, scanned for secrets/PII, and committed to `main`. Any bad change can be reverted with `workbench undo <commit>`.
 
 ## Features
@@ -61,6 +61,7 @@ Then open **http://127.0.0.1:8420** (set `WORKBENCH_PORT` to use another port). 
 | `workbench learning import <file.md\|.yaml>` / `learning export <id>` | Import (merge) or print a learning-path outline |
 | `workbench history [--kind K[,K]] [--project P] [-n N]` / `workbench undo <commit>` | Show recent changes, filtered by commit kind or project / revert one |
 | `workbench hook-check --mark-seen` | Tell the agent hook nothing needs recording for the current changes |
+| `workbench auto-update --transcript <file.jsonl> --dry-run` | Show what the headless updater would record for a session's last message (run inside the project repo) |
 
 ### Commit format in workbench-data
 

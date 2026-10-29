@@ -229,6 +229,57 @@
       ],
       "title": "ProjectRepo",
       "type": "object"
+    },
+    "Suggestion": {
+      "additionalProperties": false,
+      "description": "A suggested next step waiting in the project's inbox: Keep adds it to the tree, Dismiss drops it.",
+      "properties": {
+        "added": {
+          "title": "Added",
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 48,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "summary": {
+          "default": "",
+          "maxLength": 300,
+          "title": "Summary",
+          "type": "string"
+        },
+        "under": {
+          "anyOf": [
+            {
+              "maxLength": 48,
+              "minLength": 1,
+              "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Under"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "added"
+      ],
+      "title": "Suggestion",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -314,6 +365,13 @@
       ],
       "title": "Status",
       "type": "string"
+    },
+    "suggestions": {
+      "items": {
+        "$ref": "#/$defs/Suggestion"
+      },
+      "title": "Suggestions",
+      "type": "array"
     },
     "topics": {
       "items": {

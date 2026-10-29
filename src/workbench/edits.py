@@ -387,6 +387,94 @@ def add_project_item(
 
 
 # ---------------------------------------------------------------------------
+# Suggestions inbox
+# ---------------------------------------------------------------------------
+
+
+def add_suggestion(
+    doc: Any, project_id: str, *, name: str, summary: str = "", under: str | None, added: str
+) -> str:
+    """File a suggestion in the project's inbox; returns its id. `under` must be an existing item."""
+    if not isinstance(name, str) or not name.strip():
+        raise EditError("'name' is required and must be a non-empty string", status_code=400)
+    if under is not None:
+        require_project_item(doc, project_id, require_slug(under, "under"))
+    seq = doc.get("suggestions")
+    if not isinstance(seq, list):
+        seq = CommentedSeq()
+        set_key(doc, "suggestions", seq, field_order(Project))
+    taken = {str(s.get("id")) for s in seq if isinstance(s, dict)}
+    new_id = unique_id(slug_for_item(name), taken)
+    node = CommentedMap()
+    node["id"] = new_id
+    node["name"] = name
+    if summary:
+        node["summary"] = yaml_text(summary)
+    if under is not None:
+        node["under"] = under
+    node["added"] = added
+    seq.append(node)
+    return new_id
+
+
+def _locate_suggestion(doc: Any, project_id: str, suggestion_id: str) -> tuple[Any, int]:
+    """(suggestions list, index) of a suggestion; EditError 404 when the project has no such suggestion."""
+    require_slug(suggestion_id, "suggestion id")
+    seq = doc.get("suggestions")
+    if isinstance(seq, list):
+        for index, node in enumerate(seq):
+            if hasattr(node, "get") and node.get("id") == suggestion_id:
+                return seq, index
+    raise EditError(
+        f"Suggestion '{suggestion_id}' not found in project '{project_id}'", status_code=404
+    )
+
+
+def _remove_suggestion(doc: Any, seq: Any, index: int) -> Any:
+    """Pop one suggestion; drop the `suggestions` key once the list is empty. Returns the node."""
+    node = seq.pop(index)
+    if not seq:
+        doc.pop("suggestions", None)
+    return node
+
+
+def keep_suggestion(doc: Any, project_id: str, suggestion_id: str) -> tuple[str, str]:
+    """Move a suggestion from the inbox into the tree as a not-started item.
+
+    It goes under its `under` item, or becomes a new phase/topic when `under` is unset. The
+    suggestion's id is reused when free, else a unique slug of its name. Returns (new id, label).
+    If `under` no longer exists the document is left unchanged and EditError 422 is raised.
+    """
+    seq, index = _locate_suggestion(doc, project_id, suggestion_id)
+    sug = seq[index]
+    under = sug.get("under")
+    if under is not None and locate_project_item(doc, str(under)) is None:
+        raise EditError(
+            f"Cannot keep suggestion '{suggestion_id}': the item it goes under ('{under}') "
+            f"no longer exists in project '{project_id}'; dismiss it or re-file it",
+            status_code=422,
+        )
+    item_id = suggestion_id if suggestion_id not in collect_item_ids(doc) else None
+    new_id, label = add_project_item(
+        doc,
+        project_id,
+        parent_id=str(under) if under is not None else None,
+        name=str(sug.get("name") or ""),
+        item_id=item_id,
+        status="not_started",
+        summary=str(sug.get("summary") or ""),
+    )
+    _remove_suggestion(doc, seq, index)
+    return new_id, label
+
+
+def dismiss_suggestion(doc: Any, project_id: str, suggestion_id: str) -> None:
+    """Drop a suggestion from the project's inbox without adding it to the tree."""
+    seq, index = _locate_suggestion(doc, project_id, suggestion_id)
+    _remove_suggestion(doc, seq, index)
+
+
+# ---------------------------------------------------------------------------
 # Learning item mutations
 # ---------------------------------------------------------------------------
 

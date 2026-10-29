@@ -21,7 +21,11 @@ class SemanticCheckResult:
 
 
 def _collect_string_length(obj: Any, ignore_keys: set[str] | None = None) -> int:
-    ignore = ignore_keys or {"id", "schema_version", "status", "origin", "updated", "root_commit", "refs", "uses_phases"}
+    # suggestions are an inbox, not content: dismissing them must never trip the mass-deletion guard
+    ignore = ignore_keys or {
+        "id", "schema_version", "status", "origin", "updated", "root_commit", "refs", "uses_phases",
+        "suggestions",
+    }
     total = 0
     if isinstance(obj, dict):
         for k, v in obj.items():

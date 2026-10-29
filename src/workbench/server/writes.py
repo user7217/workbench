@@ -669,3 +669,52 @@ def set_project_parent(state: ServerState, project_id: str, body: object) -> dic
         return _edit_message("clear parent", project_id)
 
     return _commit_edit(state, "project", project_id, mutate, message, check_repo=check_link)
+
+
+# ---------------------------------------------------------------------------
+# Suggestions inbox: keep (add to the tree) or dismiss
+# ---------------------------------------------------------------------------
+
+
+def keep_suggestion(
+    state: ServerState, project_id: str, suggestion_id: str, body: object
+) -> tuple[dict[str, Any], str]:
+    """Move a suggestion into the tree as a not-started item. Returns (snapshot, new item id)."""
+    _require_slug(project_id, "project id")
+    _require_slug(suggestion_id, "suggestion id")
+    _reject_unknown_keys(_require_body(body), ())
+
+    created: dict[str, str] = {}
+
+    def mutate(doc: Any) -> None:
+        new_id, label = edits.keep_suggestion(doc, project_id, suggestion_id)
+        created.update(id=new_id, label=label)
+
+    snapshot = _commit_edit(
+        state,
+        "project",
+        project_id,
+        mutate,
+        _edit_message(f"keep suggestion {suggestion_id}", project_id),
+    )
+    return snapshot, created["id"]
+
+
+def dismiss_suggestion(
+    state: ServerState, project_id: str, suggestion_id: str, body: object
+) -> dict[str, Any]:
+    """Drop a suggestion from the project's inbox."""
+    _require_slug(project_id, "project id")
+    _require_slug(suggestion_id, "suggestion id")
+    _reject_unknown_keys(_require_body(body), ())
+
+    def mutate(doc: Any) -> None:
+        edits.dismiss_suggestion(doc, project_id, suggestion_id)
+
+    return _commit_edit(
+        state,
+        "project",
+        project_id,
+        mutate,
+        _edit_message(f"dismiss suggestion {suggestion_id}", project_id),
+    )

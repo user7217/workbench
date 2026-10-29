@@ -137,6 +137,16 @@ workbench setup
 workbench discover --local
 ```
 
+4. Optional: let a background agent record each message instead of the coding session (saves the session's tokens). Add to `~/.workbench/config.toml`:
+
+```toml
+update_mode = "headless"
+# the default; any CLI that reads the prompt on stdin and prints the JSON reply works (only Claude is tested)
+updater_command = 'claude -p --model haiku --tools "" --strict-mcp-config --no-session-persistence'
+```
+
+Each message that changes files then runs one Haiku call in the background (a few thousand tokens). Results go to `~/.workbench/logs/updater.log` and `workbench history --kind update`; suggestions wait in the project's Inbox on the dashboard. Full reviews run only when you call `/workbench-review`.
+
 Server-side GitHub discovery runs automatically once a day (and on server startup if configured) to register any GitHub repositories not cloned on your laptop.
 
 ---

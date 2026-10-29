@@ -19,6 +19,8 @@ from workbench.server.writes import (
     WriteError,
     add_project_item,
     delete_project_item,
+    dismiss_suggestion,
+    keep_suggestion,
     move_project_item,
     set_project_parent,
     update_learning_fields,
@@ -288,6 +290,21 @@ def create_app(
     @app.post("/api/projects/{project_id}/parent")
     async def post_project_parent(project_id: str, request: Request) -> JSONResponse:
         return await _run_body_write(request, state, set_project_parent, project_id)
+
+    # Suggestions inbox: keep adds the suggestion to the tree (response carries item_id)
+    @app.post("/api/projects/{project_id}/suggestions/{suggestion_id}/keep")
+    async def post_suggestion_keep(
+        project_id: str, suggestion_id: str, request: Request
+    ) -> JSONResponse:
+        return await _run_body_write(request, state, keep_suggestion, project_id, suggestion_id)
+
+    @app.post("/api/projects/{project_id}/suggestions/{suggestion_id}/dismiss")
+    async def post_suggestion_dismiss(
+        project_id: str, suggestion_id: str, request: Request
+    ) -> JSONResponse:
+        return await _run_body_write(
+            request, state, dismiss_suggestion, project_id, suggestion_id
+        )
 
     # Serve built UI static files if web/dist exists
     if dist_dir.exists() and (dist_dir / "index.html").exists():

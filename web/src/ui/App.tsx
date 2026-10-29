@@ -24,6 +24,7 @@ import { KindBadge, PhaseNumberBadge, StatusNodeGlyph } from "./components/statu
 import { StatusMenu } from "./components/StatusMenu";
 import { AddItemInline, EditableField } from "./components/Editing";
 import { ItemStructureActions, ParentControl } from "./components/StructureControls";
+import { SuggestionsInbox } from "./components/SuggestionsInbox";
 
 // ---------------------------------------------------------------------------------------------
 // Layout preferences (look-only state, persisted in localStorage)
@@ -464,6 +465,7 @@ export function App() {
     const groups = getProjectGroups(p);
     const isDescExpanded = !!expandedCardDescs[p.id];
     const hasLongDesc = (p.description || "").length > 110;
+    const suggestionCount = (p.suggestions || []).length;
 
     return (
       <div
@@ -483,11 +485,22 @@ export function App() {
             </div>
           </div>
 
-          {isNew && (
+          {(isNew || suggestionCount > 0) && (
             <div className="unified-card-status">
-              <span className="badge-new" data-testid={`new-badge-${p.id}`}>
-                New
-              </span>
+              {suggestionCount > 0 && (
+                <span
+                  className="badge-suggestions"
+                  data-testid={`suggestions-badge-${p.id}`}
+                  title="Suggested next steps waiting in this project's inbox"
+                >
+                  {suggestionCount} {suggestionCount === 1 ? "suggestion" : "suggestions"}
+                </span>
+              )}
+              {isNew && (
+                <span className="badge-new" data-testid={`new-badge-${p.id}`}>
+                  New
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -1272,6 +1285,8 @@ export function App() {
                     {renderChildProjectRows(activeProject.id, ROOT_SLOT)}
                   </div>
                 )}
+
+                <SuggestionsInbox project={activeProject} />
 
                 {groups.length > 0 && (
                   <div className="phase-selector-strip">

@@ -8,12 +8,18 @@ State lives in ~/.workbench/state.json:
 Decision when an agent finishes a message (first match wins):
 
     stop_hook_active / not a git repo / no commits / any error   -> allow (fail open)
-    HEAD != last_seen_commit                                     -> block: workbench-review
-    no last_seen_fingerprint stored (pre-fingerprint state.json) -> record it, allow
-    fingerprint != last_seen_fingerprint                         -> block: workbench-update
-    otherwise                                                    -> allow
+    running inside the headless updater, or update_mode = "off"  -> allow
+    update_mode = "headless" (and its command is installed):
+        HEAD or fingerprint changed -> record them as seen, start a background update, allow
+        otherwise                   -> allow
+    update_mode = "session" (default):
+        HEAD != last_seen_commit                                 -> block: workbench-review
+        no last_seen_fingerprint stored (pre-fingerprint state)  -> record it, allow
+        fingerprint != last_seen_fingerprint                     -> block: workbench-update
+        otherwise                                                -> allow
 
-A session is never blocked twice in a row for the same fingerprint: an agent that ignores
+In headless mode the main session is never blocked, and full reviews run only on request
+(/workbench-review). A session is never blocked twice in a row for the same fingerprint: an agent that ignores
 the prompt is asked again only once the working state changes again.
 """
 
@@ -24,9 +30,10 @@ import json
 import os
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
-from workbench.config import get_workbench_dir
+from workbench import updater
+from workbench.config import get_workbench_dir, load_local_config
 from workbench.gitops import (
     get_head_commit,
     get_repo_toplevel,
@@ -237,23 +244,78 @@ def _already_prompted(
     return prompted_fp == fingerprint
 
 
+Launcher = Callable[[dict[str, Any], "Path | None", "dict[str, str] | None"], Any]
+
+
+def _start_headless_update(
+    payload: dict[str, Any],
+    state: dict[str, Any],
+    state_path: Path,
+    ids: tuple[Path, str, str],
+    fingerprint: str,
+    ts: float,
+    launcher: Launcher,
+    home_dir: Path | None,
+    env: dict[str, str] | None,
+) -> None:
+    repo_top, root_sha, head_sha = ids
+    entry = _repo_entry(state, root_sha)
+    if entry.get("last_seen_commit") == head_sha and entry.get("last_seen_fingerprint") == fingerprint:
+        return
+    previous_commit = entry.get("last_seen_commit")
+    # Seen now, so the next message is compared with this state even while the job runs
+    entry["last_seen_commit"] = head_sha
+    entry["last_seen_fingerprint"] = fingerprint
+    entry["updated_at"] = ts
+    _save_state(state_path, state, now=ts)
+
+    transcript_size = None
+    transcript = payload.get("transcript_path")
+    if isinstance(transcript, str) and transcript:
+        try:
+            transcript_size = Path(transcript).stat().st_size
+        except OSError:
+            pass
+    focus = entry.get("focus")
+    launcher(
+        {
+            "payload": payload,
+            "transcript_size": transcript_size,
+            "repo_top": str(repo_top),
+            "focus": focus if isinstance(focus, str) and focus else None,
+            "previous_commit": previous_commit,
+            "head": head_sha,
+            "created_at": ts,
+        },
+        home_dir,
+        env,
+    )
+
+
 def evaluate_hook_input(
     stdin_text: str,
     home_dir: Path | None = None,
     env: dict[str, str] | None = None,
     now: float | None = None,
+    launcher: Launcher | None = None,
 ) -> str | None:
     """Evaluate hook JSON input and return stdout JSON string (to block) or None (to allow).
 
+    launcher starts the headless update (default: updater.launch_update_job; tests pass a fake).
     Never raises: any internal error returns None (allow) per §9.3.
     """
     try:
         if not stdin_text or not stdin_text.strip():
             return None
+        if (os.environ if env is None else env).get(updater.UPDATER_ENV_VAR):
+            return None
         payload = json.loads(stdin_text)
         if not isinstance(payload, dict):
             return None
         if payload.get("stop_hook_active") is True:
+            return None
+        cfg = load_local_config(home_dir=home_dir, env=env)
+        if cfg.update_mode == "off":
             return None
 
         session_id = str(payload.get("session_id") or "").strip()
@@ -271,6 +333,13 @@ def evaluate_hook_input(
         raw_entry = state["repos"].get(root_sha)
         entry: dict[str, Any] = raw_entry if isinstance(raw_entry, dict) else {}
         fingerprint = compute_fingerprint(repo_top, head_sha, env)
+
+        if cfg.update_mode == "headless" and updater.command_available(cfg.updater_command, env):
+            _start_headless_update(
+                payload, state, state_path, ids, fingerprint, ts,
+                launcher or updater.launch_update_job, home_dir, env,
+            )
+            return None
 
         reviewing = entry.get("last_seen_commit") != head_sha
         if reviewing:

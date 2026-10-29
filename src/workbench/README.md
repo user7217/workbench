@@ -18,6 +18,7 @@ src/workbench/
 ├── semantic.py        # Semantic diff checks against origin/main (ID renames, removals, mass deletion)
 ├── privacy.py         # Deterministic secret/PII/path regex scanner + isolated LLM privacy reviewer
 ├── hooks.py           # Claude Code Stop hook & Gemini CLI AfterAgent hook logic
+├── updater.py         # Headless per-message updater: transcript reading, prompt, applying the agent's plan
 ├── install.py         # Installer for ~/.claude, ~/.gemini, and macOS launchd discovery job
 ├── cli.py             # Typer CLI (setup, show, begin, push, validate, new, learning, discover, history, undo)
 ├── demo_env.py        # Self-contained demo environment generator for `make demo` and E2E tests
@@ -161,25 +162,23 @@ Every `workbench push` must pass three gatekeepers before a commit is created:
 
 ---
 
-## 7. Agent Lifecycle Hooks (`hooks.py` & `install.py`)
+## 7. Agent Lifecycle Hooks (`hooks.py`, `updater.py` & `install.py`)
 
-`workbench install` configures coding agents to invoke `workbench hook-check` (`hooks.py`) at the end of a coding session (`Stop` in Claude Code, `AfterAgent` in Gemini CLI):
+`workbench install` makes coding agents run `workbench hook-check` (`hooks.py`) at the end of every message (`Stop` in Claude Code, `AfterAgent` in Gemini CLI). The hook reads the JSON payload from stdin (`session_id`, `cwd`, `transcript_path`, `stop_hook_active`) and compares the repo with what `~/.workbench/state.json` last saw: `HEAD` and a fingerprint of the working tree (status, diff against `HEAD`, untracked file stats).
 
-1. Reads the JSON hook payload from `stdin` (`session_id`, `cwd`, `stop_hook_active`).
-2. Returns `None` (allow exit) immediately if:
-   - `stop_hook_active` is `true`,
-   - `cwd` is outside a Git repository or has no commits, or
-   - `session_id` was already prompted within the last 7 days (tracked in `~/.workbench/state.json`).
-3. Compares the repository's current `HEAD` commit against `repos[root_commit].last_seen_commit` in `~/.workbench/state.json` (and checks if `>50` uncommitted lines changed via `git diff HEAD`).
-4. If new commits or `>50` changed lines exist, records `session_id` in `~/.workbench/state.json` and outputs:
-   ```json
-   {
-     "decision": "block",
-     "reason": "Before finishing, run the workbench skill: check whether this session's work changes the project's Workbench metadata, and update it if so."
-   }
-   ```
-5. When the agent finishes `workbench push` (or runs `workbench hook-check --mark-seen` if no metadata update was needed), `mark_repo_seen()` updates `last_seen_commit = HEAD` in `~/.workbench/state.json`.
-6. **Fail-Open Guarantee**: Any internal error or timeout in `evaluate_hook_input()` is caught and returns `None` so a hook failure never traps the user's coding session.
+It always allows the agent to finish (prints nothing) when `stop_hook_active` is true, `cwd` is not a git repo with commits, the hook runs inside the headless updater's own agent (`WORKBENCH_UPDATER` is set), `update_mode = "off"`, or anything fails (fail open). Otherwise `update_mode` in `~/.workbench/config.toml` decides:
+
+**`session` (default).** A new `HEAD` blocks with "run the workbench-review skill"; a changed fingerprint blocks with "run the workbench-update skill". A session is never blocked twice for the same state. The agent finishes with `workbench set`/`add`/`push` or `workbench hook-check --mark-seen`, which record the state as seen.
+
+**`headless`.** When `HEAD` or the fingerprint changed, the hook records them as seen, writes a job to `~/.workbench/jobs/`, starts `workbench auto-update --job <file>` detached, and returns at once; the session is never blocked and full reviews run only on `/workbench-review`. The job (`updater.py`, one at a time under `~/.workbench/updater.lock`):
+
+1. Reads the message the hook fired for: Gemini sends `prompt`/`prompt_response`; for Claude it reads the last user turn and its reply from the transcript (the turn that started before the hook fired, so a queued job never records a later message), plus the previous reply for context. Long texts are cut, keeping both ends.
+2. Finds the project (the repo's focus, else the project the repo is registered under) and skips with a log line if there is none.
+3. Sends `updater_command` (default `claude -p --model haiku --tools "" ...`, prompt on stdin, run in an empty temp dir) the rules, the full `project.yaml`, `git diff --stat`, new files and new commits, and the exchange. The agent has no tools and answers with JSON: `set` ops (status/notes/summary of an existing item), `add` ops (a new item under an existing one) and suggestions.
+4. Applies the ops itself: only `set` and `add`, only on existing ids, no renames or removals, texts clamped to the model limits, duplicates by name skipped; an op that does not fit is skipped and logged, not fatal. Suggestions go to the project's `suggestions` inbox, where the dashboard offers Keep / Dismiss.
+5. Pushes one `update(<project>[/<item>]): <summary>` commit through the quick path (validation, deterministic privacy scan, semantic check) and appends a line to `~/.workbench/logs/updater.log`.
+
+If the `updater_command` executable is not installed, headless mode falls back to `session` behaviour. `workbench auto-update --transcript <file.jsonl> --dry-run` (inside the project repo) prints the prompt and the plan without changing anything.
 
 ---
 

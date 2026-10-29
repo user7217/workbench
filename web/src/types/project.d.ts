@@ -40,8 +40,14 @@ export type RootCommit = string;
 export type Repos = ProjectRepo[];
 export type SchemaVersion = 1;
 export type Status2 = "planned" | "active" | "paused" | "done" | "archived";
-export type Topics1 = Phase[];
+export type Added = string;
+export type Id3 = string;
+export type Name4 = string;
+export type Summary2 = string;
 export type Under = string | null;
+export type Suggestions = Suggestion[];
+export type Topics1 = Phase[];
+export type Under1 = string | null;
 export type Updated = string;
 export type UsesPhases = boolean;
 
@@ -56,8 +62,9 @@ export interface Project {
   repos?: Repos;
   schema_version?: SchemaVersion;
   status: Status2;
+  suggestions?: Suggestions;
   topics?: Topics1;
-  under?: Under;
+  under?: Under1;
   updated: Updated;
   uses_phases?: UsesPhases;
 }
@@ -109,4 +116,17 @@ export interface ProjectRepo {
   github?: Github;
   name: Name3;
   root_commit: RootCommit;
+}
+/**
+ * A suggested next step waiting in the project's inbox: Keep adds it to the tree, Dismiss drops it.
+ *
+ * This interface was referenced by `Project`'s JSON-Schema
+ * via the `definition` "Suggestion".
+ */
+export interface Suggestion {
+  added: Added;
+  id: Id3;
+  name: Name4;
+  summary?: Summary2;
+  under?: Under;
 }

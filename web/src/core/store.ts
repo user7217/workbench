@@ -9,8 +9,10 @@
  * edits work this way. Structure edits (add/move/delete/parent) are NOT optimistic: they mark
  * `pendingKeys.structure(projectId)`, POST, and adopt the server's snapshot (ids, positions and
  * validation are the server's call); on failure nothing changed locally and `lastError` says why.
+ * Suggestion keep/dismiss are optimistic only for the inbox (the row disappears at once); the new
+ * tree item of a keep comes from the server's snapshot.
  */
-import type { Project } from "../types/project";
+import type { Project, Suggestion } from "../types/project";
 import type { LearningPath, Topic, Subtopic } from "../types/learning";
 import {
   EMPTY_SNAPSHOT,
@@ -19,6 +21,7 @@ import {
   fieldUrls,
   statusUrls,
   structureUrls,
+  suggestionUrls,
   type SnapshotData,
   type SyncStatus,
   type WorkbenchApi,
@@ -138,6 +141,8 @@ export const pendingKeys = {
   learningItemFields: (pathId: string, itemId: string) => `learning-item-fields:${pathId}:${itemId}`,
   /** Any structure edit (add/move/delete/parent) of a project; one at a time per project. */
   structure: (projectId: string) => `structure:${projectId}`,
+  /** Keep or dismiss of one inbox suggestion. */
+  suggestion: (projectId: string, suggestionId: string) => `suggestion:${projectId}:${suggestionId}`,
 };
 
 // Text-field shapes accepted by the fields endpoints. "" removes an optional field; name can't be "".
@@ -463,6 +468,13 @@ export interface WorkbenchActions {
   deleteItem: (projectId: string, itemId: string) => Promise<boolean>;
   /** Attach a project under a parent project's phase/component, or detach it with null (not optimistic). */
   setParent: (projectId: string, link: ParentLink | null) => Promise<boolean>;
+  /**
+   * Move an inbox suggestion into the tree as a not-started item (under its `under`, or as a new
+   * phase/topic). The row leaves the inbox at once; resolves to the new item id, or null on failure.
+   */
+  keepSuggestion: (projectId: string, suggestionId: string) => Promise<string | null>;
+  /** Drop an inbox suggestion (optimistic). */
+  dismissSuggestion: (projectId: string, suggestionId: string) => Promise<boolean>;
   /** The shared "apply locally, POST, adopt server result, revert on failure" pattern. */
   optimisticWrite: (write: OptimisticWrite) => Promise<boolean>;
 }
@@ -495,6 +507,23 @@ const mapLearningPath =
     ...s,
     learning: s.learning.map((l) => (l.id === pathId ? fn(l) : l)),
   });
+
+/** Take one suggestion out of a project's inbox (drops the key when it was the last one). */
+const withoutSuggestion = (p: Project, suggestionId: string): Project => {
+  const rest = (p.suggestions ?? []).filter((sg) => sg.id !== suggestionId);
+  const next: Project = { ...p, suggestions: rest };
+  if (!rest.length) delete next.suggestions;
+  return next;
+};
+
+/** Put a suggestion back at its old index (no-op if it is already there). */
+const withSuggestionAt = (p: Project, suggestion: Suggestion, index: number): Project => {
+  const list = p.suggestions ?? [];
+  if (list.some((sg) => sg.id === suggestion.id)) return p;
+  const next = [...list];
+  next.splice(Math.min(index, next.length), 0, suggestion);
+  return { ...p, suggestions: next };
+};
 
 const STATUS_FAILURE = "Could not save status update — reverted change.";
 const FIELDS_FAILURE = "Could not save edit — reverted change.";
@@ -869,6 +898,47 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
     return result !== null;
   };
 
+  // --- Suggestions inbox (optimistic for the inbox row only) ---
+
+  const suggestionWrite = async (
+    projectId: string,
+    suggestionId: string,
+    url: string,
+    failureMessage: string
+  ): Promise<WriteResult | null> => {
+    const project = indexProjects(state.snapshot.projects).projectsById.get(projectId);
+    const index = project?.suggestions?.findIndex((sg) => sg.id === suggestionId) ?? -1;
+    if (!project || index < 0) return null;
+    const suggestion = project.suggestions![index];
+    const sent: { result?: WriteResult } = {};
+    const ok = await optimisticWrite({
+      key: pendingKeys.suggestion(projectId, suggestionId),
+      request: async (a) => (sent.result = await a.postJson(url, {})),
+      apply: mapProject(projectId, (p) => withoutSuggestion(p, suggestionId)),
+      revert: mapProject(projectId, (p) => withSuggestionAt(p, suggestion, index)),
+      failureMessage,
+    });
+    return ok ? sent.result ?? {} : null;
+  };
+
+  const keepSuggestion: WorkbenchActions["keepSuggestion"] = async (projectId, suggestionId) => {
+    const result = await suggestionWrite(
+      projectId,
+      suggestionId,
+      suggestionUrls.keep(projectId, suggestionId),
+      "Could not keep suggestion — it is back in the inbox."
+    );
+    return result ? result.item_id ?? null : null;
+  };
+
+  const dismissSuggestion: WorkbenchActions["dismissSuggestion"] = async (projectId, suggestionId) =>
+    (await suggestionWrite(
+      projectId,
+      suggestionId,
+      suggestionUrls.dismiss(projectId, suggestionId),
+      "Could not dismiss suggestion — it is back in the inbox."
+    )) !== null;
+
   const refresh = async () => {
     const { snapshot, status } = await api.fetchAll();
     setState((s) => ({ ...s, snapshot: snapshot ?? s.snapshot, syncStatus: status ?? s.syncStatus }));
@@ -903,6 +973,8 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
     moveItem,
     deleteItem,
     setParent,
+    keepSuggestion,
+    dismissSuggestion,
     dismissError: () => setState((s) => (s.lastError ? { ...s, lastError: null } : s)),
     optimisticWrite,
   };

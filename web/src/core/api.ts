@@ -33,7 +33,7 @@ export interface WriteResult {
   ok?: boolean;
   snapshot?: SnapshotData;
   status?: SyncStatus;
-  /** Id of the item created by an add (POST /api/projects/{id}/items). */
+  /** Id of the item created by an add (POST /api/projects/{id}/items) or a suggestion keep. */
   item_id?: string;
 }
 
@@ -125,6 +125,14 @@ export const structureUrls = {
   remove: (projectId: string, itemId: string) =>
     `/api/projects/${enc(projectId)}/items/${enc(itemId)}/delete`,
   parent: (projectId: string) => `/api/projects/${enc(projectId)}/parent`,
+};
+
+/** Suggestions inbox endpoints (keep adds the suggestion to the tree; dismiss drops it). Projects only. */
+export const suggestionUrls = {
+  keep: (projectId: string, suggestionId: string) =>
+    `/api/projects/${enc(projectId)}/suggestions/${enc(suggestionId)}/keep`,
+  dismiss: (projectId: string, suggestionId: string) =>
+    `/api/projects/${enc(projectId)}/suggestions/${enc(suggestionId)}/dismiss`,
 };
 
 export function postStatus(url: string, status: string): Promise<WriteResult> {

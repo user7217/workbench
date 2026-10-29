@@ -498,6 +498,20 @@ phases:
           - collision-checker
         links: []
         refs: []
+suggestions:
+  - id: joint-torque-logging
+    name: Joint torque logging
+    summary: Record per-joint current draw during playback to spot binding and wear early.
+    under: control-ui
+    added: 2026-10-24
+  - id: gripper-end-effector
+    name: Gripper end effector
+    summary: Servo-driven parallel gripper with force feedback for pick-and-place demos.
+    added: 2026-10-25
+  - id: workspace-visualizer
+    name: Workspace reach visualizer
+    under: kinematics
+    added: 2026-10-26
 """,
         "demo-home-lab-cluster": f"""schema_version: 1
 id: demo-home-lab-cluster
