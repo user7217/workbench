@@ -22,6 +22,8 @@ COPY --from=web-builder /build/web/dist ./web/dist
 RUN uv pip install --system .
 
 ENV WORKBENCH_STATE_DIR=/data
+# The package is installed into site-packages, so tell the server where the built UI is
+ENV WORKBENCH_WEB_DIST=/app/web/dist
 ENV WORKBENCH_BRANCH=main
 ENV WORKBENCH_POLL_SECONDS=600
 ENV WORKBENCH_BIND=0.0.0.0

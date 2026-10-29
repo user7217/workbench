@@ -36,7 +36,14 @@ from workbench.server.writes import (
 logger = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+# Only right when running from a source checkout; an installed package (the Docker image)
+# sets WORKBENCH_WEB_DIST to where the built UI is.
 DEFAULT_WEB_DIST = REPO_ROOT / "web" / "dist"
+
+
+def _default_web_dist() -> Path:
+    configured = os.environ.get("WORKBENCH_WEB_DIST")
+    return Path(configured) if configured else DEFAULT_WEB_DIST
 
 
 def _require_write_headers(request: Request) -> None:
@@ -142,7 +149,7 @@ def create_app(
         if poll_seconds is not None
         else float(os.environ.get("WORKBENCH_POLL_SECONDS", "600"))
     )
-    dist_dir = web_dist if web_dist is not None else DEFAULT_WEB_DIST
+    dist_dir = web_dist if web_dist is not None else _default_web_dist()
 
     @contextlib.asynccontextmanager
     async def lifespan(app_instance: FastAPI):
@@ -322,6 +329,12 @@ def create_app(
             ):
                 return FileResponse(str(candidate))
             return FileResponse(str(dist_dir / "index.html"))
+    else:
+        logger.warning(
+            "Web UI not found at %s (no index.html); serving the API only. "
+            "Build it with `cd web && npm run build` or set WORKBENCH_WEB_DIST.",
+            dist_dir,
+        )
 
     return app
 
