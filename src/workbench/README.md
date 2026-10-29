@@ -99,7 +99,7 @@ Triggered via `workbench discover --local` or daily at 12:00 PM by the macOS `la
 Triggered by the server background loop once every 24 hours when `WORKBENCH_GITHUB_OWNERS` is configured:
 
 1. **Paginated Repo Listing (`fetch_github_candidates`)**:
-   - Queries `GET /users/<owner>/repos?per_page=100` (using `Authorization: Bearer <WORKBENCH_GITHUB_READ_TOKEN>` if provided) and follows HTTP `Link: <...>; rel="next"` headers across all pages.
+   - With `WORKBENCH_GITHUB_READ_TOKEN` set, queries `GET /user/repos?affiliation=owner,organization_member&per_page=100` (the authenticated listing, which includes private repos) and keeps only repos owned by one of `WORKBENCH_GITHUB_OWNERS`. Without a token it queries `GET /users/<owner>/repos?per_page=100`, which returns public repos only. Either way it follows HTTP `Link: <...>; rel="next"` headers across all pages.
    - Automatically skips repositories where `"fork": true` or `"archived": true`.
 2. **Root Commit Lookup via HTTP `Link` Header**:
    - For each non-fork, non-archived repo, requests `GET /repos/<owner>/<repo>/commits?per_page=1`.

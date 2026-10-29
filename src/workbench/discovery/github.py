@@ -42,6 +42,24 @@ def _is_rate_limited(resp: httpx.Response) -> tuple[bool, int | None]:
     return False, None
 
 
+def _listing_urls(base: str, github_owners: list[str], token: str | None) -> list[tuple[str, str]]:
+    """(label, first page URL) of the repo listings to read.
+
+    `/users/<owner>/repos` returns only public repos even with a token, so with a token the
+    authenticated listing is used instead (it includes private repos) and filtered by owner.
+    """
+    if token:
+        url = f"{base}/user/repos?affiliation=owner,organization_member&per_page=100"
+        return [(", ".join(github_owners), url)]
+    return [(owner, f"{base}/users/{owner}/repos?per_page=100") for owner in github_owners]
+
+
+def _repo_owner(repo: dict, full_name: str) -> str:
+    owner = repo.get("owner")
+    login = owner.get("login") if isinstance(owner, dict) else None
+    return str(login or full_name.split("/", 1)[0]).lower()
+
+
 def fetch_github_candidates(
     github_owners: list[str],
     token: str | None = None,
@@ -52,6 +70,7 @@ def fetch_github_candidates(
     result = GitHubDiscoveryResult()
     candidates: list[DiscoveredRepoCandidate] = []
     base = api_base.rstrip("/")
+    wanted_owners = {owner.lower() for owner in github_owners}
 
     headers = {
         "Accept": "application/vnd.github+json",
@@ -64,8 +83,10 @@ def fetch_github_candidates(
     http = client or httpx.Client(headers=headers, timeout=15.0)
 
     try:
-        for owner in github_owners:
-            next_url: str | None = f"{base}/users/{owner}/repos?per_page=100"
+        if not github_owners:
+            return candidates, result
+        for owner, first_url in _listing_urls(base, github_owners, token):
+            next_url: str | None = first_url
             while next_url:
                 resp = http.get(next_url, headers=headers)
                 limited, ra = _is_rate_limited(resp)
@@ -90,9 +111,12 @@ def fetch_github_candidates(
                     if repo.get("fork") or repo.get("archived"):
                         continue
                     repo_name = str(repo.get("name", "")).strip()
-                    full_name = str(repo.get("full_name") or f"{owner}/{repo_name}").strip()
+                    full_name = str(repo.get("full_name") or "").strip()
                     description = str(repo.get("description") or "")
-                    if not repo_name:
+                    if not repo_name or not full_name:
+                        continue
+                    if _repo_owner(repo, full_name) not in wanted_owners:
+                        # The authenticated listing also has repos owned by others
                         continue
 
                     # Fetch root commit via commits?per_page=1 and follow rel="last" link
