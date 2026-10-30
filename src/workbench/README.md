@@ -135,7 +135,7 @@ Agents and humans never edit `~/.workbench/data` directly on `main`. Instead, ed
 3. **`workbench push <worktree> -m "<summary>"`**:
    - Removes `.git_wb_baseline.json` and checks `git diff --name-only origin/main`. If nothing changed, removes the worktree and marks the current repo seen.
    - Overwrites `updated` with today's ISO date and manages `origin` automatically (upgrading `origin: discovered` to `origin: agent` as soon as `phases` or `topics` are populated).
-   - Runs the 3-stage validation pipeline (Section 6 below).
+   - Runs the 3-stage validation pipeline (Section 6).
    - Commits the change in the worktree, fetches `origin/main`, runs `git rebase origin/main`, re-validates the post-rebase tree, pushes to `origin/main` (retrying up to 3 times on non-fast-forward push races), removes the worktree, and updates `~/.workbench/state.json`.
    - If a rebase conflict occurs against another concurrent edit to the same file, aborts the rebase and **keeps the worktree path on disk** so no work is lost.
 
