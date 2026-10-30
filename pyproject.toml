@@ -33,6 +33,9 @@ dev = [
 [tool.hatch.build.targets.wheel]
 packages = ["src/workbench"]
 
+# hatch_build.py puts the built web UI (web/dist) into the wheel as workbench/web_dist
+[tool.hatch.build.targets.wheel.hooks.custom]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"

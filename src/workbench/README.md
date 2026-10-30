@@ -186,6 +186,8 @@ If the `updater_command` executable is not installed, headless mode falls back t
 
 The dashboard server (`server/app.py`, `server/sync.py`, `server/writes.py`) is stateless with respect to your laptop and syncs directly against `workbench-data`:
 
+It runs in the Docker image or with `workbench serve`. The built UI is found at `WORKBENCH_WEB_DIST` if set, else inside the installed package (`workbench/web_dist`, put into the wheel by `hatch_build.py` when `web/dist` is built), else at the checkout's `web/dist`.
+
 - **Startup & Background Polling (`app.py`, `sync.py`)**:
   - On startup, `ServerState.load_snapshot_from_disk()` restores the cached `snapshot.json` from `WORKBENCH_STATE_DIR` (if present) and immediately runs `sync_once()` in a worker thread.
   - Every `WORKBENCH_POLL_SECONDS` (default `600`s) — or on `POST /api/sync` ("Check for updates") — `sync_once()` fetches `origin/main`, checks out the fetched commit into a temporary staging worktree, and runs `validate_data_repo()`.

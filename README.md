@@ -60,6 +60,7 @@ Then open **http://127.0.0.1:8420** (set `WORKBENCH_PORT` to use another port). 
 | `workbench archive-empty [--dry-run] [--keep <id>]` | Archive empty, auto-discovered projects |
 | `workbench learning import <file.md\|.yaml>` / `learning export <id>` | Import (merge) or print a learning-path outline |
 | `workbench history [--kind K[,K]] [--project P] [-n N]` / `workbench undo <commit>` | Show recent changes, filtered by commit kind or project / revert one |
+| `workbench serve [--host H] [--port P]` | Run the dashboard server (API and web UI) without Docker |
 | `workbench hook-check --mark-seen` | Tell the agent hook nothing needs recording for the current changes |
 | `workbench auto-update --transcript <file.jsonl> --dry-run` | Show what the headless updater would record for a session's last message (run inside the project repo) |
 

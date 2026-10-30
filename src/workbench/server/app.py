@@ -36,14 +36,20 @@ from workbench.server.writes import (
 logger = logging.getLogger(__name__)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
-# Only right when running from a source checkout; an installed package (the Docker image)
-# sets WORKBENCH_WEB_DIST to where the built UI is.
+# The built UI in a source checkout (editable installs and the demo)
 DEFAULT_WEB_DIST = REPO_ROOT / "web" / "dist"
+# The built UI shipped inside an installed wheel (see hatch_build.py)
+PACKAGED_WEB_DIST = Path(__file__).resolve().parent.parent / "web_dist"
 
 
 def _default_web_dist() -> Path:
+    """WORKBENCH_WEB_DIST if set, else the UI inside the package, else the checkout's web/dist."""
     configured = os.environ.get("WORKBENCH_WEB_DIST")
-    return Path(configured) if configured else DEFAULT_WEB_DIST
+    if configured:
+        return Path(configured)
+    if (PACKAGED_WEB_DIST / "index.html").is_file():
+        return PACKAGED_WEB_DIST
+    return DEFAULT_WEB_DIST
 
 
 def _require_write_headers(request: Request) -> None:

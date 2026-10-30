@@ -117,6 +117,20 @@ cd ~/workbench && git pull && docker compose up -d --build
 
 ---
 
+### 3b. Without Docker
+
+The server also runs straight from an install of the package. Build the UI first so it is shipped inside the package, then install and start it:
+
+```bash
+cd web && npm ci && npm run build && cd ..
+uv tool install --force .
+workbench serve --host 100.101.102.103 --port 8420
+```
+
+`workbench serve` takes the data repo from `~/.workbench/config.toml` (or `WORKBENCH_DATA_REMOTE`), keeps its own clone in `~/.workbench/server`, and reads the same `WORKBENCH_*` variables as the Docker image (`WORKBENCH_GITHUB_OWNERS`, `WORKBENCH_GITHUB_READ_TOKEN`, `WORKBENCH_POLL_SECONDS`). It listens on `127.0.0.1` unless you pass `--host`; as with Docker, bind only to a Tailscale IP, never a public one. To keep it running after logout or reboot, run it under systemd or launchd. If the UI was not built before installing, the server logs "Web UI not found" and serves only the API; rebuild the UI and reinstall, or point `WORKBENCH_WEB_DIST` at a built `web/dist`.
+
+---
+
 ## 4. Laptop Setup & Initial Discovery
 
 1. Install the `workbench` CLI tool globally on your laptop via `uv`:

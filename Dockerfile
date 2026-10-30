@@ -13,7 +13,7 @@ COPY --from=ghcr.io/astral-sh/uv:0.13.1 /uv /usr/local/bin/uv
 COPY docker/github_known_hosts /etc/ssh/ssh_known_hosts
 
 WORKDIR /app
-COPY pyproject.toml README.md ./
+COPY pyproject.toml README.md hatch_build.py ./
 COPY src/ ./src/
 COPY schema/ ./schema/
 COPY agent/ ./agent/
