@@ -20,10 +20,12 @@ src/workbench/
 ├── validate.py        # Path whitelist, Pydantic validation, directory-ID matching, and 20 KB Markdown checks
 ├── semantic.py        # Semantic diff checks against origin/main (ID immutability, removal guards, >30% deletion cap)
 ├── privacy.py         # Deterministic secret/PII/path regex scanner + isolated LLM privacy review subprocess
-├── hooks.py           # Working-tree fingerprint, Stop/AfterAgent hook decision, per-repo state (~/.workbench/state.json)
-├── updater.py         # Headless per-message updater: transcript reading, prompt, applying the agent's JSON plan
-├── install.py         # Installer for ~/.claude skills/hooks, ~/.gemini rules/hooks, and macOS launchd plist
 ├── cli.py             # Typer CLI entrypoints (setup, show, set, add, focus, begin, push, new, attach, link, serve, etc.)
+├── agents/            # Coding-agent integration
+│   ├── hooks.py       # Working-tree fingerprint, Stop/AfterAgent hook decision, per-repo state (~/.workbench/state.json)
+│   ├── updater.py     # Headless per-message updater: transcript reading, prompt, applying the agent's JSON plan
+│   ├── install.py     # Installer for ~/.claude skills/hooks, ~/.gemini rules/hooks, and the macOS launchd plist
+│   └── assets/        # Shipped in the wheel: claude/ skills, gemini/ rules and commands, chat/ import prompts
 ├── __main__.py        # `python -m workbench` (how the hook starts the background updater)
 ├── demo_env.py        # Self-contained temporary demo environment generator for `make demo` and E2E tests
 ├── discovery/
@@ -34,6 +36,20 @@ src/workbench/
     ├── app.py         # FastAPI application, background polling/discovery loop, and REST routes
     ├── sync.py        # Staging-worktree validation and atomic last-good snapshot swap
     └── writes.py      # Thread-safe server worktree transactions for inline UI edits
+```
+
+The rest of the repository:
+
+```text
+web/                   # React + TypeScript UI: src/core (fixed state layer), src/ui (replaceable look), docs/images
+schema/                # JSON Schemas generated from models.py (the contract between Python and the UI)
+packaging/
+├── hatch_build.py     # Wheel build hook: ships the built web/dist inside the package as workbench/web_dist
+└── docker/            # Dockerfile and GitHub's SSH host keys for the server image
+docker-compose.yml     # Server deployment (stays at the root: it reads .env and secrets/ next to it)
+scripts/               # run_demo.py (the `make demo` server) and screenshots.py (README screenshots)
+docs/                  # setup.md, reference.md, architecture.md (this file)
+.github/workflows/     # CI: lint, generated files, UI build, wheel smoke test on three OSes, Docker build
 ```
 
 ---
@@ -119,7 +135,7 @@ Every write to `workbench-data` must pass three checks before a commit is pushed
 
 ---
 
-## 7. Agent Lifecycle Hooks & Headless Mode (`hooks.py`, `updater.py`)
+## 7. Agent Lifecycle Hooks & Headless Mode (`agents/hooks.py`, `agents/updater.py`)
 
 `workbench hook-check` runs at the end of every coding-agent message (`Stop` in Claude Code, `AfterAgent` in Gemini CLI). It compares the repo with what `~/.workbench/state.json` last saw for it: `HEAD`, and a fingerprint (`compute_fingerprint`: SHA-256 over `git status --porcelain=v1 -z --untracked-files=all` with `--no-optional-locks`, `git diff HEAD`, and untracked file sizes/mtimes).
 
@@ -143,4 +159,4 @@ The background job (`cli._run_auto_update`, one at a time under `~/.workbench/up
 - **Sync (`sync.py`):** on startup the server loads its cached `snapshot.json`, then every `WORKBENCH_POLL_SECONDS` fetches `origin/main` into its own clone, validates the fetched commit in a staging worktree and, only if it is valid, swaps in a new snapshot (projects, learning paths, topic Markdown, and each entry's last change time from `git log`). An invalid commit keeps the last good snapshot and is reported in `/api/status`. A sync never raises, and one lock serializes all git work on the clone.
 - **Writes (`writes.py`):** each dashboard edit opens a worktree, applies the change with `edits.py`, runs the same validation and semantic checks as the CLI, commits an `edit(...)` message, rebases and pushes with retries, then resyncs and returns the new snapshot.
 - **Discovery:** with `WORKBENCH_GITHUB_OWNERS` set, the server runs GitHub discovery once a day.
-- **UI (`app.py`):** the built UI is served from `WORKBENCH_WEB_DIST` if set, else the copy inside the installed package (`workbench/web_dist`, added to the wheel by `hatch_build.py` when `web/dist` is built), else the checkout's `web/dist`. The server runs in the Docker image or with `workbench serve`.
+- **UI (`app.py`):** the built UI is served from `WORKBENCH_WEB_DIST` if set, else the copy inside the installed package (`workbench/web_dist`, added to the wheel by `packaging/hatch_build.py` when `web/dist` is built), else the checkout's `web/dist`. The server runs in the Docker image or with `workbench serve`.

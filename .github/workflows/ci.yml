@@ -126,5 +126,6 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: .
+          file: packaging/docker/Dockerfile
           push: false
           tags: workbench:ci

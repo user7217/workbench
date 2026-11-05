@@ -16,7 +16,15 @@ from typing import Any, get_args
 import typer
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 
-from workbench import commitmsg, edits, updater
+from workbench import commitmsg, edits
+from workbench.agents import updater
+from workbench.agents.hooks import (
+    evaluate_hook_input,
+    get_repo_focus,
+    mark_repo_seen,
+    set_repo_focus,
+)
+from workbench.agents.install import run_install
 from workbench.config import (
     WorkbenchLocalConfig,
     get_workbench_dir,
@@ -43,14 +51,12 @@ from workbench.gitops import (
     run_git,
     show_file_at_ref,
 )
-from workbench.hooks import evaluate_hook_input, get_repo_focus, mark_repo_seen, set_repo_focus
 from workbench.identity import (
     AmbiguousRepoIdentityError,
     find_project_for_repo,
     resolve_local_repo_identity,
     slugify_name,
 )
-from workbench.install import run_install
 from workbench.learning_md import (
     export_learning_markdown,
     merge_learning_paths,

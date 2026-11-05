@@ -1,0 +1,5 @@
+# Commits that only reformatted code; `git blame` skips them.
+# Enable locally with: git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# build(workbench): add Ruff, Biome and CI; apply lint fixes and format the code
+e78414a665db3c065d2c94d74e709296990c3d43

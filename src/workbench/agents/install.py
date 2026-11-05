@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 # Skill, rule and prompt files ship inside the package, so an installed workbench finds them
-ASSETS_DIR = Path(__file__).resolve().parent / "agents" / "assets"
+ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 CLAUDE_SKILL_NAMES: tuple[str, ...] = ("workbench-update", "workbench-review")
 CLAUDE_SKILL_TEMPLATES = {
     name: ASSETS_DIR / "claude" / name / "SKILL.md" for name in CLAUDE_SKILL_NAMES

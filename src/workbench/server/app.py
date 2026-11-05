@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent.parent
 # The built UI in a source checkout (editable installs and the demo)
 DEFAULT_WEB_DIST = REPO_ROOT / "web" / "dist"
-# The built UI shipped inside an installed wheel (see hatch_build.py)
+# The built UI shipped inside an installed wheel (see packaging/hatch_build.py)
 PACKAGED_WEB_DIST = Path(__file__).resolve().parent.parent / "web_dist"
 
 

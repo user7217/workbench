@@ -41,7 +41,7 @@ The agent gets no tools and can only answer with JSON. Workbench applies only `s
 
 ## 4. Scoped Credentials
 
-As detailed in **[SETUP_REAL.md](SETUP_REAL.md)**:
+As detailed in **[docs/setup.md](docs/setup.md)**:
 
 - **Server Push Access:** Use a repository-scoped GitHub **SSH Deploy Key** attached **only** to `<github-user>/workbench-data` (`./secrets/deploy_key`, `chmod 600`). Do not place a personal full-account SSH key on the server.
 - **Server Discovery Token:** Use a fine-grained GitHub Personal Access Token with **Read-only** permissions (`Metadata: Read-only`, `Contents: Read-only`).
@@ -50,7 +50,7 @@ As detailed in **[SETUP_REAL.md](SETUP_REAL.md)**:
 
 ## 5. Network Binding & CSRF Protection
 
-- **Bind Only to Loopback or Tailscale:** The Workbench server does not implement user authentication of its own; it relies on network-level access control. Always bind `WORKBENCH_BIND` to `127.0.0.1` (local Mac) or the server's `100.x.y.z` [Tailscale](https://tailscale.com) IPv4 address—never expose port `8420` on a public `0.0.0.0` internet interface, and never publish it with Tailscale Funnel or a reverse proxy open to the internet. Tailscale Serve (tailnet only) is fine; see [SETUP_REAL.md](SETUP_REAL.md).
+- **Bind Only to Loopback or Tailscale:** The Workbench server does not implement user authentication of its own; it relies on network-level access control. Always bind `WORKBENCH_BIND` to `127.0.0.1` (local Mac) or the server's `100.x.y.z` [Tailscale](https://tailscale.com) IPv4 address—never expose port `8420` on a public `0.0.0.0` internet interface, and never publish it with Tailscale Funnel or a reverse proxy open to the internet. Tailscale Serve (tailnet only) is fine; see [docs/setup.md](docs/setup.md).
 - **CSRF Header Requirement:** Every mutating `POST /api/...` route on the server ([`src/workbench/server/app.py`](src/workbench/server/app.py)) requires `Content-Type: application/json` and the custom header `X-Workbench: 1`, preventing cross-site form submissions from untrusted browser tabs.
 
 ---

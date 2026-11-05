@@ -44,7 +44,7 @@ cp -r examples/minimal-look examples/my-look       # any folder under web/ works
 Start the demo API (artificial `demo-*` data in a throw-away folder) from the **repository root**:
 
 ```bash
-WORKBENCH_PORT=8441 uv run python demo/run_demo.py
+WORKBENCH_PORT=8441 uv run python scripts/run_demo.py
 ```
 
 Run the new look against it with hot reload (the dev server proxies `/api` to `WORKBENCH_API`):
@@ -62,7 +62,7 @@ WORKBENCH_UI=examples/my-look npm run build         # writes web/dist
 ```
 
 The Python server serves whatever is in `web/dist` for every non-`/api` path, so after a build,
-restarting the server (`make demo`, `demo/run_demo.py`, or the real server) serves the new look. Run
+restarting the server (`make demo`, `scripts/run_demo.py`, or the real server) serves the new look. Run
 `npm run build` without `WORKBENCH_UI` to go back to the default look.
 
 ![The minimal example look: one column per project, status selects and an editable description](docs/images/minimal-look.png)
@@ -277,5 +277,5 @@ row, and its Home card shows how many suggestions are waiting.
 Regenerate these screenshots (builds both looks, runs a temporary demo server, restores `web/dist`):
 
 ```bash
-uv run python web/docs/screenshots.py     # from the repository root
+uv run python scripts/screenshots.py     # from the repository root
 ```

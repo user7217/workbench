@@ -14,10 +14,10 @@ test: build
 	$(UV) run pytest -v
 
 demo: build
-	$(UV) run python demo/run_demo.py
+	$(UV) run python scripts/run_demo.py
 
 dev:
-	$(UV) run python demo/run_demo.py
+	$(UV) run python scripts/run_demo.py
 
 lint:
 	$(UV) run ruff check .

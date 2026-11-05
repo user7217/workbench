@@ -6,7 +6,7 @@
 *.key
 id_ed25519*
 workbench_deploy_key*
-# Server deploy key and other server-only files (see SETUP_REAL.md)
+# Server deploy key and other server-only files (see docs/setup.md)
 secrets/
 docker-compose.override.yml
 

@@ -123,7 +123,7 @@ Open **http://127.0.0.1:8420** in a browser (or set `WORKBENCH_PORT` to use a di
 
 ## Production & Home Server Setup
 
-To connect Workbench to real repositories and deploy the dashboard on a home server or local machine, follow **[SETUP_REAL.md](SETUP_REAL.md)**. In brief:
+To connect Workbench to real repositories and deploy the dashboard on a home server or local machine, follow **[docs/setup.md](docs/setup.md)**. In brief:
 
 1. **Create a private `workbench-data` repo on GitHub** seeded with `workbench.yaml` (`schema_version: 1`).
 2. **Deploy the server (Docker Compose + Tailscale):**
@@ -141,7 +141,7 @@ To connect Workbench to real repositories and deploy the dashboard on a home ser
    workbench discover --local
    ```
 
-See **[SETUP_REAL.md](SETUP_REAL.md)** for full step-by-step instructions, including non-Docker (`workbench serve`) deployment and headless background agent updates.
+See **[docs/setup.md](docs/setup.md)** for full step-by-step instructions, including non-Docker (`workbench serve`) deployment and headless background agent updates.
 
 ---
 
@@ -236,9 +236,9 @@ Workbench's documentation follows the [Diátaxis](https://diataxis.fr/) structur
 | Document | Type | What It Covers |
 | :--- | :--- | :--- |
 | **[README.md](README.md)** | **Overview & Tutorial** | Project overview, screenshots, 60-second `make demo` quickstart, and CLI cheat sheet. |
-| **[SETUP_REAL.md](SETUP_REAL.md)** | **Deployment How-To** | Step-by-step setup for `workbench-data`, SSH deploy keys, Docker Compose + Tailscale, `workbench serve`, and laptop hooks. |
-| **[docs/SCHEMA_AND_CLI.md](docs/SCHEMA_AND_CLI.md)** | **Technical Reference** | Annotated YAML schemas (`project.yaml`, `path.yaml`), `config.toml`, environment variables, HTTP API endpoints, and every CLI command with its options. |
-| **[src/workbench/README.md](src/workbench/README.md)** | **Backend Architecture** | Python package internals, root-commit identity resolution, discovery scanners, worktree concurrency, and 3-stage validation. |
+| **[docs/setup.md](docs/setup.md)** | **Deployment How-To** | Step-by-step setup for `workbench-data`, SSH deploy keys, Docker Compose + Tailscale, `workbench serve`, and laptop hooks. |
+| **[docs/reference.md](docs/reference.md)** | **Technical Reference** | Annotated YAML schemas (`project.yaml`, `path.yaml`), `config.toml`, environment variables, HTTP API endpoints, and every CLI command with its options. |
+| **[docs/architecture.md](docs/architecture.md)** | **Backend Architecture** | Python package internals, root-commit identity resolution, discovery scanners, worktree concurrency, and 3-stage validation. |
 | **[web/README.md](web/README.md)** | **Frontend & Theming Guide** | How the `web/src/core/` store and `web/src/ui/` look layer are separated, and how to build a custom UI look. |
 | **[CONTRIBUTING.md](CONTRIBUTING.md)** | **Contributor Guide** | Development workflow, test suite execution, schema/type generation, and code conventions. |
 | **[SECURITY.md](SECURITY.md)** | **Security & Privacy Model** | Threat model, two-repository isolation, deterministic secret/path scanning, and Tailscale network boundaries. |

@@ -33,7 +33,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
-from workbench import updater
+from workbench.agents import updater
 from workbench.config import get_workbench_dir, load_local_config
 from workbench.gitops import (
     get_head_commit,

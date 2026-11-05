@@ -2,7 +2,7 @@
 
 Run from the repository root:
 
-    uv run python web/docs/screenshots.py
+    uv run python scripts/screenshots.py
 
 What it does:
 1. Builds the default look (npm run build -> web/dist) and starts the demo server on a free port
@@ -28,8 +28,8 @@ from pathlib import Path
 
 from playwright.sync_api import Page, expect, sync_playwright
 
-WEB = Path(__file__).resolve().parents[1]
-REPO = WEB.parent
+REPO = Path(__file__).resolve().parents[1]
+WEB = REPO / "web"
 OUT = WEB / "docs" / "images"
 VIEWPORT = {"width": 1600, "height": 1000}
 PROJECT = "demo-robot-arm"
@@ -62,7 +62,11 @@ def background(cmd: list[str], cwd: Path, env_extra: dict[str, str], ready_url: 
     """Run a server in its own process group; always stop the whole group on exit."""
     log = tempfile.TemporaryFile()
     proc = subprocess.Popen(
-        cmd, cwd=cwd, env={**os.environ, **env_extra}, stdout=log, stderr=subprocess.STDOUT,
+        cmd,
+        cwd=cwd,
+        env={**os.environ, **env_extra},
+        stdout=log,
+        stderr=subprocess.STDOUT,
         start_new_session=True,
     )
     try:
@@ -99,7 +103,9 @@ def capture_default(page: Page, base: str) -> None:
     # Inline editing: the summary editor open on the selected component
     page.get_by_test_id("edit-summary-elbow-joint").click()
     editor = page.get_by_test_id("edit-input-summary-elbow-joint")
-    editor.fill("Belt-driven harmonic reduction stage with zero-backlash tensioner.\nTarget: < 2 arcmin.")
+    editor.fill(
+        "Belt-driven harmonic reduction stage with zero-backlash tensioner.\nTarget: < 2 arcmin."
+    )
     page.get_by_test_id("save-edit").hover()
     shot(page, "default-inline-editing")
 
@@ -123,9 +129,13 @@ def main() -> None:
         npm_build()
         demo_env = {"WORKBENCH_PORT": str(api_port), "WORKBENCH_DEMO_DIR": demo_dir}
         print("Building the minimal example look...")
-        npm_build({"WORKBENCH_UI": "examples/minimal-look"}, "--outDir", minimal_dist, "--emptyOutDir")
+        npm_build(
+            {"WORKBENCH_UI": "examples/minimal-look"}, "--outDir", minimal_dist, "--emptyOutDir"
+        )
 
-        with background([sys.executable, "demo/run_demo.py"], REPO, demo_env, f"{api}/api/status"):
+        with background(
+            [sys.executable, "scripts/run_demo.py"], REPO, demo_env, f"{api}/api/status"
+        ):
             with sync_playwright() as p:
                 browser = p.chromium.launch()
                 page = browser.new_page(viewport=VIEWPORT, color_scheme="dark")
@@ -133,8 +143,16 @@ def main() -> None:
                 capture_default(page, api)
 
                 preview_cmd = [
-                    "npx", "vite", "preview", "--outDir", minimal_dist,
-                    "--port", str(preview_port), "--strictPort", "--host", "127.0.0.1",
+                    "npx",
+                    "vite",
+                    "preview",
+                    "--outDir",
+                    minimal_dist,
+                    "--port",
+                    str(preview_port),
+                    "--strictPort",
+                    "--host",
+                    "127.0.0.1",
                 ]
                 preview_url = f"http://127.0.0.1:{preview_port}"
                 with background(preview_cmd, WEB, {"WORKBENCH_API": api}, preview_url):

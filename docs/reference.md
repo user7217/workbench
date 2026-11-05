@@ -1,4 +1,4 @@
-# Workbench Schema, CLI & API Reference (`docs/SCHEMA_AND_CLI.md`)
+# Workbench Schema, Configuration, CLI & API Reference
 
 This reference documents the exact YAML schemas for `workbench-data`, the laptop configuration file (`~/.workbench/config.toml`), server environment variables, HTTP API endpoints, and every CLI command with its options.
 
@@ -189,7 +189,7 @@ Both commands get their prompt on stdin, run in an empty temporary directory, an
 
 ## 4. Server Environment Variables
 
-Read by `create_app()` in [`src/workbench/server/app.py`](../src/workbench/server/app.py), except `WORKBENCH_BIND` and `WORKBENCH_PORT`, which only the Docker files ([`Dockerfile`](../Dockerfile), [`docker-compose.yml`](../docker-compose.yml)) and the demo use; `workbench serve` takes `--host` and `--port` instead.
+Read by `create_app()` in [`src/workbench/server/app.py`](../src/workbench/server/app.py), except `WORKBENCH_BIND` and `WORKBENCH_PORT`, which only the Docker files ([`packaging/docker/Dockerfile`](../packaging/docker/Dockerfile), [`docker-compose.yml`](../docker-compose.yml)) and the demo use; `workbench serve` takes `--host` and `--port` instead.
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |

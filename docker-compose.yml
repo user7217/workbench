@@ -1,6 +1,8 @@
 services:
   workbench:
-    build: .
+    build:
+      context: .
+      dockerfile: packaging/docker/Dockerfile
     container_name: workbench-server
     restart: unless-stopped
     environment:
@@ -17,7 +19,7 @@ services:
       - "${WORKBENCH_BIND:-127.0.0.1}:8420:8420"
     volumes:
       - workbench-data:/data
-      # Deploy key with write access to the workbench-data repo only (see SETUP_REAL.md).
+      # Deploy key with write access to the workbench-data repo only (see docs/setup.md).
       # GitHub's host keys are built into the image; mount your own known_hosts at
       # /root/.ssh/known_hosts only if the data repo is on another git host.
       - ${WORKBENCH_SSH_KEY_PATH:-./secrets/deploy_key}:/root/.ssh/id_ed25519:ro

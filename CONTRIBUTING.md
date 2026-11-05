@@ -40,7 +40,7 @@ To work on the React UI (`web/src/ui/` or a custom look) with Vite hot module re
 
 ```bash
 # Terminal 1: Start the demo backend API on port 8441
-WORKBENCH_PORT=8441 uv run python demo/run_demo.py
+WORKBENCH_PORT=8441 uv run python scripts/run_demo.py
 
 # Terminal 2: Start Vite dev server proxying /api to port 8441
 cd web

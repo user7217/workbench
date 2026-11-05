@@ -112,9 +112,9 @@ docker compose up -d --build
 docker compose logs -f workbench
 ```
 
-What happens inside the container (`Dockerfile` + `docker-compose.yml`):
+What happens inside the container (`packaging/docker/Dockerfile` + `docker-compose.yml`):
 - Stage 1 (`node:22-slim`) compiles the React/TypeScript frontend (`web/dist`).
-- Stage 2 (`python:3.13-slim`) installs the Python package via `uv`, pre-populates `/etc/ssh/ssh_known_hosts` with GitHub's official SSH host keys (`docker/github_known_hosts`), mounts `./secrets/deploy_key` at `/root/.ssh/id_ed25519`, clones `workbench-data` into the persistent `workbench-data` Docker volume (`/data`), and starts `uvicorn` on port `8420`.
+- Stage 2 (`python:3.13-slim`) installs the Python package via `uv`, pre-populates `/etc/ssh/ssh_known_hosts` with GitHub's official SSH host keys (`packaging/docker/github_known_hosts`), mounts `./secrets/deploy_key` at `/root/.ssh/id_ed25519`, clones `workbench-data` into the persistent `workbench-data` Docker volume (`/data`), and starts `uvicorn` on port `8420`.
 
 Verify from a browser on the laptop (connected to the same Tailscale tailnet):
 - Open `http://100.101.102.103:8420/api/status` — confirm `"last_error": null` and `"last_good_commit"` is populated.
