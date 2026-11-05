@@ -96,6 +96,7 @@ re-renders on every store change. Outside React, `createWorkbench(options)` retu
 | `query`, `searching` | Normalised search text, and whether it is non-empty. |
 | `filteredProjects`, `filteredLearning` | Matches of the search (name or description), sorted by name. |
 | `listedProjects` | Projects a list should show (applies the child-project rule; includes archived — filter with `showArchived`). |
+| `recentProjects`, `recentLearning` | `listedProjects` and `filteredLearning` ordered most recently changed first (the snapshot's `updated_at` git times, else the `updated` date, then name). The default Home uses these. |
 | `sidebarProjects`, `sidebarLearning` | Non-archived shortcuts, ignoring the search. |
 | `activeProject`, `activePhase`, `activeComponent` | The open project, its selected phase (default: first) and component (`{comp, phase, ancestors}`). |
 | `activeParent` | Where the open project sits in its parent: `{parentId, parentName, phase, components}`. |
@@ -119,7 +120,7 @@ re-renders on every store change. Outside React, `createWorkbench(options)` retu
 Pure functions are exported too: `getProjectGroups`, `getGroupChildren`, `projectUsesPhases`,
 `locateProjectItem`, `locateItemPlacement` (parent, index and siblings — for move up/down),
 `subtreeIds` (an item and its descendants — exclude them as move targets), `countDescendants`,
-`getItemShortDescription`, `sortByName`, `filterByQuery`, and more (see the comment in
+`getItemShortDescription`, `sortByName`, `sortByRecent`, `filterByQuery`, and more (see the comment in
 `src/core/index.ts`).
 
 ### Actions
@@ -166,12 +167,20 @@ Writes — **structure** (projects only; *not* optimistic — they wait for the 
 | `deleteItem(projectId, itemId)` → `Promise<boolean>` | Permanent; removes everything nested. Refused (422) while a `depends_on` or a child project points into it — `lastError.detail` names them. Clears a selection that pointed into it. |
 | `setParent(projectId, {parent, under} \| null)` → `Promise<boolean>` | Attach under a parent project's phase/component, or detach with `null`. |
 
+Writes — **suggestions inbox** (optimistic: the row leaves the inbox at once and comes back if the
+server refuses):
+
+| Action | Notes |
+|---|---|
+| `keepSuggestion(projectId, suggestionId)` → `Promise<string \| null>` | Adds the suggestion to the tree as a `not_started` item under its `under` (a new phase/topic when it has none) and resolves to the new item's id. Refused (422) when the `under` item no longer exists. |
+| `dismissSuggestion(projectId, suggestionId)` → `Promise<boolean>` | Removes it from the inbox. |
+
 ### Pending keys
 
 `pendingKeys.project(id)`, `.projectItem(id, itemId)`, `.learning(id)`, `.learningItem(id, itemId)`
 (status writes); `.projectFields(id)`, `.itemFields(id, itemId)`, `.learningFields(id)`,
 `.learningItemFields(id, itemId)` (text edits); `.structure(projectId)` (any structure edit of that
-project — one at a time). A second write with a key that is already pending is ignored.
+project — one at a time); `.suggestion(projectId, suggestionId)` (Keep / Dismiss). A second write with a key that is already pending is ignored.
 
 ### The `optimisticWrite` pattern
 
@@ -243,6 +252,12 @@ CSS variables at the top of `src/ui/styles.css` (`--bg-*`, `--text-*`, `--border
 | POST | `/api/projects/{id}/items/{item}/move` | `{"parent_id"?, "position"}` |
 | POST | `/api/projects/{id}/items/{item}/delete` | `{"confirm": true}` |
 | POST | `/api/projects/{id}/parent` | `{"parent", "under"}` (both null = detach) |
+| POST | `/api/projects/{id}/suggestions/{suggestion}/keep` | `{}` (returns `"item_id"`) |
+| POST | `/api/projects/{id}/suggestions/{suggestion}/dismiss` | `{}` |
+
+The snapshot also carries `updated_at: {projects: {id: time}, learning: {id: time}}`, each entry's
+last change time from git (older servers leave it out). A project's `suggestions` list (`Suggestion`
+in the types: `id`, `name`, `summary?`, `under?`, `added`) is its inbox.
 
 A look never needs these directly — the actions above call them — but a non-React frontend can.
 
@@ -253,7 +268,9 @@ A look never needs these directly — the actions above call them — but a non-
 Every text field has a pencil (✎): Enter saves a single-line field, Cmd/Ctrl+Enter saves a
 textarea, Esc cancels. Selected components get ↑ / ↓, **Move to…**, **Delete…** and **+ Add part**;
 each phase has **+ Add component** and its own ↑ / ↓ / Delete…; **+ Add phase** sits under the last
-phase; **Part of…** in the project header attaches the project to a parent or detaches it.
+phase; **Part of…** in the project header attaches the project to a parent or detaches it. A
+project with suggestions shows an **Inbox** above its phases, with **Keep** and **Dismiss** on each
+row, and its Home card shows how many suggestions are waiting.
 
 ![Inline editing of a component summary, with the structure controls above it](docs/images/default-inline-editing.png)
 

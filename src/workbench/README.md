@@ -10,7 +10,7 @@ This document is the technical reference for the `src/workbench` Python package.
 src/workbench/
 ├── __init__.py
 ├── models.py          # Pydantic v2 models (Project, Phase, Component, Suggestion, LearningPath) & JSON Schema export
-├── config.py          # Laptop configuration (~/.workbench/config.toml / config.yaml) & state (~/.workbench/state.json)
+├── config.py          # Laptop configuration (~/.workbench/config.toml) and the default agent commands
 ├── gitops.py          # Git plumbing (bare repos, clones, temporary worktrees, rebases, root commit extraction)
 ├── yamlio.py          # Comment- and key-order-preserving YAML loader/dumper built on ruamel.yaml
 ├── edits.py           # Pure in-place YAML AST mutations shared by CLI commands and server write endpoints
@@ -20,9 +20,11 @@ src/workbench/
 ├── validate.py        # Path whitelist, Pydantic validation, directory-ID matching, and 20 KB Markdown checks
 ├── semantic.py        # Semantic diff checks against origin/main (ID immutability, removal guards, >30% deletion cap)
 ├── privacy.py         # Deterministic secret/PII/path regex scanner + isolated LLM privacy review subprocess
-├── hooks.py           # Working-tree fingerprinter, Stop/AfterAgent hook router, and headless background updater
+├── hooks.py           # Working-tree fingerprint, Stop/AfterAgent hook decision, per-repo state (~/.workbench/state.json)
+├── updater.py         # Headless per-message updater: transcript reading, prompt, applying the agent's JSON plan
 ├── install.py         # Installer for ~/.claude skills/hooks, ~/.gemini rules/hooks, and macOS launchd plist
-├── cli.py             # Typer CLI entrypoints (setup, show, set, add, focus, begin, push, new, attach, link, etc.)
+├── cli.py             # Typer CLI entrypoints (setup, show, set, add, focus, begin, push, new, attach, link, serve, etc.)
+├── __main__.py        # `python -m workbench` (how the hook starts the background updater)
 ├── demo_env.py        # Self-contained temporary demo environment generator for `make demo` and E2E tests
 ├── discovery/
 │   ├── local.py       # Bounded local filesystem Git scanner & author/remote ownership verifier
@@ -77,8 +79,8 @@ Discovery registers unknown repositories into `workbench-data` as `origin: disco
 1. **Local Scanner (`discovery/local.py`):**
    - Walks configured `scan_roots` up to `max_depth = 4`, stopping recursion as soon as a `.git` directory is encountered and skipping build/dependency directories (`node_modules`, `.venv`, `dist`, `build`, `vendor`, symlinks, hidden folders).
    - Verifies ownership (`is_repo_owned_by_user`): a repo is included only if its `origin` remote belongs to `github_owners` **or** `git log --all --format=%ae` contains an email in `user_emails`.
-2. **GitHub API Scanner (`discovery/github.py`):**
-   - Queries `GET /users/<owner>/repos?per_page=100`, skipping forks and archived repos.
+2. **GitHub API Scanner (`discovery/github.py`, run by the server once a day):**
+   - With `WORKBENCH_GITHUB_READ_TOKEN` set, lists `GET /user/repos?affiliation=owner,organization_member` (which includes private repos) and keeps repos owned by one of `WORKBENCH_GITHUB_OWNERS`; without a token, lists `GET /users/<owner>/repos` (public repos only). Follows `Link: rel="next"` pages and skips forks and archived repos.
    - Extracts each repository's initial commit SHA by requesting `GET /repos/<owner>/<repo>/commits?per_page=1` and following the `rel="last"` URL in the HTTP `Link` response header.
    - Handles `HTTP 409` (empty repo) and `HTTP 403`/`429` rate limits cleanly.
 3. **Batch Registration (`discovery/register.py`):**
@@ -92,7 +94,7 @@ Workbench supports two ways to modify metadata from the CLI or web UI:
 
 1. **Single-Step Mutations (`edits.py`, `cli.py`, `server/writes.py`):**
    - Used by `workbench set`, `workbench add`, and all dashboard UI write endpoints.
-   - Functions in `edits.py` (`set_project_item_status`, `set_project_item_fields`, `set_project_item_dependencies`, `add_project_item`, `move_project_item`, `delete_project_item`, `add_suggestion`, `keep_suggestion`, `dismiss_suggestion`, `set_project_parent`) mutate the `ruamel.yaml` `CommentedMap` AST in place, preserving comments and key ordering.
+   - Functions in `edits.py` (`set_project_item_status`, `set_project_item_fields`, `set_project_item_dependencies`, `add_project_item`, `add_suggestion`, `keep_suggestion`, `dismiss_suggestion`, and the learning-path equivalents) mutate the `ruamel.yaml` `CommentedMap` AST in place, preserving comments and key ordering. Moving and deleting items and setting a project's parent need checks across files, so they live in `server/writes.py` (`move_project_item`, `delete_project_item`, `set_project_parent`).
 2. **Multi-Item Worktree Sessions (`workbench begin` → `workbench push`):**
    - `workbench begin` creates an isolated Git worktree under `~/.workbench/work/<id>-<rand>` off `origin/main` and records `.git_wb_baseline.json`.
    - `workbench push` validates the modified worktree, sets `updated` to today's date, upgrades `origin: discovered` to `origin: agent` once structure is added, commits with a standardized message (`commitmsg.py`), rebases onto `origin/main`, and pushes with up to 3 automatic retries on concurrent push races.
@@ -117,13 +119,28 @@ Every write to `workbench-data` must pass three checks before a commit is pushed
 
 ---
 
-## 7. Agent Lifecycle Hooks & Headless Mode (`hooks.py`)
+## 7. Agent Lifecycle Hooks & Headless Mode (`hooks.py`, `updater.py`)
 
-`workbench hook-check` is invoked at the end of each coding agent turn (`Stop` in Claude Code, `AfterAgent` in Gemini CLI):
+`workbench hook-check` runs at the end of every coding-agent message (`Stop` in Claude Code, `AfterAgent` in Gemini CLI). It compares the repo with what `~/.workbench/state.json` last saw for it: `HEAD`, and a fingerprint (`compute_fingerprint`: SHA-256 over `git status --porcelain=v1 -z --untracked-files=all` with `--no-optional-locks`, `git diff HEAD`, and untracked file sizes/mtimes).
 
-- **Working-Tree Fingerprinting (`compute_fingerprint`):**
-  - Computes a SHA-256 digest over `git status --porcelain=v1 -z --untracked-files=all` (with `--no-optional-locks`), `git diff HEAD`, and untracked file sizes/mtimes.
-- **Two-Skill Routing (`evaluate_hook_input`):**
-  - If `HEAD != last_seen_commit` (a new Git commit landed in the code repo), the hook prompts the agent to run **`workbench-review`** (unless `update_mode = "headless"`, where reviews run only on explicit `/workbench-review`).
-  - If `HEAD == last_seen_commit` but `fingerprint != last_seen_fingerprint` (files were edited during the turn), the hook either prompts the agent to run **`workbench-update`** (`update_mode = "inline"`) or spawns a non-blocking background subprocess (`spawn_headless_updater` when `update_mode = "headless"`) that inspects the session transcript (`run_auto_update`) and applies the update automatically.
-- **Fail-Open Safety:** Any exception or timeout inside `hooks.py` returns `None` so an agent session is never trapped by a hook error.
+It lets the agent finish without doing anything when `stop_hook_active` is true, the directory is not a git repo with commits, it runs inside the headless updater's own agent (`WORKBENCH_UPDATER` is set), `update_mode = "off"`, or anything fails (fail open: an error never traps a session). Otherwise `update_mode` in `config.toml` decides:
+
+- **`session` (default):** a new `HEAD` blocks the agent with "run the **workbench-review** skill"; a changed fingerprint blocks it with "run the **workbench-update** skill". A session is never blocked twice for the same state. `workbench set`/`add`/`push` and `workbench hook-check --mark-seen` record the state as seen.
+- **`headless`:** when `HEAD` or the fingerprint changed, the hook records both as seen, writes a job file to `~/.workbench/jobs/`, starts `python -m workbench auto-update --job <file>` detached (`updater.launch_update_job`), and returns at once. The session is never blocked, a new commit is recorded like any other change, and full reviews run only when you call `/workbench-review`. If `updater_command`'s program is not installed, the hook behaves as in `session` mode.
+
+The background job (`cli._run_auto_update`, one at a time under `~/.workbench/updater.lock`):
+
+1. Reads the message the hook fired for (`updater.exchange_from_hook`): Gemini sends `prompt`/`prompt_response`; for Claude it reads the last user turn and its reply from the transcript, using the transcript size at hook time so a queued job never picks up a later message. Long texts are cut, keeping both ends.
+2. Finds the project (the repo's focus, else the project the repo is registered under) and stops with a log line if there is none.
+3. Runs `updater_command` with a prompt holding the rules, the full `project.yaml`, `git diff --stat`, new files, new commits and the exchange. The agent has no tools and answers with JSON: `set` and `add` operations plus suggestions.
+4. Applies them itself (`updater.apply_plan`): only `set` (status, notes, summary) and `add` (a new item under an existing one) on existing ids, no renames or removals, texts clamped to the model limits, duplicates by name skipped. An operation that does not fit is skipped and logged. Suggestions go to the project's `suggestions` inbox.
+5. Pushes one `update(<project>[/<item>]): <summary>` commit through the quick path (validation, deterministic privacy scan, semantic check) and appends a line to `~/.workbench/logs/updater.log`.
+
+---
+
+## 8. Dashboard Server (`server/`)
+
+- **Sync (`sync.py`):** on startup the server loads its cached `snapshot.json`, then every `WORKBENCH_POLL_SECONDS` fetches `origin/main` into its own clone, validates the fetched commit in a staging worktree and, only if it is valid, swaps in a new snapshot (projects, learning paths, topic Markdown, and each entry's last change time from `git log`). An invalid commit keeps the last good snapshot and is reported in `/api/status`. A sync never raises, and one lock serializes all git work on the clone.
+- **Writes (`writes.py`):** each dashboard edit opens a worktree, applies the change with `edits.py`, runs the same validation and semantic checks as the CLI, commits an `edit(...)` message, rebases and pushes with retries, then resyncs and returns the new snapshot.
+- **Discovery:** with `WORKBENCH_GITHUB_OWNERS` set, the server runs GitHub discovery once a day.
+- **UI (`app.py`):** the built UI is served from `WORKBENCH_WEB_DIST` if set, else the copy inside the installed package (`workbench/web_dist`, added to the wheel by `hatch_build.py` when `web/dist` is built), else the checkout's `web/dist`. The server runs in the Docker image or with `workbench serve`.

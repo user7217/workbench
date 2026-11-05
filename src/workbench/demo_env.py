@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from workbench.config import WorkbenchLocalConfig, save_local_config
+from workbench.config import DEFAULT_REVIEWER_COMMAND, WorkbenchLocalConfig, save_local_config
 from workbench.gitops import (
     clone_repo,
     commit_all,
@@ -1306,7 +1306,7 @@ topics:
         github_owners=["demouser"],
         user_emails=["demo@example.invalid"],
         privacy_review="auto",
-        reviewer_command="claude -p --model haiku",
+        reviewer_command=DEFAULT_REVIEWER_COMMAND,
     )
     save_local_config(cfg, home_dir=laptop_home, env=env)
 

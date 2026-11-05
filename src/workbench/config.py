@@ -12,6 +12,8 @@ from typing import Literal
 DEFAULT_UPDATER_COMMAND = (
     'claude -p --model haiku --tools "" --strict-mcp-config --no-session-persistence'
 )
+# The privacy reviewer also only answers with JSON, so it gets no tools either
+DEFAULT_REVIEWER_COMMAND = DEFAULT_UPDATER_COMMAND
 
 
 @dataclass
@@ -24,7 +26,7 @@ class WorkbenchLocalConfig:
     github_owners: list[str] = field(default_factory=list)
     user_emails: list[str] = field(default_factory=list)
     privacy_review: Literal["auto", "required", "off"] = "auto"
-    reviewer_command: str = "claude -p --model haiku"
+    reviewer_command: str = DEFAULT_REVIEWER_COMMAND
     github_api_base: str = "https://api.github.com"
     # How the per-message Workbench update runs: "session" (the hook asks the agent to run the
     # workbench-update skill), "headless" (a background agent does it, see updater.py) or "off"
@@ -87,7 +89,7 @@ def load_local_config(
         github_owners=list(data.get("github_owners", [])),
         user_emails=list(data.get("user_emails", [])),
         privacy_review=review_mode,
-        reviewer_command=str(data.get("reviewer_command", "claude -p --model haiku")),
+        reviewer_command=str(data.get("reviewer_command", DEFAULT_REVIEWER_COMMAND)),
         github_api_base=str(data.get("github_api_base", "https://api.github.com")),
         update_mode=update_mode,
         updater_command=str(data.get("updater_command", DEFAULT_UPDATER_COMMAND)),

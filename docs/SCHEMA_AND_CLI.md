@@ -1,6 +1,6 @@
 # Workbench Schema, CLI & API Reference (`docs/SCHEMA_AND_CLI.md`)
 
-This reference documents the exact YAML schemas for `workbench-data`, configuration files (`~/.workbench/config.toml`), server environment variables, and HTTP API endpoints.
+This reference documents the exact YAML schemas for `workbench-data`, the laptop configuration file (`~/.workbench/config.toml`), server environment variables, HTTP API endpoints, and every CLI command with its options.
 
 ---
 
@@ -153,7 +153,7 @@ Optional Markdown notes for any topic or subtopic live at `learning/<path-id>/to
 
 ## 3. Laptop Configuration (`~/.workbench/config.toml`)
 
-Created by `workbench setup` (supports `.toml` or `.yaml`):
+Created by `workbench setup` (TOML only). Every key is optional; missing keys take the defaults shown:
 
 ```toml
 data_repo_url = "git@github.com:<YOUR_GITHUB_USER>/workbench-data.git"
@@ -161,55 +161,101 @@ branch = "main"
 github_owners = ["<YOUR_GITHUB_USER>"]
 user_emails = ["you@users.noreply.github.com"]
 scan_roots = ["~/Documents", "~/code", "~/projects"]
+github_api_base = "https://api.github.com"
 
-# "inline" (default: prompt coding session) or "headless" (spawn background agent)
-update_mode = "inline"
+# How the per-message update runs after each agent message:
+#   "session"  (default) the hook asks the coding agent to run the workbench-update skill,
+#              and asks for workbench-review after a new commit
+#   "headless" a background agent records the message; the session is never blocked and
+#              reviews run only when you call /workbench-review
+#   "off"      the hook does nothing
+# An unknown value falls back to "session". If updater_command's program is not installed,
+# headless mode also falls back to "session".
+update_mode = "session"
 updater_command = 'claude -p --model haiku --tools "" --strict-mcp-config --no-session-persistence'
 
-# "auto" | "required" | "off"
+# LLM privacy review of changed free text on `workbench push`: "auto" | "required" | "off"
 privacy_review = "auto"
+reviewer_command = 'claude -p --model haiku --tools "" --strict-mcp-config --no-session-persistence'
 ```
+
+Both commands get their prompt on stdin, run in an empty temporary directory, and must print JSON. Any agent CLI that does that can be used; only Claude Code has been tested.
 
 ---
 
 ## 4. Server Environment Variables
 
-Read by `create_app()` in [`src/workbench/server/app.py`](../src/workbench/server/app.py) and [`docker-compose.yml`](../docker-compose.yml):
+Read by `create_app()` in [`src/workbench/server/app.py`](../src/workbench/server/app.py), except `WORKBENCH_BIND` and `WORKBENCH_PORT`, which only the Docker files ([`Dockerfile`](../Dockerfile), [`docker-compose.yml`](../docker-compose.yml)) and the demo use; `workbench serve` takes `--host` and `--port` instead.
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `WORKBENCH_DATA_REMOTE` | `config.toml` `data_repo_url` | Git URL or path of the `workbench-data` repository. |
-| `WORKBENCH_BRANCH` | `main` | Branch tracked by the server in `workbench-data`. |
-| `WORKBENCH_STATE_DIR` | `/tmp/workbench-server-state` (`/data` in Docker) | Directory where the server stores its Git clone (`repo/`) and cached `snapshot.json`. |
-| `WORKBENCH_POLL_SECONDS` | `600` | Interval (in seconds) between background `git fetch` + validation polls. |
-| `WORKBENCH_GITHUB_OWNERS` | `""` | Comma-separated GitHub usernames for daily server-side repository discovery. |
-| `WORKBENCH_GITHUB_READ_TOKEN` | `""` | Optional fine-grained read-only GitHub PAT for server-side discovery. |
-| `WORKBENCH_BIND` | `127.0.0.1` | Host IP to bind in `docker-compose.yml` (set to your server's `100.x.y.z` Tailscale IP in production). |
-| `WORKBENCH_PORT` | `8420` | HTTP port for the FastAPI + React dashboard server. |
-| `WORKBENCH_WEB_DIST` | `<repo>/web/dist` | Optional override path to the compiled frontend static bundle. |
+| `WORKBENCH_DATA_REMOTE` | none (required in Docker); `workbench serve` uses `data_repo_url` from `config.toml` | Git URL or path of the `workbench-data` repository. |
+| `WORKBENCH_BRANCH` | `main` (`workbench serve`: `branch` from `config.toml`) | Branch tracked by the server in `workbench-data`. |
+| `WORKBENCH_STATE_DIR` | `/tmp/workbench-server-state`; `/data` in Docker; `~/.workbench/server` with `workbench serve` | Where the server keeps its own Git clone (`repo/`) and cached `snapshot.json`. |
+| `WORKBENCH_POLL_SECONDS` | `600` | Seconds between background `git fetch` + validation polls. |
+| `WORKBENCH_GITHUB_OWNERS` | `""` | Comma-separated GitHub owners for daily server-side discovery (off when empty). |
+| `WORKBENCH_GITHUB_READ_TOKEN` | `""` | Optional fine-grained read-only token. With it, discovery lists the token owner's private repos too; without it, public repos only. |
+| `WORKBENCH_GITHUB_API_BASE` | `https://api.github.com` | GitHub API base URL (for GitHub Enterprise or tests). |
+| `WORKBENCH_WEB_DIST` | see below | Folder holding the built UI (`index.html` + `assets/`). |
+| `WORKBENCH_BIND` | `127.0.0.1` | Host address `docker-compose.yml` publishes the port on (set it to the server's `100.x.y.z` Tailscale IP). Inside the container the server listens on `0.0.0.0`. |
+| `WORKBENCH_PORT` | `8420` | Port inside the container and for `make demo`. |
+
+The built UI is looked up in this order: `WORKBENCH_WEB_DIST` if set; the copy shipped inside the installed package (`workbench/web_dist`, added to the wheel when `web/dist` was built before installing); the checkout's `web/dist` (editable installs and the demo). With none of them the server logs "Web UI not found" and serves only the API.
 
 ---
 
 ## 5. Server HTTP API Reference
 
-All `POST` endpoints require the custom request header `X-Workbench: 1` (CSRF protection) and commit changes atomically to `workbench-data`.
+Every `POST` endpoint requires `Content-Type: application/json` and the custom header `X-Workbench: 1` (CSRF protection); requests without them get `415` or `403`. Bodies are JSON objects, and unknown keys are rejected with `400`. Every write except `/api/sync` validates the change, commits it to `workbench-data` (an `edit(...)` commit), pushes it, and answers `{"ok": true, "snapshot": ..., "status": ...}` with the fresh snapshot. Errors use `400` (bad input), `404` (unknown project or item), `409` (push conflict after retries) or `422` (the change would fail validation).
 
 | Method & Route | Request Body | Description |
 | :--- | :--- | :--- |
-| `GET /api/snapshot` | — | Return the current validated snapshot (`projects`, `learning`, `topic_markdowns`, `commit`, `synced_at`). |
+| `GET /api/snapshot` | — | Return the current validated snapshot (`projects`, `learning`, `topic_markdowns`, `updated_at` with each project's and path's last change time from git, `commit`, `synced_at`). |
 | `GET /api/status` | — | Return sync health (`last_good_commit`, `last_checked_at`, `last_error`). |
-| `POST /api/sync` | `{}` | Trigger an immediate `git fetch` + validation sync against `origin/main`. |
+| `POST /api/sync` | `{}` | Trigger an immediate `git fetch` + validation sync against `origin/main` (commits nothing). |
 | `POST /api/projects/{id}/status` | `{"status": "..."}` | Update a project's top-level status (`planned`, `active`, `paused`, `done`, `archived`). |
 | `POST /api/projects/{id}/fields` | `{"name"?, "description"?}` | Update a project's name and/or description. |
 | `POST /api/projects/{id}/parent` | `{"parent": "<id>\|null", "under": "<id>\|null"}` | Attach or detach a child project under a parent project's item. |
-| `POST /api/projects/{id}/items` | `{"name": "...", "under"?: "...", "status"?, "summary"?, "notes"?}` | Add a new phase/topic (`under: null`) or nested component (`under: "<id>"`). |
+| `POST /api/projects/{id}/items` | `{"name": "...", "parent_id"?: "<id>"\|null, "id"?, "status"?, "summary"?, "position"?: <int>}` | Add a phase/topic (`parent_id` null or left out) or a component under a phase/component. The id defaults to a unique slug of the name; `position` is the index among siblings (default: last). Returns `item_id`. |
 | `POST /api/projects/{id}/items/{item_id}/status` | `{"status": "..."}` | Update a phase, topic, or component status (`not_started`, `in_progress`, `done`, `parked`). |
 | `POST /api/projects/{id}/items/{item_id}/fields` | `{"name"?, "summary"?, "description"?, "notes"?, "items"?}` | Edit an item's text fields or bullet list in place. |
-| `POST /api/projects/{id}/items/{item_id}/move` | `{"under"?: "<id>\|null", "position"?: "before\|after", "target"?: "<id>"}` | Reorder an item among siblings or move it under a different parent. |
-| `POST /api/projects/{id}/items/{item_id}/delete` | `{}` | Delete a phase, topic, or component from a project. |
-| `POST /api/projects/{id}/suggestions/{sug_id}/keep` | `{}` | Promote a suggestion from the inbox into the project tree. |
+| `POST /api/projects/{id}/items/{item_id}/move` | `{"position": <int>, "parent_id"?: "<id>"}` | Move an item to index `position` among its siblings. With `parent_id`, a component moves under another phase or component (not under itself or its own descendants); phases can only be reordered. |
+| `POST /api/projects/{id}/items/{item_id}/delete` | `{"confirm": true}` | Delete a phase, topic, or component and everything under it. Refused while another component still lists a removed id in `depends_on`, or a child project sits under a removed item. |
+| `POST /api/projects/{id}/suggestions/{sug_id}/keep` | `{}` | Move a suggestion from the inbox into the tree as a `not_started` item under its `under` (a new phase/topic when it has none). `422` if that item no longer exists. Returns `item_id`. |
 | `POST /api/projects/{id}/suggestions/{sug_id}/dismiss` | `{}` | Dismiss and remove a suggestion from the inbox. |
 | `POST /api/learning/{id}/status` | `{"status": "..."}` | Update a learning path's top-level status. |
 | `POST /api/learning/{id}/fields` | `{"name"?, "description"?}` | Update a learning path's name and/or description. |
 | `POST /api/learning/{id}/items/{item_id}/status` | `{"status": "..."}` | Update a learning topic or subtopic status (`not_started`, `in_progress`, `done`). |
 | `POST /api/learning/{id}/items/{item_id}/fields` | `{"name"?, "summary"?, "description"?, "notes"?}` | Update a learning topic or subtopic's text fields. |
+
+---
+
+## 6. CLI Commands
+
+Every command runs on the laptop (where `~/.workbench/config.toml` and the `~/.workbench/data` clone live), except `workbench serve`, which runs the dashboard server. Run `workbench <command> --help` for the full help text.
+
+| Command | Arguments & options |
+| :--- | :--- |
+| `workbench setup` | `--home <dir>`. Interactive wizard: writes `config.toml`, clones `workbench-data`, installs the agent skills, hooks and the macOS discovery job after you type `yes`. |
+| `workbench install` | `--home <dir>` (required), `--claude`, `--gemini`, `--launchd`. Install or refresh the skills and hooks for each agent, and the macOS `launchd` job. |
+| `workbench show` | `--id <project>`, `--item <item-id>`, `--brief`. Without `--id`, the project registered for the current repo. |
+| `workbench focus` | `--set <project>[/<item>]`, `--clear`. Without options, print the current repo's focus. |
+| `workbench set <project> <item-id>` | `--status`, `--name`, `--summary`, `--notes`, `--depends-on <ids>`. Text options replace the field; an empty value clears it. |
+| `workbench add <project>` | `--name` (required), `--under <item-id>`, `--id`, `--status`, `--summary`, `--notes`, `--depends-on <ids>`. Without `--under`, adds a phase (or topic). |
+| `workbench begin` | `--id <project>` or `--learning <path-id>`. Prints the `project.yaml` / `path.yaml` path in a fresh worktree. |
+| `workbench push <worktree>` | `-m/--message` (required), `--allow-removals`. Validates, privacy-checks, commits as `review(...)` and pushes. |
+| `workbench validate [<path>]` | A metadata file or a `workbench-data` directory (default: the local clone). |
+| `workbench new "<Name>"` | `--learning`, `--parent <project>`, `--under <item-id>`, `--status <status>`. |
+| `workbench attach` | `--id <child>`, `--parent <project>`, `--under <item-id>` (all required). |
+| `workbench detach` | `--id <child>`. |
+| `workbench link` | `--id <project>`. Run inside the repo to attach it to that project. |
+| `workbench archive-empty` | `--dry-run`, `--keep <id>` (repeatable). Only `origin: discovered` projects with no phases or topics. |
+| `workbench discover` | `--local`. Scan `scan_roots` for repositories you own. |
+| `workbench learning import <file>` | A `.md` outline or `.yaml` path; merges into an existing path without moving statuses back. |
+| `workbench learning export <path-id>` | Print the path as a Markdown outline. |
+| `workbench history [<id>]` | `-n/--limit` (default 20), `--kind <kind>[,<kind>]`, `--project <id>`. |
+| `workbench undo <commit>` | Revert one `workbench-data` commit and push the revert. |
+| `workbench hook-check` | `--mark-seen`. Read by the agent hooks from stdin; `--mark-seen` records the current changes as needing no update. |
+| `workbench auto-update` | `--job <file>` (written by the hook) or `--transcript <file.jsonl>`, plus `--dry-run`. Run by hand inside the project repo. |
+| `workbench serve` | `--host` (default `127.0.0.1`), `--port` (default `8420`). Run the dashboard server without Docker. |
+| `workbench demo init <dir>` | Create a throwaway demo environment (bare remote, fake HOME and repos) in `<dir>`; used by `make demo` and the tests. |

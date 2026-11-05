@@ -15,6 +15,8 @@ from typing import Any
 from detect_secrets.core.scan import get_plugins
 from detect_secrets.settings import default_settings
 
+from workbench.config import DEFAULT_REVIEWER_COMMAND
+
 REVIEWER_PROMPT_TEMPLATE = """You review text that will be stored in a private personal dashboard.
 Flag anything that is: a credential or secret, a personal email or phone number,
 a home address, a local filesystem path, private information about other people,
@@ -209,7 +211,7 @@ def build_free_text_diff(
 def run_llm_privacy_reviewer(
     diff_text: str,
     mode: str = "auto",
-    reviewer_command: str = "claude -p --model haiku",
+    reviewer_command: str = DEFAULT_REVIEWER_COMMAND,
     timeout_seconds: float = 60.0,
     env: dict[str, str] | None = None,
 ) -> ReviewerResult:

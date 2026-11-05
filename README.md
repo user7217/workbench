@@ -21,6 +21,7 @@ Workbench keeps a live visual inventory of your software/hardware projects and s
 - [Commit Convention in `workbench-data`](#commit-convention-in-workbench-data)
 - [Documentation Map](#documentation-map)
 - [Contributing & Security](#contributing--security)
+- [License](#license)
 
 ---
 
@@ -188,22 +189,24 @@ workbench learning export signal-processing
 | `workbench setup` | Interactive wizard: configures `~/.workbench/config.toml`, clones `workbench-data`, and installs agent hooks/skills |
 | `workbench install --home ~ --claude --gemini` | Install or refresh Claude Code / Gemini CLI skills, hooks, and the macOS `launchd` discovery job |
 | `workbench show [--id <project>] [--brief] [--item <id>]` | Print a project's full YAML, a compact 1-line-per-item summary (`--brief`), or a single subtree (`--item`) |
-| `workbench focus [<project>[/<item>]] [--clear]` | View, set, or clear the active focus hint for the current repository |
+| `workbench focus [--set <project>[/<item>]] [--clear]` | View, set, or clear the item this repository is working on (used as a hint by the hook) |
 | `workbench set <project> <item-id> [options]` | Update an item's `--status`, `--name`, `--summary`, `--notes`, or `--depends-on` and push in one step |
-| `workbench add <project> [--under <id>] --name <text> [options]` | Add a top-level phase/topic or nested component (`--under`), or file a suggestion (`--suggest`) |
+| `workbench add <project> [--under <id>] --name <text> [options]` | Add a top-level phase/topic, or a nested component with `--under`; also takes `--id`, `--status`, `--summary`, `--notes`, `--depends-on` |
 | `workbench begin [--id <project> \| --learning <id>]` | Open an isolated Git worktree for multi-item YAML edits and print the file path |
 | `workbench push <worktree> -m "<summary>" [--allow-removals]` | Validate schema, privacy, and semantic diff rules in a worktree, then rebase and push to `origin/main` |
 | `workbench new "<Name>" [--learning] [--parent <id> --under <item>]` | Create a new project or learning path (optionally attached as a child project) |
 | `workbench attach --id <child> --parent <id> --under <item>` | Attach an existing project under a parent project's phase or component |
 | `workbench detach --id <child>` | Detach a child project back to top-level |
 | `workbench link --id <project>` | Link the current Git repository to an existing project (and clean up any empty discovered stub) |
-| `workbench discover [--local] [--github]` | Scan local folders and/or GitHub for owned repositories and register unknown ones |
+| `workbench discover --local` | Scan your local scan roots for repositories you own and register unknown ones (GitHub discovery runs on the server) |
 | `workbench archive-empty [--dry-run] [--keep <id>]` | Archive unpopulated `origin: discovered` project stubs |
 | `workbench learning import <file.md\|.yaml>` / `export <id>` | Import/merge a learning path outline from Markdown/YAML or export an existing path to Markdown |
 | `workbench history [--kind K] [--project P] [-n N]` | View recent commits in `workbench-data` filtered by commit kind or project/learning scope |
 | `workbench undo <commit-sha>` | Revert a specific commit in `workbench-data` and push the revert to `origin/main` |
+| `workbench validate [<path>]` | Validate one metadata file or a whole `workbench-data` checkout (default: the local clone) without pushing |
 | `workbench serve [--host H] [--port P]` | Run the FastAPI + React dashboard server directly without Docker |
-| `workbench auto-update --transcript <file.jsonl> [--dry-run]` | Run the headless updater against a session transcript |
+| `workbench auto-update --transcript <file.jsonl> [--dry-run]` | Run the headless updater against a session transcript, inside the project's repo (`--dry-run` changes nothing) |
+| `workbench hook-check [--mark-seen]` | The agent hook's entry point; `--mark-seen` records that the current changes need no update |
 
 ---
 
@@ -234,10 +237,9 @@ Workbench's documentation follows the [Diátaxis](https://diataxis.fr/) structur
 | :--- | :--- | :--- |
 | **[README.md](README.md)** | **Overview & Tutorial** | Project overview, screenshots, 60-second `make demo` quickstart, and CLI cheat sheet. |
 | **[SETUP_REAL.md](SETUP_REAL.md)** | **Deployment How-To** | Step-by-step setup for `workbench-data`, SSH deploy keys, Docker Compose + Tailscale, `workbench serve`, and laptop hooks. |
-| **[docs/SCHEMA_AND_CLI.md](docs/SCHEMA_AND_CLI.md)** | **Technical Reference** | Annotated YAML schemas (`project.yaml`, `path.yaml`), `config.toml`, environment variables, and HTTP API endpoints. |
+| **[docs/SCHEMA_AND_CLI.md](docs/SCHEMA_AND_CLI.md)** | **Technical Reference** | Annotated YAML schemas (`project.yaml`, `path.yaml`), `config.toml`, environment variables, HTTP API endpoints, and every CLI command with its options. |
 | **[src/workbench/README.md](src/workbench/README.md)** | **Backend Architecture** | Python package internals, root-commit identity resolution, discovery scanners, worktree concurrency, and 3-stage validation. |
 | **[web/README.md](web/README.md)** | **Frontend & Theming Guide** | How the `web/src/core/` store and `web/src/ui/` look layer are separated, and how to build a custom UI look. |
-| **[DECISIONS.md](DECISIONS.md)** | **Architecture Decisions** | Engineering rationale and trade-offs behind key architectural choices. |
 | **[CONTRIBUTING.md](CONTRIBUTING.md)** | **Contributor Guide** | Development workflow, test suite execution, schema/type generation, and code conventions. |
 | **[SECURITY.md](SECURITY.md)** | **Security & Privacy Model** | Threat model, two-repository isolation, deterministic secret/path scanning, and Tailscale network boundaries. |
 
@@ -247,3 +249,7 @@ Workbench's documentation follows the [Diátaxis](https://diataxis.fr/) structur
 
 - See **[CONTRIBUTING.md](CONTRIBUTING.md)** for local development setup, running the offline test suite (`make test`), and regenerating JSON Schemas and TypeScript types when editing [`src/workbench/models.py`](src/workbench/models.py).
 - See **[SECURITY.md](SECURITY.md)** for details on Workbench's privacy firewall, credential isolation, and network binding recommendations.
+
+## License
+
+Workbench is released under the [MIT License](LICENSE).

@@ -114,17 +114,50 @@ docker compose logs -f workbench
 
 What happens inside the container (`Dockerfile` + `docker-compose.yml`):
 - Stage 1 (`node:22-slim`) compiles the React/TypeScript frontend (`web/dist`).
-- Stage 2 (`python:3.12-slim`) installs the Python package via `uv`, pre-populates `/etc/ssh/ssh_known_hosts` with GitHub's official SSH host keys (`docker/github_known_hosts`), mounts `./secrets/deploy_key` at `/root/.ssh/id_ed25519`, clones `workbench-data` into the persistent `workbench-data` Docker volume (`/data`), and starts `uvicorn` on port `8420`.
+- Stage 2 (`python:3.13-slim`) installs the Python package via `uv`, pre-populates `/etc/ssh/ssh_known_hosts` with GitHub's official SSH host keys (`docker/github_known_hosts`), mounts `./secrets/deploy_key` at `/root/.ssh/id_ed25519`, clones `workbench-data` into the persistent `workbench-data` Docker volume (`/data`), and starts `uvicorn` on port `8420`.
 
 Verify from your laptop browser (connected to the same Tailscale tailnet):
 - Open `http://100.101.102.103:8420/api/status` — confirm `"last_error": null` and `"last_good_commit"` is populated.
-- Open `http://100.101.102.103:8420` — confirm the Workbench UI loads.
+- Open `http://100.101.102.103:8420` — confirm the Workbench UI loads. With MagicDNS on, `http://<server-name>:8420` works too.
+- Change one status in the dashboard and check that an `edit(<project-id>): ...` commit appears in `workbench-data` on GitHub (this proves the deploy key can push), then change it back.
 
 To update the server after pulling new code changes in the future:
 
 ```bash
 cd ~/workbench && git pull && docker compose up -d --build
 ```
+
+The `workbench` command exists only inside the container, and the container has no laptop config, so run CLI commands (`workbench archive-empty`, `workbench set`, ...) on your laptop. The server picks up their commits on its next sync, or straight away when you press sync in the dashboard.
+
+**After a reboot:** Docker can start before Tailscale has assigned the server its `100.x.y.z` address. Binding to that address then fails with `cannot assign requested address` and the container does not come up. Reboot once to check. If it happens, make Docker wait for Tailscale with `sudo systemctl edit docker` and add:
+
+```ini
+[Unit]
+After=tailscaled.service
+Wants=tailscaled.service
+```
+
+Or use Tailscale Serve (below), which binds the container to `127.0.0.1` and avoids the problem.
+
+### 2.7 (Optional) HTTPS with Tailscale Serve
+
+[Tailscale Serve](https://tailscale.com/kb/1312/serve) can give the dashboard an `https://<server-name>.<tailnet>.ts.net` address with a real certificate, still reachable only from your tailnet.
+
+1. Enable **HTTPS Certificates** in the Tailscale admin console (DNS page).
+2. **Check what Serve already publishes before adding anything:**
+   ```bash
+   tailscale serve status
+   tailscale funnel status
+   ```
+   Serve offers HTTPS on ports `443`, `8443` and `10000`. Adding Workbench on a port that is already in use **replaces** that entry and takes down whatever was there, including a public Funnel entry. Pick a free port.
+3. Bind the container to localhost: set `WORKBENCH_BIND=127.0.0.1` in `.env`, then run `docker compose up -d`.
+4. Publish it on the free port (`443` here):
+   ```bash
+   sudo tailscale serve --bg --https=443 http://127.0.0.1:8420
+   ```
+5. Open `https://<server-name>.<tailnet>.ts.net` (add `:8443` or `:10000` if you used those). Remove it later with `sudo tailscale serve --https=443 off`.
+
+Never put Workbench on **Funnel** (`tailscale funnel`): that publishes it on the internet, and the dashboard has no login of its own.
 
 ---
 
@@ -146,7 +179,10 @@ If you prefer running the server directly on macOS or Linux without Docker:
 
    workbench serve --host 127.0.0.1 --port 8420
    ```
-   `workbench serve` reads `data_repo_url` from `~/.workbench/config.toml` if `WORKBENCH_DATA_REMOTE` is not set, maintains its own clone in `~/.workbench/server`, and serves the built UI alongside the JSON API.
+   `workbench serve` reads `data_repo_url` from `~/.workbench/config.toml` if `WORKBENCH_DATA_REMOTE` is not set, maintains its own clone in `~/.workbench/server`, and serves the built UI alongside the JSON API. Pass `--host <tailscale-ip>` to reach it from your other devices; never bind it to a public address.
+3. **Keep it running:** `workbench serve` stops when the terminal closes. Run it under `systemd` (Linux) or `launchd` (macOS) to keep it up across logouts and reboots.
+
+If the dashboard page returns `404` and the server log says `Web UI not found`, the UI was not built before `uv tool install`: rebuild it (`cd web && npm run build`) and reinstall, or set `WORKBENCH_WEB_DIST` to a built `web/dist` folder.
 
 ---
 
@@ -174,13 +210,18 @@ On the Mac or Linux machine where you write code:
    ```bash
    workbench discover --local
    ```
-   All Git repositories under your scan roots that match your Git email or GitHub username are registered in a single commit and appear on your dashboard with a **New** badge.
+   All Git repositories under your scan roots that match your Git email or GitHub username are registered in a single commit and appear on your dashboard with a **New** badge. The scheduled scan that `workbench setup` installs is a macOS `launchd` job; on Linux, run `workbench discover --local` yourself or from `cron`.
 4. **(Optional) Enable Headless Background Agent Updates:**
-   To have per-message updates run asynchronously in a background Haiku call (spending zero tokens in your interactive coding session), add to `~/.workbench/config.toml`:
+   To have per-message updates run in a background Haiku call (spending zero tokens in your interactive coding session), add to `~/.workbench/config.toml`:
    ```toml
    update_mode = "headless"
    updater_command = 'claude -p --model haiku --tools "" --strict-mcp-config --no-session-persistence'
    ```
+   - The updater runs only after a message that changed files or made a commit; pure chat triggers nothing. It sends the last message, the reply, the project's entry and `git diff --stat` to `updater_command`.
+   - The coding session is never interrupted, and automatic reviews after commits stop: run `/workbench-review` yourself at milestones.
+   - Ideas the assistant offered but you did not agree to land in the project's **Inbox** on the dashboard (Keep / Dismiss) instead of the tree.
+   - Results go to `~/.workbench/logs/updater.log` and `workbench history --kind update`. To preview what it would record, run `workbench auto-update --transcript <session.jsonl> --dry-run` inside the project's repo.
+   - If you upgrade from an older version, reinstall the CLI (`uv tool install --force .`) so the hook runs the new code.
 
 ---
 

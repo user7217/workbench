@@ -66,11 +66,21 @@ uv run python -c "from pathlib import Path; from workbench.models import write_j
 (cd web && npm run generate-types)
 ```
 
-> **Note:** `tests/test_models_validation.py` (`test_committed_schemas_and_ui_types_up_to_date`) verifies that `schema/project.schema.json`, `schema/learning.schema.json`, and `web/src/types/*.d.ts` match `models.py` byte-for-byte.
+> **Note:** the maintainer's test suite checks that `schema/project.schema.json`, `schema/learning.schema.json`, and `web/src/types/*.d.ts` match `models.py` byte-for-byte, so commit the regenerated files together with the model change.
 
 ---
 
 ## 4. Testing & Quality Checks
+
+> **The test suites are not published yet.** `tests/` (Python and Playwright) and `web/src/core/__tests__/` (Vitest) are kept out of the repository for now (see `.gitignore`), so in a fresh clone `make test` finds no tests and `npm test` reports no test files. Until they are published, check a change with:
+>
+> ```bash
+> uv run python -c "import workbench.cli, workbench.server.app"   # the backend imports cleanly
+> (cd web && npx tsc --noEmit -p . && npm run typecheck:look && npm run build)
+> make demo                                                     # then try the change in the browser
+> ```
+>
+> and describe what you tested in your pull request. The rest of this section describes how the suite runs where it exists.
 
 Run the full build and test suite with:
 
@@ -106,3 +116,9 @@ When adding features or modifying the UI, preserve these core design constraints
 2. **Comment-preserving YAML edits:** Always use `ruamel.yaml` helpers in [`src/workbench/yamlio.py`](src/workbench/yamlio.py) and [`src/workbench/edits.py`](src/workbench/edits.py) so comments and field ordering in `workbench-data` are preserved.
 3. **Never echo matched secrets:** Any new privacy rule in [`src/workbench/privacy.py`](src/workbench/privacy.py) must report only the offending YAML field path and rule name, never the matched secret value.
 4. **Keep `core/` and `ui/` separated:** Business logic, data derivation, and API calls belong in `web/src/core/`; layout, styling, and React components belong in `web/src/ui/` (see [web/README.md](web/README.md)).
+
+---
+
+## 6. License
+
+Workbench is released under the [MIT License](LICENSE). By contributing, you agree that your contributions are licensed under it too.
