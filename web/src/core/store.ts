@@ -138,11 +138,13 @@ export const pendingKeys = {
   /** Text edit of a phase/component. */
   itemFields: (projectId: string, itemId: string) => `item-fields:${projectId}:${itemId}`,
   learningFields: (pathId: string) => `learning-fields:${pathId}`,
-  learningItemFields: (pathId: string, itemId: string) => `learning-item-fields:${pathId}:${itemId}`,
+  learningItemFields: (pathId: string, itemId: string) =>
+    `learning-item-fields:${pathId}:${itemId}`,
   /** Any structure edit (add/move/delete/parent) of a project; one at a time per project. */
   structure: (projectId: string) => `structure:${projectId}`,
   /** Keep or dismiss of one inbox suggestion. */
-  suggestion: (projectId: string, suggestionId: string) => `suggestion:${projectId}:${suggestionId}`,
+  suggestion: (projectId: string, suggestionId: string) =>
+    `suggestion:${projectId}:${suggestionId}`,
 };
 
 // Text-field shapes accepted by the fields endpoints. "" removes an optional field; name can't be "".
@@ -200,7 +202,14 @@ export function initialState(): WorkbenchState {
     syncStatus: EMPTY_SYNC_STATUS,
     route: { page: "home" },
     selection: { phaseId: null, componentId: null, topicId: null, subtopicId: null },
-    expanded: { projects: {}, phases: {}, nestedComponents: {}, childProjects: {}, learningPaths: {}, topics: {} },
+    expanded: {
+      projects: {},
+      phases: {},
+      nestedComponents: {},
+      childProjects: {},
+      learningPaths: {},
+      topics: {},
+    },
     filterText: "",
     showArchived: false,
     pending: {},
@@ -328,7 +337,9 @@ export function selectView(state: WorkbenchState): WorkbenchView {
   const searching = query !== "";
   const filteredProjects = filterByQuery(snapshot.projects, query);
   const filteredLearning = filterByQuery(snapshot.learning, query);
-  const listedProjects = filteredProjects.filter((p) => isListedProject(p, projectsById, searching));
+  const listedProjects = filteredProjects.filter((p) =>
+    isListedProject(p, projectsById, searching),
+  );
 
   const requestedProjectId = route.page === "project" ? route.id : undefined;
   const activeProject =
@@ -337,12 +348,18 @@ export function selectView(state: WorkbenchState): WorkbenchView {
     snapshot.projects[0];
   const groups = activeProject ? getProjectGroups(activeProject) : [];
   const activePhase = groups.find((ph) => ph.id === selection.phaseId) || groups[0] || null;
-  const activeComps = activeProject ? componentIndexOf(activeProject) : new Map<string, ComponentEntry>();
-  const activeComponent = selection.componentId ? activeComps.get(selection.componentId) || null : null;
+  const activeComps = activeProject
+    ? componentIndexOf(activeProject)
+    : new Map<string, ComponentEntry>();
+  const activeComponent = selection.componentId
+    ? activeComps.get(selection.componentId) || null
+    : null;
 
   const requestedPathId = route.page === "learning-path" ? route.id : undefined;
   const activeLearningPath =
-    snapshot.learning.find((l) => l.id === requestedPathId) || filteredLearning[0] || snapshot.learning[0];
+    snapshot.learning.find((l) => l.id === requestedPathId) ||
+    filteredLearning[0] ||
+    snapshot.learning[0];
   const topics = activeLearningPath?.topics || [];
   const activeTopic = topics.find((t) => t.id === selection.topicId) || topics[0] || null;
   let activeLearningItem: Topic | Subtopic | null = activeTopic;
@@ -366,7 +383,9 @@ export function selectView(state: WorkbenchState): WorkbenchView {
     recentProjects: sortByRecent(listedProjects, snapshot.updated_at?.projects),
     recentLearning: sortByRecent(filteredLearning, snapshot.updated_at?.learning),
     sidebarProjects: sortByName(
-      snapshot.projects.filter((p) => p.status !== "archived" && isListedProject(p, projectsById, false))
+      snapshot.projects.filter(
+        (p) => p.status !== "archived" && isListedProject(p, projectsById, false),
+      ),
     ),
     sidebarLearning: sortByName(snapshot.learning.filter((l) => l.status !== "archived")),
     activeProject,
@@ -455,11 +474,19 @@ export interface WorkbenchActions {
   /** Name/description of a project (optimistic). Resolves true on success or when nothing changed. */
   updateProjectFields: (projectId: string, fields: ProjectFields) => Promise<boolean>;
   /** Text fields of a phase or component, any depth (optimistic). */
-  updateItemFields: (projectId: string, itemId: string, fields: ProjectItemFields) => Promise<boolean>;
+  updateItemFields: (
+    projectId: string,
+    itemId: string,
+    fields: ProjectItemFields,
+  ) => Promise<boolean>;
   /** Name/description of a learning path (optimistic). */
   updateLearningFields: (pathId: string, fields: LearningFields) => Promise<boolean>;
   /** Text fields of a learning topic or subtopic (optimistic). */
-  updateLearningItemFields: (pathId: string, itemId: string, fields: LearningItemFields) => Promise<boolean>;
+  updateLearningItemFields: (
+    pathId: string,
+    itemId: string,
+    fields: LearningItemFields,
+  ) => Promise<boolean>;
   /** Add a phase/topic or component (not optimistic). Resolves to the new item id, or null on failure. */
   addItem: (projectId: string, input: AddItemInput) => Promise<string | null>;
   /** Reorder an item, or move a component under another phase/component (not optimistic). */
@@ -496,10 +523,12 @@ export interface CreateWorkbenchOptions {
   initialState?: Partial<WorkbenchState>;
 }
 
-const mapProject = (projectId: string, fn: (p: Project) => Project) => (s: SnapshotData): SnapshotData => ({
-  ...s,
-  projects: s.projects.map((p) => (p.id === projectId ? fn(p) : p)),
-});
+const mapProject =
+  (projectId: string, fn: (p: Project) => Project) =>
+  (s: SnapshotData): SnapshotData => ({
+    ...s,
+    projects: s.projects.map((p) => (p.id === projectId ? fn(p) : p)),
+  });
 
 const mapLearningPath =
   (pathId: string, fn: (l: LearningPath) => LearningPath) =>
@@ -540,7 +569,7 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
     const next = update(state);
     if (next === state) return;
     state = next;
-    listeners.forEach((l) => l());
+    for (const l of listeners) l();
   };
   const subscribe = (listener: () => void) => {
     listeners.add(listener);
@@ -561,7 +590,8 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
       const { projectsById, parentOf } = indexProjects(s0.snapshot.projects);
       const proj = projectsById.get(projectId);
       const groups = proj ? getProjectGroups(proj) : [];
-      const defaultPhase = phaseId !== undefined ? phaseId : groups.length > 0 ? groups[0].id : null;
+      const defaultPhase =
+        phaseId !== undefined ? phaseId : groups.length > 0 ? groups[0].id : null;
 
       let s: WorkbenchState = {
         ...s0,
@@ -575,7 +605,11 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
       if (ref) {
         s = expand(s, "projects", [ref.parentId]);
         if (ref.phase) s = expand(s, "phases", [ref.phase.id]);
-        s = expand(s, "nestedComponents", ref.components.map((c) => c.id));
+        s = expand(
+          s,
+          "nestedComponents",
+          ref.components.map((c) => c.id),
+        );
       }
 
       if (compId && proj) {
@@ -583,7 +617,11 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
         if (entry) {
           s = { ...s, selection: { ...s.selection, phaseId: entry.phase.id } };
           s = expand(s, "phases", [entry.phase.id]);
-          s = expand(s, "nestedComponents", entry.ancestors.map((a) => a.id));
+          s = expand(
+            s,
+            "nestedComponents",
+            entry.ancestors.map((a) => a.id),
+          );
         }
       } else if (phaseId && proj) {
         const ph = groups.find((p) => p.id === phaseId);
@@ -593,11 +631,19 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
     });
   };
 
-  const selectLearningPath: WorkbenchActions["selectLearningPath"] = (pathId, topicId, subtopicId) => {
+  const selectLearningPath: WorkbenchActions["selectLearningPath"] = (
+    pathId,
+    topicId,
+    subtopicId,
+  ) => {
     setState((s0) => {
       const lp = s0.snapshot.learning.find((l) => l.id === pathId);
       const defaultTopic =
-        topicId !== undefined ? topicId : lp?.topics && lp.topics.length > 0 ? lp.topics[0].id : null;
+        topicId !== undefined
+          ? topicId
+          : lp?.topics && lp.topics.length > 0
+            ? lp.topics[0].id
+            : null;
       let s: WorkbenchState = {
         ...s0,
         route: { page: "learning-path", id: pathId },
@@ -606,7 +652,9 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
       s = expand(s, "learningPaths", [pathId]);
 
       if (subtopicId && lp) {
-        const top = (lp.topics || []).find((t) => (t.subtopics || []).some((sub) => sub.id === subtopicId));
+        const top = (lp.topics || []).find((t) =>
+          (t.subtopics || []).some((sub) => sub.id === subtopicId),
+        );
         if (top) {
           s = { ...s, selection: { ...s.selection, topicId: top.id } };
           s = expand(s, "topics", [top.id]);
@@ -645,7 +693,8 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
   const setError = (message: string, detail?: string) =>
     setState((s) => ({ ...s, lastError: { message, detail, seq: ++errorSeq } }));
 
-  const errorDetail = (err: unknown) => (err instanceof Error && err.message ? err.message : undefined);
+  const errorDetail = (err: unknown) =>
+    err instanceof Error && err.message ? err.message : undefined;
 
   const adopt = (result: WriteResult) =>
     setState((s) => ({
@@ -664,7 +713,10 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
     } catch (err) {
       setState((s) => ({ ...s, snapshot: write.revert(s.snapshot) }));
       const detail = errorDetail(err);
-      setError(`${write.failureMessage ?? "Could not save — reverted change."}${detail ? ` ${detail}` : ""}`, detail);
+      setError(
+        `${write.failureMessage ?? "Could not save — reverted change."}${detail ? ` ${detail}` : ""}`,
+        detail,
+      );
       return false;
     } finally {
       setPending(write.key, false);
@@ -676,7 +728,7 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
     url: string,
     status: string,
     apply: OptimisticWrite["apply"],
-    revert: OptimisticWrite["revert"]
+    revert: OptimisticWrite["revert"],
   ) =>
     void optimisticWrite({
       key,
@@ -695,7 +747,7 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
       statusUrls.projectItem(projectId, itemId),
       status,
       mapProject(projectId, (p) => withItemStatus(p, itemId, status)),
-      mapProject(projectId, (p) => withItemStatus(p, itemId, prev))
+      mapProject(projectId, (p) => withItemStatus(p, itemId, prev)),
     );
   };
 
@@ -707,7 +759,7 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
       statusUrls.project(projectId),
       status,
       mapProject(projectId, (p) => ({ ...p, status })),
-      mapProject(projectId, (p) => ({ ...p, status: prev }))
+      mapProject(projectId, (p) => ({ ...p, status: prev })),
     );
   };
 
@@ -719,11 +771,15 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
       statusUrls.learning(pathId),
       status,
       mapLearningPath(pathId, (l) => ({ ...l, status })),
-      mapLearningPath(pathId, (l) => ({ ...l, status: prev }))
+      mapLearningPath(pathId, (l) => ({ ...l, status: prev })),
     );
   };
 
-  const setLearningItemStatus: WorkbenchActions["setLearningItemStatus"] = (pathId, itemId, status) => {
+  const setLearningItemStatus: WorkbenchActions["setLearningItemStatus"] = (
+    pathId,
+    itemId,
+    status,
+  ) => {
     const lp = state.snapshot.learning.find((l) => l.id === pathId);
     const prev = lp ? findLearningItem(lp, itemId)?.item.status : undefined;
     statusWrite(
@@ -731,7 +787,7 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
       statusUrls.learningItem(pathId, itemId),
       status,
       mapLearningPath(pathId, (l) => withLearningItemStatus(l, itemId, status)),
-      prev ? mapLearningPath(pathId, (l) => withLearningItemStatus(l, itemId, prev)) : (s) => s
+      prev ? mapLearningPath(pathId, (l) => withLearningItemStatus(l, itemId, prev)) : (s) => s,
     );
   };
 
@@ -746,7 +802,7 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
     url: string,
     current: object | undefined,
     fields: TextFieldPatch,
-    patchSnap: (patch: TextFieldPatch) => (s: SnapshotData) => SnapshotData
+    patchSnap: (patch: TextFieldPatch) => (s: SnapshotData) => SnapshotData,
   ): Promise<boolean> => {
     if (!current) return Promise.resolve(false);
     const changed = changedTextFields(current, fields);
@@ -765,7 +821,8 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
     });
   };
 
-  const findProject = (projectId: string) => indexProjects(state.snapshot.projects).projectsById.get(projectId);
+  const findProject = (projectId: string) =>
+    indexProjects(state.snapshot.projects).projectsById.get(projectId);
   const findPath = (pathId: string) => state.snapshot.learning.find((l) => l.id === pathId);
 
   const updateProjectFields: WorkbenchActions["updateProjectFields"] = (projectId, fields) =>
@@ -774,7 +831,7 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
       fieldUrls.project(projectId),
       findProject(projectId),
       { ...fields },
-      (patch) => mapProject(projectId, (p) => applyTextFields(p, patch))
+      (patch) => mapProject(projectId, (p) => applyTextFields(p, patch)),
     );
 
   const updateItemFields: WorkbenchActions["updateItemFields"] = (projectId, itemId, fields) => {
@@ -786,7 +843,8 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
       fieldUrls.projectItem(projectId, itemId),
       item,
       { ...fields },
-      (patch) => mapProject(projectId, (p) => mapProjectItem(p, itemId, (it) => applyTextFields(it, patch)))
+      (patch) =>
+        mapProject(projectId, (p) => mapProjectItem(p, itemId, (it) => applyTextFields(it, patch))),
     );
   };
 
@@ -796,17 +854,24 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
       fieldUrls.learning(pathId),
       findPath(pathId),
       { ...fields },
-      (patch) => mapLearningPath(pathId, (l) => applyTextFields(l, patch))
+      (patch) => mapLearningPath(pathId, (l) => applyTextFields(l, patch)),
     );
 
-  const updateLearningItemFields: WorkbenchActions["updateLearningItemFields"] = (pathId, itemId, fields) => {
+  const updateLearningItemFields: WorkbenchActions["updateLearningItemFields"] = (
+    pathId,
+    itemId,
+    fields,
+  ) => {
     const lp = findPath(pathId);
     return fieldsWrite(
       pendingKeys.learningItemFields(pathId, itemId),
       fieldUrls.learningItem(pathId, itemId),
       lp ? findLearningItem(lp, itemId)?.item : undefined,
       { ...fields },
-      (patch) => mapLearningPath(pathId, (l) => mapLearningItem(l, itemId, (it) => applyTextFields(it, patch)))
+      (patch) =>
+        mapLearningPath(pathId, (l) =>
+          mapLearningItem(l, itemId, (it) => applyTextFields(it, patch)),
+        ),
     );
   };
 
@@ -816,7 +881,7 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
   const structureWrite = async (
     projectId: string,
     request: (a: WorkbenchApi) => Promise<WriteResult>,
-    failureMessage: string
+    failureMessage: string,
   ): Promise<WriteResult | null> => {
     const key = pendingKeys.structure(projectId);
     if (state.pending[key]) return null;
@@ -843,7 +908,7 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
     const result = await structureWrite(
       projectId,
       (a) => a.postJson(structureUrls.add(projectId), body),
-      "Could not add item."
+      "Could not add item.",
     );
     return result?.item_id ?? null;
   };
@@ -854,7 +919,7 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
     const result = await structureWrite(
       projectId,
       (a) => a.postJson(structureUrls.move(projectId, itemId), body),
-      "Could not move item."
+      "Could not move item.",
     );
     return result !== null;
   };
@@ -863,7 +928,7 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
     const result = await structureWrite(
       projectId,
       (a) => a.postJson(structureUrls.remove(projectId, itemId), { confirm: true }),
-      "Could not delete item."
+      "Could not delete item.",
     );
     if (result === null) return false;
     // Drop a selection that pointed into what was deleted
@@ -871,7 +936,8 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
       if (s.route.page !== "project" || s.route.id !== projectId) return s;
       const project = indexProjects(s.snapshot.projects).projectsById.get(projectId);
       const { phaseId, componentId } = s.selection;
-      const gone = (id: string | null) => id !== null && (!project || !locateProjectItem(project, id));
+      const gone = (id: string | null) =>
+        id !== null && (!project || !locateProjectItem(project, id));
       if (!gone(phaseId) && !gone(componentId)) return s;
       return {
         ...s,
@@ -893,7 +959,7 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
           parent: link ? link.parent : null,
           under: link ? link.under : null,
         }),
-      link ? "Could not attach project." : "Could not detach project."
+      link ? "Could not attach project." : "Could not detach project.",
     );
     return result !== null;
   };
@@ -904,7 +970,7 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
     projectId: string,
     suggestionId: string,
     url: string,
-    failureMessage: string
+    failureMessage: string,
   ): Promise<WriteResult | null> => {
     const project = indexProjects(state.snapshot.projects).projectsById.get(projectId);
     const index = project?.suggestions?.findIndex((sg) => sg.id === suggestionId) ?? -1;
@@ -918,7 +984,7 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
       revert: mapProject(projectId, (p) => withSuggestionAt(p, suggestion, index)),
       failureMessage,
     });
-    return ok ? sent.result ?? {} : null;
+    return ok ? (sent.result ?? {}) : null;
   };
 
   const keepSuggestion: WorkbenchActions["keepSuggestion"] = async (projectId, suggestionId) => {
@@ -926,22 +992,29 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
       projectId,
       suggestionId,
       suggestionUrls.keep(projectId, suggestionId),
-      "Could not keep suggestion — it is back in the inbox."
+      "Could not keep suggestion — it is back in the inbox.",
     );
-    return result ? result.item_id ?? null : null;
+    return result ? (result.item_id ?? null) : null;
   };
 
-  const dismissSuggestion: WorkbenchActions["dismissSuggestion"] = async (projectId, suggestionId) =>
+  const dismissSuggestion: WorkbenchActions["dismissSuggestion"] = async (
+    projectId,
+    suggestionId,
+  ) =>
     (await suggestionWrite(
       projectId,
       suggestionId,
       suggestionUrls.dismiss(projectId, suggestionId),
-      "Could not dismiss suggestion — it is back in the inbox."
+      "Could not dismiss suggestion — it is back in the inbox.",
     )) !== null;
 
   const refresh = async () => {
     const { snapshot, status } = await api.fetchAll();
-    setState((s) => ({ ...s, snapshot: snapshot ?? s.snapshot, syncStatus: status ?? s.syncStatus }));
+    setState((s) => ({
+      ...s,
+      snapshot: snapshot ?? s.snapshot,
+      syncStatus: status ?? s.syncStatus,
+    }));
   };
 
   const sync = async () => {
@@ -956,7 +1029,10 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
     clearComponentSelection: () =>
       setState((s) => ({ ...s, selection: { ...s.selection, componentId: null } })),
     setExpanded: (kind, id, open) =>
-      setState((s) => ({ ...s, expanded: { ...s.expanded, [kind]: { ...s.expanded[kind], [id]: open } } })),
+      setState((s) => ({
+        ...s,
+        expanded: { ...s.expanded, [kind]: { ...s.expanded[kind], [id]: open } },
+      })),
     setFilter: (filterText) => setState((s) => ({ ...s, filterText })),
     setShowArchived: (showArchived) => setState((s) => ({ ...s, showArchived })),
     refresh,

@@ -2,7 +2,15 @@
  * React binding of the store: <WorkbenchProvider> owns one store, `useWorkbench()` returns state,
  * derived view and actions as ONE object (see `Workbench`). This is the only React file in core/.
  */
-import { createContext, createElement, useContext, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import {
+  createContext,
+  createElement,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { ReactNode } from "react";
 import {
   createWorkbench,

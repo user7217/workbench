@@ -1,7 +1,7 @@
 export PATH := $(CURDIR)/.venv/bin:/opt/homebrew/bin:/usr/local/bin:$(PATH)
 UV := $(shell PATH="/opt/homebrew/bin:/usr/local/bin:$$PATH" command -v uv 2>/dev/null || echo uv)
 
-.PHONY: schema build test demo dev
+.PHONY: schema build test demo dev lint format
 
 schema:
 	$(UV) run python -c "from pathlib import Path; from workbench.models import write_json_schemas; write_json_schemas(Path('schema'))"
@@ -18,3 +18,13 @@ demo: build
 
 dev:
 	$(UV) run python demo/run_demo.py
+
+lint:
+	$(UV) run ruff check .
+	$(UV) run ruff format --check .
+	cd web && npm run lint
+
+format:
+	$(UV) run ruff check --fix .
+	$(UV) run ruff format .
+	cd web && npm run format

@@ -22,7 +22,12 @@ from workbench.identity import slugify_name
 from workbench.models import Project
 from workbench.privacy import scan_text_value
 from workbench.validate import validate_project_file
-from workbench.yamlio import dump_yaml_roundtrip, load_yaml_roundtrip, parse_iso_date_for_yaml, to_plain_python
+from workbench.yamlio import (
+    dump_yaml_roundtrip,
+    load_yaml_roundtrip,
+    parse_iso_date_for_yaml,
+    to_plain_python,
+)
 
 
 @dataclass
@@ -147,7 +152,7 @@ def register_discovered_repos(
             suffix = 2
             while proj_id in used_ids:
                 s_str = f"-{suffix}"
-                proj_id = f"{base_id[:48 - len(s_str)]}{s_str}"
+                proj_id = f"{base_id[: 48 - len(s_str)]}{s_str}"
                 suffix += 1
 
             used_ids.add(proj_id)

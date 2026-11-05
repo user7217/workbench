@@ -69,13 +69,18 @@ export async function postJson(url: string, body: unknown): Promise<WriteResult>
     // Non-JSON body (e.g. proxy error page)
   }
   if (!resp.ok) {
-    throw new Error(typeof data?.detail === "string" ? data.detail : `Server responded ${resp.status}`);
+    throw new Error(
+      typeof data?.detail === "string" ? data.detail : `Server responded ${resp.status}`,
+    );
   }
   return data ?? {};
 }
 
 /** Snapshot and sync status, fetched together. A part that fails to load is returned as null. */
-export async function fetchAll(): Promise<{ snapshot: SnapshotData | null; status: SyncStatus | null }> {
+export async function fetchAll(): Promise<{
+  snapshot: SnapshotData | null;
+  status: SyncStatus | null;
+}> {
   try {
     const [snapRes, statRes] = await Promise.all([fetch("/api/snapshot"), fetch("/api/status")]);
     return {
@@ -91,7 +96,11 @@ export async function fetchAll(): Promise<{ snapshot: SnapshotData | null; statu
 /** Ask the server to pull the data repo now. Resolves true when the server accepted it. */
 export async function triggerSync(): Promise<boolean> {
   try {
-    const res = await fetch("/api/sync", { method: "POST", headers: WRITE_HEADERS, body: JSON.stringify({}) });
+    const res = await fetch("/api/sync", {
+      method: "POST",
+      headers: WRITE_HEADERS,
+      body: JSON.stringify({}),
+    });
     return res.ok;
   } catch {
     return false;
@@ -121,7 +130,8 @@ export const fieldUrls = {
 /** Project structure endpoints (add / move / delete items, parent link). Projects only. */
 export const structureUrls = {
   add: (projectId: string) => `/api/projects/${enc(projectId)}/items`,
-  move: (projectId: string, itemId: string) => `/api/projects/${enc(projectId)}/items/${enc(itemId)}/move`,
+  move: (projectId: string, itemId: string) =>
+    `/api/projects/${enc(projectId)}/items/${enc(itemId)}/move`,
   remove: (projectId: string, itemId: string) =>
     `/api/projects/${enc(projectId)}/items/${enc(itemId)}/delete`,
   parent: (projectId: string) => `/api/projects/${enc(projectId)}/parent`,

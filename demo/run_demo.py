@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import sys
 import tempfile
 from pathlib import Path
 
@@ -17,7 +16,9 @@ from workbench.server.sync import ServerState
 
 def main() -> None:
     demo_root = Path(
-        os.environ.get("WORKBENCH_DEMO_DIR", str(Path(tempfile.gettempdir()) / "workbench-demo-live"))
+        os.environ.get(
+            "WORKBENCH_DEMO_DIR", str(Path(tempfile.gettempdir()) / "workbench-demo-live")
+        )
     )
     if demo_root.exists():
         import shutil

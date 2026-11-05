@@ -10,22 +10,43 @@ from __future__ import annotations
 
 import datetime
 import secrets
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Literal, get_args
+from typing import Any, Literal, get_args
 
 from workbench import edits
 from workbench.commitmsg import build_message, describe_item_change
 from workbench.edits import (
     EditError,
-    child_list as _child_list,
-    collect_item_ids as _collect_item_ids,
-    field_order as _field_order,
-    iter_component_nodes as _iter_component_nodes,
-    locate_project_item as _locate_project_item,
-    require_position as _require_position,
+)
+from workbench.edits import (
     check_position as _check_position,
+)
+from workbench.edits import (
+    child_list as _child_list,
+)
+from workbench.edits import (
+    collect_item_ids as _collect_item_ids,
+)
+from workbench.edits import (
+    field_order as _field_order,
+)
+from workbench.edits import (
+    iter_component_nodes as _iter_component_nodes,
+)
+from workbench.edits import (
+    locate_project_item as _locate_project_item,
+)
+from workbench.edits import (
+    require_position as _require_position,
+)
+from workbench.edits import (
     require_slug as _require_slug,
+)
+from workbench.edits import (
     require_status as _require_status,
+)
+from workbench.edits import (
     subtree_ids as _subtree_ids,
 )
 from workbench.gitops import (
@@ -113,9 +134,7 @@ def _check_against_origin(
     allow_text_removal: bool = False,
 ) -> None:
     """Semantic diff vs origin. allow_text_removal skips only the mass-deletion guard: ids stay protected."""
-    old_text = show_file_at_ref(
-        state.repo_dir, f"origin/{state.branch}", rel_path, env=state.env
-    )
+    old_text = show_file_at_ref(state.repo_dir, f"origin/{state.branch}", rel_path, env=state.env)
     old_plain = to_plain_python(load_yaml_str_roundtrip(old_text)) if old_text else None
     old_dict = old_plain if isinstance(old_plain, dict) else None
     sres = check_semantic_diff(
@@ -189,9 +208,7 @@ def _commit_edit(
 
             plain = _validate_edited_file(kind, target, entity_id)
             if plain is not None:
-                _check_against_origin(
-                    state, rel_path, plain, allow_removals, allow_text_removal
-                )
+                _check_against_origin(state, rel_path, plain, allow_removals, allow_text_removal)
             if check_repo is not None:
                 check_repo(wt_dir)
 
@@ -203,8 +220,6 @@ def _commit_edit(
 
         state.sync_once(force=True)
         return state.get_snapshot_dict()
-
-
 
 
 # ---------------------------------------------------------------------------
@@ -245,7 +260,9 @@ def update_project_status(state: ServerState, project_id: str, new_status: str) 
     )
 
 
-def update_learning_path_status(state: ServerState, path_id: str, new_status: str) -> dict[str, Any]:
+def update_learning_path_status(
+    state: ServerState, path_id: str, new_status: str
+) -> dict[str, Any]:
     """Set a learning path's top-level status."""
     _require_slug(path_id, "learning path id")
     status = _require_status(new_status, _PROJECT_STATUSES)
@@ -546,7 +563,7 @@ def delete_project_item(
     data = _require_body(body)
     _reject_unknown_keys(data, ("confirm",))
     if data.get("confirm") is not True:
-        raise WriteError("Deleting requires {\"confirm\": true}", status_code=400)
+        raise WriteError('Deleting requires {"confirm": true}', status_code=400)
 
     removed: set[str] = set()
 

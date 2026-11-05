@@ -9,7 +9,9 @@
     "typecheck:look": "tsc -p tsconfig.looks.json",
     "preview": "vite preview",
     "generate-types": "npx json2ts -i ../schema/project.schema.json -o src/types/project.d.ts --unreachableDefinitions && npx json2ts -i ../schema/learning.schema.json -o src/types/learning.d.ts --unreachableDefinitions",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "biome check .",
+    "format": "biome format --write ."
   },
   "dependencies": {
     "@xyflow/react": "^12.3.0",
@@ -19,6 +21,7 @@
     "react-markdown": "^9.0.1"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.6.5",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.3",

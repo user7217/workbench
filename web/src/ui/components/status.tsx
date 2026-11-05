@@ -47,7 +47,14 @@ export function StatusNodeGlyph({ status, size = 14 }: { status: string; size?: 
       <svg {...common}>
         <title>{label}</title>
         <circle cx="8" cy="8" r="7" style={{ fill: color }} />
-        <path d="M4.8 8.2l2.1 2.1 4.3-4.6" fill="none" stroke="var(--bg-app)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+        <path
+          d="M4.8 8.2l2.1 2.1 4.3-4.6"
+          fill="none"
+          stroke="var(--bg-app)"
+          strokeWidth="1.9"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </svg>
     );
   }
@@ -65,7 +72,12 @@ export function StatusNodeGlyph({ status, size = 14 }: { status: string; size?: 
       <svg {...common}>
         <title>{label}</title>
         <circle cx="8" cy="8" r="6.2" fill="none" style={{ stroke: color }} strokeWidth="1.6" />
-        <path d="M6.4 5.6v4.8M9.6 5.6v4.8" style={{ stroke: color }} strokeWidth="1.6" strokeLinecap="round" />
+        <path
+          d="M6.4 5.6v4.8M9.6 5.6v4.8"
+          style={{ stroke: color }}
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
       </svg>
     );
   }
@@ -82,7 +94,15 @@ export function StatusNodeGlyph({ status, size = 14 }: { status: string; size?: 
     return (
       <svg {...common}>
         <title>{label}</title>
-        <circle cx="8" cy="8" r="6.2" fill="none" style={{ stroke: color }} strokeWidth="1.6" strokeDasharray="2.6 2.2" />
+        <circle
+          cx="8"
+          cy="8"
+          r="6.2"
+          fill="none"
+          style={{ stroke: color }}
+          strokeWidth="1.6"
+          strokeDasharray="2.6 2.2"
+        />
       </svg>
     );
   }
@@ -90,8 +110,23 @@ export function StatusNodeGlyph({ status, size = 14 }: { status: string; size?: 
     return (
       <svg {...common}>
         <title>{label}</title>
-        <rect x="2" y="3" width="12" height="3.2" rx="1" fill="none" style={{ stroke: color }} strokeWidth="1.4" />
-        <path d="M3.2 6.2v6.3a1 1 0 0 0 1 1h7.6a1 1 0 0 0 1-1V6.2M6.5 9h3" fill="none" style={{ stroke: color }} strokeWidth="1.4" strokeLinecap="round" />
+        <rect
+          x="2"
+          y="3"
+          width="12"
+          height="3.2"
+          rx="1"
+          fill="none"
+          style={{ stroke: color }}
+          strokeWidth="1.4"
+        />
+        <path
+          d="M3.2 6.2v6.3a1 1 0 0 0 1 1h7.6a1 1 0 0 0 1-1V6.2M6.5 9h3"
+          fill="none"
+          style={{ stroke: color }}
+          strokeWidth="1.4"
+          strokeLinecap="round"
+        />
       </svg>
     );
   }
@@ -132,12 +167,30 @@ export function KindBadge({
       }}
     >
       {isLearning ? (
-        <svg width={glyph} height={glyph} viewBox="0 0 24 24" fill="none" style={{ stroke: color }} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width={glyph}
+          height={glyph}
+          viewBox="0 0 24 24"
+          fill="none"
+          style={{ stroke: color }}
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <path d="M2 5.5A1.5 1.5 0 0 1 3.5 4H9a3 3 0 0 1 3 3v13a2.5 2.5 0 0 0-2.5-2.5H3.5A1.5 1.5 0 0 1 2 16z" />
           <path d="M22 5.5A1.5 1.5 0 0 0 20.5 4H15a3 3 0 0 0-3 3v13a2.5 2.5 0 0 1 2.5-2.5h6a1.5 1.5 0 0 0 1.5-1.5z" />
         </svg>
       ) : (
-        <svg width={glyph} height={glyph} viewBox="0 0 24 24" fill="none" style={{ stroke: color }} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <svg
+          width={glyph}
+          height={glyph}
+          viewBox="0 0 24 24"
+          fill="none"
+          style={{ stroke: color }}
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
           <path d="M3 7.5A1.5 1.5 0 0 1 4.5 6H9l2 2h8.5A1.5 1.5 0 0 1 21 9.5v8a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" />
         </svg>
       )}
@@ -146,7 +199,15 @@ export function KindBadge({
 }
 
 /** Numbered badge for a phase, colored by the phase's status. */
-export function PhaseNumberBadge({ index, status, size = 22 }: { index: number; status: string; size?: number }) {
+export function PhaseNumberBadge({
+  index,
+  status,
+  size = 22,
+}: {
+  index: number;
+  status: string;
+  size?: number;
+}) {
   return (
     <span
       style={{

@@ -78,7 +78,11 @@ def find_project_for_repo(
         narrowed: list[Project] = []
         for proj in matches:
             for repo_entry in proj.repos:
-                if repo_entry.root_commit == root_commit and repo_entry.github and repo_entry.github.lower() == gh_lower:
+                if (
+                    repo_entry.root_commit == root_commit
+                    and repo_entry.github
+                    and repo_entry.github.lower() == gh_lower
+                ):
                     narrowed.append(proj)
                     break
         if len(narrowed) == 1:

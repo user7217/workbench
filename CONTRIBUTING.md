@@ -1,6 +1,6 @@
 # Contributing to Workbench
 
-Thank you for your interest in contributing to Workbench! This guide covers setting up a development environment, running the test suite, keeping schemas and TypeScript types synchronized, and submitting changes.
+Contributions to Workbench are welcome. This guide covers setting up a development environment, running the test suite, keeping schemas and TypeScript types synchronized, and submitting changes.
 
 ---
 
@@ -53,7 +53,7 @@ WORKBENCH_API=http://127.0.0.1:8441 npm run dev
 
 [`src/workbench/models.py`](src/workbench/models.py) is the single source of truth for both JSON Schemas (`schema/*.json`) and frontend TypeScript interfaces (`web/src/types/*.d.ts`).
 
-Whenever you modify any Pydantic model in `src/workbench/models.py`, regenerate the schemas and TypeScript types before running tests or committing:
+After any change to a Pydantic model in `src/workbench/models.py`, regenerate the schemas and TypeScript types before running tests or committing:
 
 ```bash
 make build
@@ -80,13 +80,35 @@ uv run python -c "from pathlib import Path; from workbench.models import write_j
 > make demo                                                     # then try the change in the browser
 > ```
 >
-> and describe what you tested in your pull request. The rest of this section describes how the suite runs where it exists.
+> and describe what was tested in the pull request. The rest of this section describes how the suite runs where it exists.
 
 Run the full build and test suite with:
 
 ```bash
 make test
 ```
+
+### Lint & Format
+
+Python uses [Ruff](https://docs.astral.sh/ruff/) (configured in `pyproject.toml`) and the web UI uses [Biome](https://biomejs.dev/) (configured in `web/biome.json`):
+
+```bash
+make lint     # ruff check, ruff format --check, biome check
+make format   # apply safe lint fixes and format everything
+```
+
+Biome reports the accessibility rules as warnings for now (clickable elements without keyboard support, icons without titles); new code should not add to them.
+
+### Continuous Integration
+
+`.github/workflows/ci.yml` runs on every push to `main` and every pull request:
+
+- **Lint and format:** `make lint` must pass.
+- **Web UI and generated files:** regenerates `schema/` and `web/src/types/` and fails if they differ from what is committed, then type-checks both looks and builds the UI.
+- **Package (Linux, macOS, Windows):** builds the wheel, checks that it contains the UI and the agent files, installs it in a clean environment and smoke-tests `workbench --help` and `workbench install`; on Linux it also starts `workbench serve` against a demo and loads the dashboard.
+- **Docker image:** builds the image without pushing it.
+
+The test suites are not published, so CI does not run them; run them locally before opening a pull request.
 
 ### Safety & Isolation Guarantees in Tests
 
@@ -121,4 +143,4 @@ When adding features or modifying the UI, preserve these core design constraints
 
 ## 6. License
 
-Workbench is released under the [MIT License](LICENSE). By contributing, you agree that your contributions are licensed under it too.
+Workbench is released under the [MIT License](LICENSE). By contributing, contributors agree that their contributions are licensed under it too.

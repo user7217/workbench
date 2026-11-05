@@ -5,13 +5,13 @@ from __future__ import annotations
 import datetime
 import json
 import os
-import re
 import secrets
 import shutil
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable, Optional, get_args
+from typing import Any, get_args
 
 import typer
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
@@ -74,7 +74,9 @@ from workbench.yamlio import (
     to_plain_python,
 )
 
-app = typer.Typer(help="Workbench CLI — personal inventory of software projects and learning paths.")
+app = typer.Typer(
+    help="Workbench CLI — personal inventory of software projects and learning paths."
+)
 learning_app = typer.Typer(help="Manage learning paths.")
 demo_app = typer.Typer(help="Manage artificial demo environment.")
 app.add_typer(learning_app, name="learning")
@@ -91,7 +93,7 @@ def _get_data_repo_dir(home_dir: Path | None = None) -> Path:
                 clone_repo(cfg.data_repo_url, data_dir, branch=cfg.branch)
             except GitError as exc:
                 typer.echo(f"Error cloning data repo: {exc}", err=True)
-                raise typer.Exit(code=2)
+                raise typer.Exit(code=2) from None
         else:
             typer.echo(
                 "Error: Workbench data repository is not initialized (~/.workbench/data missing).",
@@ -109,8 +111,8 @@ def _load_all_projects(data_dir: Path) -> list:
 
 @app.command("show")
 def cmd_show(
-    project_id: Optional[str] = typer.Option(None, "--id", help="Explicit project ID to show"),
-    item_id: Optional[str] = typer.Option(
+    project_id: str | None = typer.Option(None, "--id", help="Explicit project ID to show"),
+    item_id: str | None = typer.Option(
         None, "--item", help="Show only this phase/topic/component (any depth) and its parts"
     ),
     brief: bool = typer.Option(
@@ -155,7 +157,7 @@ def cmd_show(
         matched = find_project_for_repo(projects, root_commit=root_commit, github_slug=github_slug)
     except AmbiguousRepoIdentityError as exc:
         typer.echo(f"Error: {exc}", err=True)
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
     if matched is None:
         typer.echo(
@@ -227,8 +229,8 @@ def _child_projects_by_under(data_dir: Path, parent_id: str) -> dict[str, list[d
 
 @app.command("begin")
 def cmd_begin(
-    project_id: Optional[str] = typer.Option(None, "--id", help="Explicit project ID to edit"),
-    learning_id: Optional[str] = typer.Option(
+    project_id: str | None = typer.Option(None, "--id", help="Explicit project ID to edit"),
+    learning_id: str | None = typer.Option(
         None, "--learning", help="Explicit learning path ID to edit"
     ),
 ) -> None:
@@ -241,7 +243,7 @@ def cmd_begin(
         fetch_origin(data_dir, branch=cfg.branch)
     except GitError as exc:
         typer.echo(f"Error fetching origin/{cfg.branch}: {exc}", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=2) from None
 
     work_root = wb_dir / "work"
     rand_suffix = secrets.token_hex(4)
@@ -253,7 +255,7 @@ def cmd_begin(
             create_worktree(data_dir, wt_dir, ref=f"origin/{cfg.branch}")
         except GitError as exc:
             typer.echo(f"Error creating worktree: {exc}", err=True)
-            raise typer.Exit(code=2)
+            raise typer.Exit(code=2) from None
         target_file = wt_dir / "learning" / lid / "path.yaml"
         if not target_file.exists():
             cm = CommentedMap()
@@ -293,7 +295,7 @@ def cmd_begin(
         create_worktree(data_dir, temp_wt, ref=f"origin/{cfg.branch}")
     except GitError as exc:
         typer.echo(f"Error creating worktree: {exc}", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=2) from None
 
     projects = _load_all_projects(temp_wt)
     matched = None
@@ -310,7 +312,7 @@ def cmd_begin(
         except AmbiguousRepoIdentityError as exc:
             remove_worktree(data_dir, temp_wt)
             typer.echo(f"Error: {exc}", err=True)
-            raise typer.Exit(code=1)
+            raise typer.Exit(code=1) from None
 
     if matched is not None:
         final_id = matched.id
@@ -321,7 +323,7 @@ def cmd_begin(
         idx = 2
         while final_id in existing_ids:
             suf = f"-{idx}"
-            final_id = f"{base_slug[:48 - len(suf)]}{suf}"
+            final_id = f"{base_slug[: 48 - len(suf)]}{suf}"
             idx += 1
 
     wt_dir = work_root / f"{final_id}-{rand_suffix}"
@@ -393,7 +395,9 @@ def _resolve_worktree_root(path_arg: Path) -> Path:
 
 @app.command("push")
 def cmd_push(
-    worktree: Path = typer.Argument(..., help="Path to worktree directory (or YAML file inside it)"),
+    worktree: Path = typer.Argument(
+        ..., help="Path to worktree directory (or YAML file inside it)"
+    ),
     message: str = typer.Option(..., "-m", "--message", help="One-line commit summary"),
     allow_removals: bool = typer.Option(
         False, "--allow-removals", help="Allow removing existing IDs or >30% content deletion"
@@ -510,9 +514,7 @@ def _push_worktree(
 
             # Check if agent edited `updated` or `origin` (§6.3)
             expected_prev_updated = (
-                old_plain.get("updated")
-                if old_plain is not None
-                else baseline_info.get("updated")
+                old_plain.get("updated") if old_plain is not None else baseline_info.get("updated")
             )
             if (
                 expected_prev_updated is not None
@@ -594,9 +596,7 @@ def _push_worktree(
             all_warnings.extend(vres.warnings)
             new_md_text = abs_path.read_text(encoding="utf-8")
             if old_yaml_str != new_md_text:
-                combined_free_text_diffs.append(
-                    f"--- {rel_path}\n+ {new_md_text}"
-                )
+                combined_free_text_diffs.append(f"--- {rel_path}\n+ {new_md_text}")
 
     for w in all_warnings:
         typer.echo(w, err=True)
@@ -628,7 +628,7 @@ def _push_worktree(
         commit_sha = commit_all(wt_dir, message)
     except GitError as exc:
         typer.echo(f"Git commit error: {exc}", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=2) from None
 
     # 5. Fetch + rebase onto origin/main + re-validate + push (retry push race up to 3 times)
     for attempt in range(3):
@@ -637,7 +637,7 @@ def _push_worktree(
                 fetch_origin(data_dir, branch=cfg.branch)
         except GitError as exc:
             typer.echo(f"Git fetch error: {exc}", err=True)
-            raise typer.Exit(code=2)
+            raise typer.Exit(code=2) from None
 
         if not rebase_onto(wt_dir, target_ref=base_ref):
             typer.echo(
@@ -679,7 +679,9 @@ def _push_worktree(
 
 @app.command("archive-empty")
 def cmd_archive_empty(
-    dry_run: bool = typer.Option(False, "--dry-run", help="List empty projects without archiving them"),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="List empty projects without archiving them"
+    ),
     keep: list[str] = typer.Option([], "--keep", help="Project ID to leave active (repeatable)"),
 ) -> None:
     """Archive every active discovered project with no phases and no topics, in one commit."""
@@ -689,14 +691,14 @@ def cmd_archive_empty(
         fetch_origin(data_dir, branch=cfg.branch)
     except GitError as exc:
         typer.echo(f"Error fetching origin/{cfg.branch}: {exc}", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=2) from None
 
     wt_dir = get_workbench_dir() / "work" / f"archive-empty-{secrets.token_hex(4)}"
     try:
         create_worktree(data_dir, wt_dir, ref=f"origin/{cfg.branch}")
     except GitError as exc:
         typer.echo(f"Error creating worktree: {exc}", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=2) from None
 
     keep_ids = set(keep)
     to_archive: list[tuple[str, Path]] = []
@@ -763,14 +765,14 @@ def cmd_link(
         fetch_origin(data_dir, branch=cfg.branch)
     except GitError as exc:
         typer.echo(f"Error fetching origin/{cfg.branch}: {exc}", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=2) from None
 
     wt_dir = get_workbench_dir() / "work" / f"link-{project_id}-{secrets.token_hex(4)}"
     try:
         create_worktree(data_dir, wt_dir, ref=f"origin/{cfg.branch}")
     except GitError as exc:
         typer.echo(f"Error creating worktree: {exc}", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=2) from None
 
     def abort(msg: str, code: int = 1) -> None:
         remove_worktree(data_dir, wt_dir)
@@ -842,9 +844,7 @@ def cmd_link(
 
 @app.command("validate")
 def cmd_validate(
-    path: Optional[Path] = typer.Argument(
-        None, help="File or workbench-data directory to validate"
-    ),
+    path: Path | None = typer.Argument(None, help="File or workbench-data directory to validate"),
 ) -> None:
     """Validate a single metadata file or the entire workbench-data repository."""
     target = path.resolve() if path else _get_data_repo_dir()
@@ -873,10 +873,10 @@ def cmd_new(
     learning: bool = typer.Option(
         False, "--learning", help="Create a learning path instead of a project"
     ),
-    parent: Optional[str] = typer.Option(
+    parent: str | None = typer.Option(
         None, "--parent", help="Parent project id (makes this a child project; needs --under)"
     ),
-    under: Optional[str] = typer.Option(
+    under: str | None = typer.Option(
         None, "--under", help="Phase or component id in the parent this project sits under"
     ),
     status: str = typer.Option(
@@ -904,7 +904,7 @@ def cmd_new(
         fetch_origin(data_dir, branch=cfg.branch)
     except GitError as exc:
         typer.echo(f"Error fetching origin/{cfg.branch}: {exc}", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=2) from None
 
     item_id = slugify_name(name)
     kind = "learning path" if learning else "project"
@@ -939,8 +939,8 @@ def _write_new_entry(
     name: str,
     learning: bool,
     status: str,
-    parent: Optional[str],
-    under: Optional[str],
+    parent: str | None,
+    under: str | None,
 ) -> Path:
     """Write a fresh project/learning YAML into wt_dir and validate it; Exit(1) on any problem."""
     if parent is not None:
@@ -1033,8 +1033,7 @@ def _parent_link_error(
     if under not in item_ids:
         known = ", ".join(item_ids) or "none"
         return (
-            f"'{under}' is not a phase or component of project '{parent_id}' "
-            f"(available: {known})."
+            f"'{under}' is not a phase or component of project '{parent_id}' (available: {known})."
         )
     chain = [child_id, parent_id]
     current = parent.parent
@@ -1056,13 +1055,13 @@ def _open_project_worktree(prefix: str, project_id: str) -> tuple[Path, Path, Pa
         fetch_origin(data_dir, branch=cfg.branch)
     except GitError as exc:
         typer.echo(f"Error fetching origin/{cfg.branch}: {exc}", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=2) from None
     wt_dir = get_workbench_dir() / "work" / f"{prefix}-{project_id}-{secrets.token_hex(4)}"
     try:
         create_worktree(data_dir, wt_dir, ref=f"origin/{cfg.branch}")
     except GitError as exc:
         typer.echo(f"Error creating worktree: {exc}", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=2) from None
     target = wt_dir / "projects" / project_id / "project.yaml"
     if not target.exists():
         remove_worktree(data_dir, wt_dir)
@@ -1184,7 +1183,7 @@ def _quick_edit(
     return result, sha
 
 
-def _split_ids(value: Optional[str]) -> Optional[list[str]]:
+def _split_ids(value: str | None) -> list[str] | None:
     """Parse a comma-separated id list option; None when the option was not given."""
     if value is None:
         return None
@@ -1195,14 +1194,18 @@ def _split_ids(value: Optional[str]) -> Optional[list[str]]:
 def cmd_set(
     project_id: str = typer.Argument(..., help="Project id"),
     item_id: str = typer.Argument(..., help="Phase/topic/component id (any depth)"),
-    status: Optional[str] = typer.Option(
+    status: str | None = typer.Option(
         None, "--status", help="not_started, in_progress, done or parked"
     ),
-    name: Optional[str] = typer.Option(None, "--name", help="New display name"),
-    summary: Optional[str] = typer.Option(None, "--summary", help="Summary (empty clears it)"),
-    notes: Optional[str] = typer.Option(None, "--notes", help="Notes, replaced whole (empty clears them)"),
-    depends_on: Optional[str] = typer.Option(
-        None, "--depends-on", help="Comma-separated component ids this needs first, replaced whole (empty clears)"
+    name: str | None = typer.Option(None, "--name", help="New display name"),
+    summary: str | None = typer.Option(None, "--summary", help="Summary (empty clears it)"),
+    notes: str | None = typer.Option(
+        None, "--notes", help="Notes, replaced whole (empty clears them)"
+    ),
+    depends_on: str | None = typer.Option(
+        None,
+        "--depends-on",
+        help="Comma-separated component ids this needs first, replaced whole (empty clears)",
     ),
 ) -> None:
     """Quick update of one phase/component: status and/or text fields, committed and pushed."""
@@ -1247,15 +1250,17 @@ def cmd_set(
 @app.command("add")
 def cmd_add(
     project_id: str = typer.Argument(..., help="Project id"),
-    under: Optional[str] = typer.Option(
+    under: str | None = typer.Option(
         None, "--under", help="Phase/topic/component to add under (omit for a new phase/topic)"
     ),
     name: str = typer.Option(..., "--name", help="Display name of the new item"),
-    new_id: Optional[str] = typer.Option(None, "--id", help="Explicit id (default: slug of name)"),
-    status: str = typer.Option("not_started", "--status", help="not_started, in_progress, done or parked"),
+    new_id: str | None = typer.Option(None, "--id", help="Explicit id (default: slug of name)"),
+    status: str = typer.Option(
+        "not_started", "--status", help="not_started, in_progress, done or parked"
+    ),
     summary: str = typer.Option("", "--summary", help="What it is and why it is needed"),
     notes: str = typer.Option("", "--notes", help="Current state / next step"),
-    depends_on: Optional[str] = typer.Option(
+    depends_on: str | None = typer.Option(
         None, "--depends-on", help="Comma-separated component ids this needs first"
     ),
 ) -> None:
@@ -1297,7 +1302,7 @@ def cmd_add(
 
 @app.command("focus")
 def cmd_focus(
-    set_to: Optional[str] = typer.Option(
+    set_to: str | None = typer.Option(
         None, "--set", help="<project> or <project>/<item> to focus on in this repo"
     ),
     clear: bool = typer.Option(False, "--clear", help="Clear this repo's focus"),
@@ -1353,7 +1358,9 @@ def cmd_learning_import(
             typer.echo("Error: YAML file must contain a mapping.", err=True)
             raise typer.Exit(code=1)
         incoming["schema_version"] = 1
-        incoming["id"] = str(incoming.get("id") or slugify_name(str(incoming.get("name") or file.stem)))
+        incoming["id"] = str(
+            incoming.get("id") or slugify_name(str(incoming.get("name") or file.stem))
+        )
     else:
         incoming, warnings = parse_learning_markdown(
             text, fallback_name=file.stem.replace("-", " ").title()
@@ -1368,7 +1375,7 @@ def cmd_learning_import(
         fetch_origin(data_dir, branch=cfg.branch)
     except GitError as exc:
         typer.echo(f"Error fetching origin/{cfg.branch}: {exc}", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=2) from None
     wt_dir = get_workbench_dir() / "work" / f"import-{item_id}-{secrets.token_hex(4)}"
     create_worktree(data_dir, wt_dir, ref=f"origin/{cfg.branch}")
 
@@ -1427,7 +1434,7 @@ def cmd_discover(
         registered = run_local_discovery(data_repo_dir=data_dir, config=cfg)
     except Exception as exc:
         typer.echo(f"Discovery failed: {exc}", err=True)
-        raise typer.Exit(code=2)
+        raise typer.Exit(code=2) from None
 
     if registered:
         typer.echo(f"Registered {len(registered)} repository(s): {', '.join(registered)}")
@@ -1437,12 +1444,14 @@ def cmd_discover(
 
 @app.command("history")
 def cmd_history(
-    item_id: Optional[str] = typer.Argument(None, help="Optional project or learning path ID"),
+    item_id: str | None = typer.Argument(None, help="Optional project or learning path ID"),
     limit: int = typer.Option(20, "-n", "--limit", help="Max commits to show"),
-    kind: Optional[str] = typer.Option(
-        None, "--kind", help=f"Only these commit kinds, comma-separated ({', '.join(commitmsg.KINDS)})"
+    kind: str | None = typer.Option(
+        None,
+        "--kind",
+        help=f"Only these commit kinds, comma-separated ({', '.join(commitmsg.KINDS)})",
     ),
-    project: Optional[str] = typer.Option(
+    project: str | None = typer.Option(
         None,
         "--project",
         help="Only commits scoped to this project (or learning/<id>), including its items",
@@ -1501,9 +1510,7 @@ def cmd_undo(
     wt_dir = wb_dir / "work" / f"undo-{secrets.token_hex(4)}"
     create_worktree(data_dir, wt_dir, ref=f"origin/{cfg.branch}")
     try:
-        target = run_git(
-            ["log", "-1", "--format=%H%n%s", commit], cwd=wt_dir, check=False
-        )
+        target = run_git(["log", "-1", "--format=%H%n%s", commit], cwd=wt_dir, check=False)
         if target.returncode != 0:
             typer.echo(f"Error reverting {commit}: unknown commit.", err=True)
             raise typer.Exit(code=2)
@@ -1518,7 +1525,9 @@ def cmd_undo(
         )
         proc = run_git(["commit", "-m", message], cwd=wt_dir, check=False)
         if proc.returncode != 0:
-            typer.echo(f"Error reverting {commit}: {proc.stdout.strip() or proc.stderr.strip()}", err=True)
+            typer.echo(
+                f"Error reverting {commit}: {proc.stdout.strip() or proc.stderr.strip()}", err=True
+            )
             raise typer.Exit(code=2)
 
         if not push_head_to_branch(wt_dir, branch=cfg.branch):
@@ -1564,9 +1573,11 @@ JOB_START_DELAY_SECONDS = 2.0
 
 @app.command("auto-update")
 def cmd_auto_update(
-    job: Optional[Path] = typer.Option(None, "--job", help="Job file written by the Stop hook"),
-    transcript: Optional[Path] = typer.Option(
-        None, "--transcript", help="Claude transcript (.jsonl) to read the last message from, to try it by hand"
+    job: Path | None = typer.Option(None, "--job", help="Job file written by the Stop hook"),
+    transcript: Path | None = typer.Option(
+        None,
+        "--transcript",
+        help="Claude transcript (.jsonl) to read the last message from, to try it by hand",
     ),
     dry_run: bool = typer.Option(
         False, "--dry-run", help="Print the prompt and the agent's plan; change nothing"
@@ -1621,7 +1632,7 @@ def cmd_auto_update(
 class _updater_lock:
     """One headless update at a time, so back-to-back messages never race on the data clone."""
 
-    def __enter__(self) -> "_updater_lock":
+    def __enter__(self) -> _updater_lock:
         path = get_workbench_dir() / "updater.lock"
         path.parent.mkdir(parents=True, exist_ok=True)
         self._fh = path.open("w")
@@ -1705,7 +1716,10 @@ def _run_auto_update(job_data: dict, dry_run: bool) -> tuple[str, str]:
         skipped = f" (skipped: {'; '.join(applied.skipped)})" if applied.skipped else ""
         if dry_run:
             typer.echo(f"--- plan ---\n{json.dumps(plan.__dict__, indent=2)}")
-            return project_id, f"dry run, would record: {'; '.join(applied.changes) or 'nothing'}{skipped}"
+            return (
+                project_id,
+                f"dry run, would record: {'; '.join(applied.changes) or 'nothing'}{skipped}",
+            )
         if not applied.changes:
             return project_id, f"no update needed{skipped}"
         dump_yaml_roundtrip(doc, target)
@@ -1732,7 +1746,9 @@ def _run_auto_update(job_data: dict, dry_run: bool) -> tuple[str, str]:
 @app.command("serve")
 def cmd_serve(
     host: str = typer.Option(
-        "127.0.0.1", "--host", help="Address to listen on (a Tailscale IP to reach it from your other devices)"
+        "127.0.0.1",
+        "--host",
+        help="Address to listen on (a Tailscale IP to reach it from your other devices)",
     ),
     port: int = typer.Option(8420, "--port", help="Port to listen on"),
 ) -> None:
@@ -1762,8 +1778,12 @@ def cmd_serve(
 def cmd_install(
     home: Path = typer.Option(..., "--home", help="Target home directory for installation"),
     claude: bool = typer.Option(False, "--claude", help="Install Claude skill and Stop hook"),
-    gemini: bool = typer.Option(False, "--gemini", help="Install Gemini CLI rules, command, and hook"),
-    launchd: bool = typer.Option(False, "--launchd", help="Install macOS launchd local discovery job"),
+    gemini: bool = typer.Option(
+        False, "--gemini", help="Install Gemini CLI rules, command, and hook"
+    ),
+    launchd: bool = typer.Option(
+        False, "--launchd", help="Install macOS launchd local discovery job"
+    ),
 ) -> None:
     """Install agent skill, hooks, and launchd job into the specified home directory (§8)."""
     target_home = home.resolve()
@@ -1779,12 +1799,14 @@ def cmd_install(
 
 @app.command("setup")
 def cmd_setup(
-    home: Optional[Path] = typer.Option(
+    home: Path | None = typer.Option(
         None, "--home", help="Target home directory (defaults to current HOME)"
     ),
 ) -> None:
     """Interactive go-live wizard (§12)."""
-    target_home = home.resolve() if home else Path(os.environ.get("HOME", str(Path.home()))).resolve()
+    target_home = (
+        home.resolve() if home else Path(os.environ.get("HOME", str(Path.home()))).resolve()
+    )
 
     data_repo_url = typer.prompt("Workbench data repository URL").strip()
     owners_raw = typer.prompt("GitHub owner username(s) (comma-separated)").strip()
@@ -1854,7 +1876,9 @@ def cmd_setup(
 
 @demo_app.command("init")
 def cmd_demo_init(
-    directory: Path = typer.Argument(..., help="Directory where artificial demo environment will be created"),
+    directory: Path = typer.Argument(
+        ..., help="Directory where artificial demo environment will be created"
+    ),
 ) -> None:
     """Create the artificial demo environment with bare remote, fake HOME, and fake repos (§11)."""
     info = init_demo_environment(directory)

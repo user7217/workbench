@@ -21,7 +21,9 @@ import {
 import { Dialog } from "./Editing";
 
 /** Every phase and component of a project, depth-first, with its depth (phase = 0). */
-function flattenItems(project: Project): { item: Phase | Component; depth: number; isPhase: boolean }[] {
+function flattenItems(
+  project: Project,
+): { item: Phase | Component; depth: number; isPhase: boolean }[] {
   const out: { item: Phase | Component; depth: number; isPhase: boolean }[] = [];
   const visit = (comps: Component[], depth: number) => {
     for (const c of comps) {
@@ -99,16 +101,31 @@ export function ItemStructureActions({ project, item, isPhase }: ItemStructureAc
         Delete…
       </button>
       {dialog === "move" && (
-        <MoveToDialog project={project} item={item} parentId={placement.parentId} onClose={() => setDialog(null)} />
+        <MoveToDialog
+          project={project}
+          item={item}
+          parentId={placement.parentId}
+          onClose={() => setDialog(null)}
+        />
       )}
       {dialog === "delete" && (
-        <DeleteDialog project={project} item={item} isPhase={isPhase} onClose={() => setDialog(null)} />
+        <DeleteDialog
+          project={project}
+          item={item}
+          isPhase={isPhase}
+          onClose={() => setDialog(null)}
+        />
       )}
     </div>
   );
 }
 
-function MoveToDialog({ project, item, parentId, onClose }: {
+function MoveToDialog({
+  project,
+  item,
+  parentId,
+  onClose,
+}: {
   project: Project;
   item: Phase | Component;
   parentId: string | null;
@@ -143,7 +160,9 @@ function MoveToDialog({ project, item, parentId, onClose }: {
         </button>
       }
     >
-      <p className="dialog-text">Pick a {groupLabel} or component; it is added at the end of its parts.</p>
+      <p className="dialog-text">
+        Pick a {groupLabel} or component; it is added at the end of its parts.
+      </p>
       <div className="move-target-list">
         {targets.map(({ item: t, depth, isPhase }) => (
           <button
@@ -166,7 +185,12 @@ function MoveToDialog({ project, item, parentId, onClose }: {
   );
 }
 
-function DeleteDialog({ project, item, isPhase, onClose }: {
+function DeleteDialog({
+  project,
+  item,
+  isPhase,
+  onClose,
+}: {
   project: Project;
   item: Phase | Component;
   isPhase: boolean;
@@ -216,8 +240,8 @@ function DeleteDialog({ project, item, isPhase, onClose }: {
     >
       <p className="dialog-text">
         This permanently removes the {isPhase ? "group" : "component"}
-        {nested > 0 ? ` and ${nested} nested ${nested === 1 ? "part" : "parts"}` : ""} from the project file. It
-        cannot be undone from the dashboard.
+        {nested > 0 ? ` and ${nested} nested ${nested === 1 ? "part" : "parts"}` : ""} from the
+        project file. It cannot be undone from the dashboard.
       </p>
       {refusal && (
         <p className="dialog-error" data-testid="delete-error" role="alert">
@@ -240,7 +264,9 @@ export function ParentControl({ project }: { project: Project }) {
         className="item-action-btn text"
         data-testid="parent-control"
         disabled={busy}
-        title={project.parent ? "Change or remove the parent project" : "Attach to a parent project"}
+        title={
+          project.parent ? "Change or remove the parent project" : "Attach to a parent project"
+        }
         onClick={() => setOpen(true)}
       >
         {project.parent ? "Part of… (change)" : "Part of…"}

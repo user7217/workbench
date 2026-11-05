@@ -45,7 +45,8 @@ export function StatusMenu<S extends string>({
     const rect = triggerRef.current.getBoundingClientRect();
     const menuHeight = options.length * 28 + 10;
     const below = rect.bottom + 4;
-    const top = below + menuHeight > window.innerHeight ? Math.max(4, rect.top - menuHeight - 4) : below;
+    const top =
+      below + menuHeight > window.innerHeight ? Math.max(4, rect.top - menuHeight - 4) : below;
     const left = Math.min(Math.max(4, rect.left), window.innerWidth - MENU_WIDTH - 4);
     setPos({ top, left });
   }, [open, options.length]);
@@ -82,7 +83,8 @@ export function StatusMenu<S extends string>({
   }, [open, close]);
 
   useEffect(() => {
-    if (open && pos) menuRef.current?.querySelector<HTMLButtonElement>("button[aria-checked='true']")?.focus();
+    if (open && pos)
+      menuRef.current?.querySelector<HTMLButtonElement>("button[aria-checked='true']")?.focus();
   }, [open, pos]);
 
   useEffect(() => {
@@ -125,7 +127,7 @@ export function StatusMenu<S extends string>({
           data-testid={`${testId}-menu`}
           style={{ top: pos.top, left: pos.left, width: MENU_WIDTH }}
           onClick={(e) => e.stopPropagation()}
-          >
+        >
           {options.map((opt) => (
             <button
               key={opt}

@@ -11,13 +11,13 @@ from pathlib import Path
 from typing import Any
 
 from workbench.gitops import (
-    run_git,
     GitError,
     clone_repo,
     create_worktree,
     fetch_origin,
     get_head_commit,
     remove_worktree,
+    run_git,
 )
 from workbench.validate import validate_data_repo
 from workbench.yamlio import load_yaml_roundtrip, to_plain_python
@@ -102,7 +102,7 @@ class ServerState:
         Never raises: any failure is recorded in last_error and the previous snapshot is kept.
         """
         with self._repo_lock:
-            now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+            now_iso = datetime.datetime.now(datetime.UTC).isoformat()
             try:
                 return self._sync_once_locked(force, now_iso)
             except Exception as exc:

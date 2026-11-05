@@ -9,8 +9,9 @@ or the target item does not exist. `status_code` classifies the failure (400 bad
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import Any, Iterator, get_args
+from typing import Any, get_args
 
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
 from ruamel.yaml.scalarstring import LiteralScalarString
@@ -269,7 +270,9 @@ def set_project_item_status(doc: Any, project_id: str, item_id: str, status: str
     require_project_item(doc, project_id, item_id).node["status"] = status
 
 
-def set_project_item_fields(doc: Any, project_id: str, item_id: str, fields: dict[str, Any]) -> None:
+def set_project_item_fields(
+    doc: Any, project_id: str, item_id: str, fields: dict[str, Any]
+) -> None:
     """Write text fields (name/summary/notes/description/items) of a group or a component."""
     loc = require_project_item(doc, project_id, item_id)
     if loc.is_group and "items" in fields:
@@ -277,13 +280,11 @@ def set_project_item_fields(doc: Any, project_id: str, item_id: str, fields: dic
     apply_text_fields(loc.node, fields, field_order(Phase if loc.is_group else Component))
 
 
-def _check_dependencies(doc: Any, project_id: str, item_id: str | None, deps: list[str]) -> list[str]:
+def _check_dependencies(
+    doc: Any, project_id: str, item_id: str | None, deps: list[str]
+) -> list[str]:
     """Dependencies must be other existing components of the same project, without repeats."""
-    known = {
-        str(c.get("id"))
-        for c in iter_component_nodes(doc)
-        if c.get("id") is not None
-    }
+    known = {str(c.get("id")) for c in iter_component_nodes(doc) if c.get("id") is not None}
     out: list[str] = []
     for dep in deps:
         require_slug(dep, "depends_on id")

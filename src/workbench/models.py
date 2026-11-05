@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime
 import json
 from pathlib import Path
-from typing import Annotated, Any, Literal, Optional
+from typing import Annotated, Any, Literal
 
 from pydantic import (
     AfterValidator,
@@ -84,7 +84,7 @@ class Link(StrictModel):
 
 
 class ProjectRepo(StrictModel):
-    github: Optional[Annotated[str, StringConstraints(min_length=3, max_length=120)]] = None
+    github: Annotated[str, StringConstraints(min_length=3, max_length=120)] | None = None
     root_commit: FullCommitSha
     name: ShortName
 
@@ -101,7 +101,7 @@ class Component(StrictModel):
     refs: list[CommitSha] = Field(default_factory=list)
     items: list[SummaryStr] = Field(default_factory=list)
     # Components nest to any depth; ids stay unique across the whole project
-    components: list["Component"] = Field(default_factory=list)
+    components: list[Component] = Field(default_factory=list)
 
 
 def iter_components(items: list[Component]):
@@ -130,7 +130,7 @@ class Suggestion(StrictModel):
     name: ShortName
     summary: SummaryStr = ""
     # The phase/topic/component it would go under; None means a new phase/topic
-    under: Optional[SlugId] = None
+    under: SlugId | None = None
     added: DateStr
 
 
@@ -149,18 +149,20 @@ class Project(StrictModel):
     topics: list[Phase] = Field(default_factory=list)
     suggestions: list[Suggestion] = Field(default_factory=list)
     # A child project names its single parent and the phase or component it sits under
-    parent: Optional[SlugId] = None
-    under: Optional[SlugId] = None
+    parent: SlugId | None = None
+    under: SlugId | None = None
 
     def all_components(self) -> list[Component]:
         """Every component in the project, including nested ones."""
         out: list[Component] = []
         for group in list(self.phases) + list(self.topics):
-            out.extend(iter_components(list(group.components) + list(group.topics) + list(group.subtopics)))
+            out.extend(
+                iter_components(list(group.components) + list(group.topics) + list(group.subtopics))
+            )
         return out
 
     @model_validator(mode="after")
-    def validate_internal_graph(self) -> "Project":
+    def validate_internal_graph(self) -> Project:
         if (self.parent is None) != (self.under is None):
             raise ValueError("'parent' and 'under' must be set together")
         if self.parent == self.id:
@@ -189,9 +191,7 @@ class Project(StrictModel):
                         f"Component '{comp.id}' cannot depend on itself (self-reference)"
                     )
                 if dep not in component_ids:
-                    raise ValueError(
-                        f"Component '{comp.id}' depends on unknown component '{dep}'"
-                    )
+                    raise ValueError(f"Component '{comp.id}' depends on unknown component '{dep}'")
 
         suggestion_ids: set[str] = set()
         for sug in self.suggestions:
@@ -259,7 +259,7 @@ class LearningPath(StrictModel):
     topics: list[Topic] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def validate_unique_ids(self) -> "LearningPath":
+    def validate_unique_ids(self) -> LearningPath:
         seen: set[str] = set()
         for topic in self.topics:
             if topic.id in seen:

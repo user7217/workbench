@@ -28,6 +28,7 @@ dev = [
     "pytest-playwright>=0.5.0",
     "playwright>=1.44.0",
     "respx>=0.21.1",
+    "ruff>=0.17.3",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -39,3 +40,16 @@ packages = ["src/workbench"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = ["web", "graphify-out"]
+
+[tool.ruff.lint]
+# pyflakes + pycodestyle errors, import order, common bug patterns, modern syntax
+select = ["E4", "E7", "E9", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.per-file-ignores]
+# typer reads option defaults from function signatures (B008 is the typer idiom)
+"src/workbench/cli.py" = ["B008"]

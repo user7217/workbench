@@ -9,5 +9,5 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <WorkbenchProvider>
       <View />
     </WorkbenchProvider>
-  </React.StrictMode>
+  </React.StrictMode>,
 );

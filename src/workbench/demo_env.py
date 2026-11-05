@@ -76,21 +76,30 @@ def init_demo_environment(base_dir: Path) -> dict[str, Any]:
     ws_root, ws_shas = _create_project_git_repo(
         code_dir / "weather-station",
         "demouser/weather-station",
-        {"README.md": "# Weather Station\nSolar-powered sensor node.\n", "firmware/main.c": "int main() { return 0; }\n"},
+        {
+            "README.md": "# Weather Station\nSolar-powered sensor node.\n",
+            "firmware/main.c": "int main() { return 0; }\n",
+        },
         [("Add BME280 driver", {"firmware/bme280.c": "// I2C driver\n"})],
         env=env,
     )
     ra_fw_root, ra_fw_shas = _create_project_git_repo(
         code_dir / "robot-arm-firmware",
         "demouser/robot-arm-firmware",
-        {"README.md": "# Robot Arm Firmware\nStepper and encoder loop.\n", "src/motor.c": "// motor loop\n"},
+        {
+            "README.md": "# Robot Arm Firmware\nStepper and encoder loop.\n",
+            "src/motor.c": "// motor loop\n",
+        },
         [("Add closed-loop PID", {"src/pid.c": "// pid controller\n"})],
         env=env,
     )
     ra_pl_root, ra_pl_shas = _create_project_git_repo(
         code_dir / "robot-arm-planner",
         "demouser/robot-arm-planner",
-        {"README.md": "# Robot Arm Planner\nInverse kinematics and trajectory planner.\n", "planner.py": "def solve_ik(): pass\n"},
+        {
+            "README.md": "# Robot Arm Planner\nInverse kinematics and trajectory planner.\n",
+            "planner.py": "def solve_ik(): pass\n",
+        },
         env=env,
     )
     bg_root, _ = _create_project_git_repo(

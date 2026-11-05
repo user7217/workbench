@@ -13,7 +13,9 @@ from workbench.identity import resolve_local_repo_identity
 SKIP_DIRS = {"node_modules", ".venv", "vendor", "__pycache__", "dist", "build"}
 
 
-def expand_scan_root(root_str: str, home_dir: Path | None = None, env: dict[str, str] | None = None) -> Path:
+def expand_scan_root(
+    root_str: str, home_dir: Path | None = None, env: dict[str, str] | None = None
+) -> Path:
     """Expand ~ in scan root using explicit home_dir or HOME from env."""
     if root_str.startswith("~/") or root_str == "~":
         base_home = home_dir

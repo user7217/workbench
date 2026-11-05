@@ -32,7 +32,7 @@ export function getItemShortDescription(item: { summary?: string; description?: 
  */
 export function sortByRecent<T extends { id: string; name: string; updated?: string }>(
   items: T[],
-  changedAt: Record<string, string> | undefined
+  changedAt: Record<string, string> | undefined,
 ): T[] {
   const key = (item: T) => changedAt?.[item.id] || item.updated || "";
   return [...items].sort((a, b) => {
@@ -55,11 +55,17 @@ export function normalizeQuery(filterText: string): string {
 /** Search rule for projects and learning paths: name or description contains the query. */
 export function matchesQuery(item: { name: string; description?: string }, query: string): boolean {
   if (!query) return true;
-  return item.name.toLowerCase().includes(query) || (item.description || "").toLowerCase().includes(query);
+  return (
+    item.name.toLowerCase().includes(query) ||
+    (item.description || "").toLowerCase().includes(query)
+  );
 }
 
 /** Matching items, sorted by name. */
-export function filterByQuery<T extends { name: string; description?: string }>(items: T[], query: string): T[] {
+export function filterByQuery<T extends { name: string; description?: string }>(
+  items: T[],
+  query: string,
+): T[] {
   return sortByName(items.filter((i) => matchesQuery(i, query)));
 }
 
@@ -136,17 +142,31 @@ export function locateItemPlacement(project: Project, itemId: string): ItemPlace
   const parent = entry.ancestors[entry.ancestors.length - 1];
   const has = (l: Component[] | undefined) => (l || []).some((c) => c.id === itemId);
   const ph = entry.phase;
-  const siblings = parent ? parent.components || [] : [ph.components, ph.topics, ph.subtopics].find(has) || [];
-  return { parentId: parent ? parent.id : ph.id, index: siblings.findIndex((c) => c.id === itemId), siblings };
+  const siblings = parent
+    ? parent.components || []
+    : [ph.components, ph.topics, ph.subtopics].find(has) || [];
+  return {
+    parentId: parent ? parent.id : ph.id,
+    index: siblings.findIndex((c) => c.id === itemId),
+    siblings,
+  };
 }
 
 /** Components this one depends on (unknown ids are skipped). */
-export function getDependencies(index: Map<string, ComponentEntry>, comp: Component): ComponentEntry[] {
-  return (comp.depends_on || []).map((id) => index.get(id)).filter((x): x is ComponentEntry => Boolean(x));
+export function getDependencies(
+  index: Map<string, ComponentEntry>,
+  comp: Component,
+): ComponentEntry[] {
+  return (comp.depends_on || [])
+    .map((id) => index.get(id))
+    .filter((x): x is ComponentEntry => Boolean(x));
 }
 
 /** Components that depend on this one ("used by"). */
-export function getDependents(index: Map<string, ComponentEntry>, compId: string): ComponentEntry[] {
+export function getDependents(
+  index: Map<string, ComponentEntry>,
+  compId: string,
+): ComponentEntry[] {
   const out: ComponentEntry[] = [];
   for (const entry of index.values()) {
     if ((entry.comp.depends_on || []).includes(compId)) out.push(entry);
@@ -157,7 +177,7 @@ export function getDependents(index: Map<string, ComponentEntry>, compId: string
 function mapInComponents(
   comps: Component[] | undefined,
   itemId: string,
-  fn: <T extends Phase | Component>(item: T) => T
+  fn: <T extends Phase | Component>(item: T) => T,
 ): Component[] | undefined {
   return comps?.map((c) => {
     if (c.id === itemId) return fn(c);
@@ -168,7 +188,7 @@ function mapInComponents(
 function mapInGroups(
   groups: Phase[] | undefined,
   itemId: string,
-  fn: <T extends Phase | Component>(item: T) => T
+  fn: <T extends Phase | Component>(item: T) => T,
 ): Phase[] | undefined {
   return groups?.map((g) => {
     if (g.id === itemId) return fn(g);
@@ -185,7 +205,7 @@ function mapInGroups(
 export function mapProjectItem(
   project: Project,
   itemId: string,
-  fn: <T extends Phase | Component>(item: T) => T
+  fn: <T extends Phase | Component>(item: T) => T,
 ): Project {
   return {
     ...project,
@@ -223,7 +243,14 @@ export function readTextFields(obj: object, keys: string[]): TextFieldPatch {
   const out: TextFieldPatch = {};
   for (const key of keys) {
     const v = src[key];
-    out[key] = key === "items" ? (Array.isArray(v) ? [...(v as string[])] : []) : typeof v === "string" ? v : "";
+    out[key] =
+      key === "items"
+        ? Array.isArray(v)
+          ? [...(v as string[])]
+          : []
+        : typeof v === "string"
+          ? v
+          : "";
   }
   return out;
 }
@@ -269,7 +296,10 @@ export function findItemStatus(project: Project, itemId: string): ItemStatus | u
 type LearningItemStatus = Topic["status"];
 
 /** Topic or subtopic of a learning path, with the topic it belongs to. */
-export function findLearningItem(lp: LearningPath, itemId: string): { item: Topic | Subtopic; topic: Topic } | null {
+export function findLearningItem(
+  lp: LearningPath,
+  itemId: string,
+): { item: Topic | Subtopic; topic: Topic } | null {
   for (const top of lp.topics || []) {
     if (top.id === itemId) return { item: top, topic: top };
     const sub = (top.subtopics || []).find((s) => s.id === itemId);
@@ -282,7 +312,7 @@ export function findLearningItem(lp: LearningPath, itemId: string): { item: Topi
 export function mapLearningItem(
   lp: LearningPath,
   itemId: string,
-  fn: <T extends Topic | Subtopic>(item: T) => T
+  fn: <T extends Topic | Subtopic>(item: T) => T,
 ): LearningPath {
   return {
     ...lp,
@@ -294,12 +324,20 @@ export function mapLearningItem(
 }
 
 /** Copy of the learning path with one topic or subtopic set to the given status. */
-export function withLearningItemStatus(lp: LearningPath, itemId: string, status: LearningItemStatus): LearningPath {
+export function withLearningItemStatus(
+  lp: LearningPath,
+  itemId: string,
+  status: LearningItemStatus,
+): LearningPath {
   return mapLearningItem(lp, itemId, (item) => ({ ...item, status }));
 }
 
 /** Markdown notes of a topic/subtopic ("" when none). */
-export function getTopicMarkdown(markdowns: Record<string, string>, pathId: string, itemId: string): string {
+export function getTopicMarkdown(
+  markdowns: Record<string, string>,
+  pathId: string,
+  itemId: string,
+): string {
   return markdowns[`${pathId}/${itemId}`] || "";
 }
 
@@ -331,7 +369,10 @@ export function isChildProject(project: Project, byId: Map<string, Project>): bo
   return Boolean(project.parent && project.parent !== project.id && byId.has(project.parent));
 }
 
-function resolveUnder(parent: Project, under: string | null | undefined): Omit<ParentRef, "parentId" | "parentName"> {
+function resolveUnder(
+  parent: Project,
+  under: string | null | undefined,
+): Omit<ParentRef, "parentId" | "parentName"> {
   if (!under) return { phase: null, components: [] };
   const phase = getProjectGroups(parent).find((g) => g.id === under);
   if (phase) return { phase: { id: phase.id, name: phase.name }, components: [] };
@@ -372,7 +413,9 @@ export function buildChildIndex(projects: Project[], parentOf: Map<string, Paren
   for (const child of sorted) {
     const ref = parentOf.get(child.id);
     if (!ref) continue;
-    const slot = ref.components.length ? ref.components[ref.components.length - 1].id : ref.phase?.id ?? ROOT_SLOT;
+    const slot = ref.components.length
+      ? ref.components[ref.components.length - 1].id
+      : (ref.phase?.id ?? ROOT_SLOT);
     const slots = index.get(ref.parentId) ?? new Map<string, Project[]>();
     slots.set(slot, [...(slots.get(slot) ?? []), child]);
     index.set(ref.parentId, slots);
@@ -389,7 +432,11 @@ export function childProjectsAt(index: ChildIndex, parentId: string, slotId: str
  * Project lists (Home, Building tree, sidebar) show every top-level project, but a child project
  * only while it is active; otherwise it lives inside its parent. A search shows every match.
  */
-export function isListedProject(project: Project, byId: Map<string, Project>, searching: boolean): boolean {
+export function isListedProject(
+  project: Project,
+  byId: Map<string, Project>,
+  searching: boolean,
+): boolean {
   if (searching) return true;
   return !isChildProject(project, byId) || project.status === "active";
 }
@@ -406,7 +453,7 @@ export function getRelatedLearning(project: Project, learning: LearningPath[]): 
 /** A learning path's related projects; `project` is undefined when the id is not in the snapshot. */
 export function getRelatedProjects(
   lp: LearningPath,
-  byId: Map<string, Project>
+  byId: Map<string, Project>,
 ): { id: string; project: Project | undefined }[] {
   return (lp.related_projects || []).map((id) => ({ id, project: byId.get(id) }));
 }
@@ -427,7 +474,10 @@ export interface DetailItem {
 }
 
 /** Detail rows of a component, derived from its metadata without duplicating data. */
-export function getComponentDetailItems(comp: Component, allComps: Map<string, ComponentEntry>): DetailItem[] {
+export function getComponentDetailItems(
+  comp: Component,
+  allComps: Map<string, ComponentEntry>,
+): DetailItem[] {
   const items: DetailItem[] = [];
   const own = comp.status || "not_started";
   for (const [idx, text] of (comp.items || []).entries()) {
@@ -458,14 +508,26 @@ export function getComponentDetailItems(comp: Component, allComps: Map<string, C
     });
   }
   for (const lnk of comp.links || []) {
-    items.push({ id: `${comp.id}-link-${lnk.label}`, kindLabel: "Reference", text: lnk.label, status: own, url: lnk.url });
+    items.push({
+      id: `${comp.id}-link-${lnk.label}`,
+      kindLabel: "Reference",
+      text: lnk.label,
+      status: own,
+      url: lnk.url,
+    });
   }
   for (const ref of comp.refs || []) {
-    items.push({ id: `${comp.id}-ref-${ref}`, kindLabel: "Verified Commit", text: ref, status: "done" });
+    items.push({
+      id: `${comp.id}-ref-${ref}`,
+      kindLabel: "Verified Commit",
+      text: ref,
+      status: "done",
+    });
   }
   if (items.length === 0) {
     const desc = getItemShortDescription(comp);
-    if (desc) items.push({ id: `${comp.id}-spec`, kindLabel: "Specification", text: desc, status: own });
+    if (desc)
+      items.push({ id: `${comp.id}-spec`, kindLabel: "Specification", text: desc, status: own });
   }
   return items;
 }
@@ -479,11 +541,24 @@ export function getLearningSubtopicItems(sub: Subtopic, markdownText: string): D
       .map((l) => l.trim())
       .filter((l) => l.startsWith("- ") || l.startsWith("* "))
       .map((l) => l.slice(2).trim())
-      .forEach((b, idx) => items.push({ id: `${sub.id}-md-${idx}`, kindLabel: "Key Takeaway", text: b, status: sub.status }));
+      .forEach((b, idx) => {
+        items.push({
+          id: `${sub.id}-md-${idx}`,
+          kindLabel: "Key Takeaway",
+          text: b,
+          status: sub.status,
+        });
+      });
   }
   if (items.length === 0) {
     const desc = getItemShortDescription(sub);
-    if (desc) items.push({ id: `${sub.id}-concept`, kindLabel: "Core Concept", text: desc, status: sub.status });
+    if (desc)
+      items.push({
+        id: `${sub.id}-concept`,
+        kindLabel: "Core Concept",
+        text: desc,
+        status: sub.status,
+      });
   }
   return items;
 }
@@ -554,7 +629,10 @@ function childProjectItems(slotId: string, childProjects?: Map<string, Project[]
 
 function componentItems(comps: Component[], childProjects?: Map<string, Project[]>): TreeItem[] {
   return comps.map((c) => {
-    const children = [...componentItems(c.components ?? [], childProjects), ...childProjectItems(c.id, childProjects)];
+    const children = [
+      ...componentItems(c.components ?? [], childProjects),
+      ...childProjectItems(c.id, childProjects),
+    ];
     return {
       id: c.id,
       name: c.name,
@@ -574,7 +652,10 @@ export function projectTree(project: Project, childProjects?: Map<string, Projec
     id: ph.id,
     name: ph.name,
     status: ph.status || "not_started",
-    children: [...componentItems(getGroupChildren(ph), childProjects), ...childProjectItems(ph.id, childProjects)],
+    children: [
+      ...componentItems(getGroupChildren(ph), childProjects),
+      ...childProjectItems(ph.id, childProjects),
+    ],
   }));
 }
 

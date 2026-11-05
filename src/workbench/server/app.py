@@ -6,8 +6,9 @@ import asyncio
 import contextlib
 import logging
 import os
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
@@ -58,9 +59,7 @@ def _require_write_headers(request: Request) -> None:
         raise HTTPException(status_code=403, detail="Missing or invalid X-Workbench header")
     ct = request.headers.get("content-type", "")
     if not ct.lower().startswith("application/json"):
-        raise HTTPException(
-            status_code=415, detail="Content-Type must be application/json"
-        )
+        raise HTTPException(status_code=415, detail="Content-Type must be application/json")
 
 
 async def _read_json_object(request: Request) -> dict[str, Any]:
@@ -68,7 +67,7 @@ async def _read_json_object(request: Request) -> dict[str, Any]:
     try:
         body = await request.json()
     except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON body")
+        raise HTTPException(status_code=400, detail="Invalid JSON body") from None
     if not isinstance(body, dict):
         raise HTTPException(status_code=400, detail="Body must be a JSON object")
     return body
@@ -103,7 +102,7 @@ async def _run_body_write(
     try:
         result = await asyncio.to_thread(write_fn, state, *ids, body)
     except WriteError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=str(exc))
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from None
     if isinstance(result, tuple):
         snapshot, item_id = result
         return _write_response(state, snapshot, item_id=item_id)
@@ -122,7 +121,7 @@ async def _run_status_write(
     try:
         updated_snapshot = await asyncio.to_thread(write_fn, state, *ids, new_status)
     except WriteError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=str(exc))
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from None
     return _write_response(state, updated_snapshot)
 
 
@@ -186,7 +185,7 @@ def create_app(
                 try:
                     await asyncio.wait_for(stop_event.wait(), timeout=interval)
                     break
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     pass
                 if not state.remote_url:
                     continue
@@ -279,9 +278,7 @@ def create_app(
     async def post_learning_item_fields(
         path_id: str, item_id: str, request: Request
     ) -> JSONResponse:
-        return await _run_body_write(
-            request, state, update_learning_item_fields, path_id, item_id
-        )
+        return await _run_body_write(request, state, update_learning_item_fields, path_id, item_id)
 
     # Project structure edits
     @app.post("/api/projects/{project_id}/items")
@@ -315,9 +312,7 @@ def create_app(
     async def post_suggestion_dismiss(
         project_id: str, suggestion_id: str, request: Request
     ) -> JSONResponse:
-        return await _run_body_write(
-            request, state, dismiss_suggestion, project_id, suggestion_id
-        )
+        return await _run_body_write(request, state, dismiss_suggestion, project_id, suggestion_id)
 
     # Serve built UI static files if web/dist exists
     if dist_dir.exists() and (dist_dir / "index.html").exists():
@@ -328,11 +323,7 @@ def create_app(
         @app.get("/{full_path:path}")
         async def serve_spa(full_path: str) -> FileResponse:
             candidate = (dist_dir / full_path).resolve()
-            if (
-                full_path
-                and candidate.is_file()
-                and dist_dir.resolve() in candidate.parents
-            ):
+            if full_path and candidate.is_file() and dist_dir.resolve() in candidate.parents:
                 return FileResponse(str(candidate))
             return FileResponse(str(dist_dir / "index.html"))
     else:

@@ -19,7 +19,11 @@ interface EditSession {
   close: () => void;
 }
 
-const EditSessionContext = createContext<EditSession>({ activeKey: null, open: () => {}, close: () => {} });
+const EditSessionContext = createContext<EditSession>({
+  activeKey: null,
+  open: () => {},
+  close: () => {},
+});
 
 /** Only one editor is open at a time, so `save-edit` / `cancel-edit` are unique on the page. */
 export function EditSessionProvider({ children }: { children: ReactNode }) {
@@ -47,7 +51,12 @@ function editorKeys(multiline: boolean, onSave: () => void, onCancel: () => void
   };
 }
 
-function SaveCancel({ onSave, onCancel, busy, saveLabel = "Save" }: {
+function SaveCancel({
+  onSave,
+  onCancel,
+  busy,
+  saveLabel = "Save",
+}: {
   onSave: () => void;
   onCancel: () => void;
   busy?: boolean;
@@ -55,7 +64,13 @@ function SaveCancel({ onSave, onCancel, busy, saveLabel = "Save" }: {
 }) {
   return (
     <div className="edit-actions">
-      <button type="button" className="edit-btn primary" data-testid="save-edit" disabled={busy} onClick={onSave}>
+      <button
+        type="button"
+        className="edit-btn primary"
+        data-testid="save-edit"
+        disabled={busy}
+        onClick={onSave}
+      >
         {busy ? "Saving…" : saveLabel}
       </button>
       <button type="button" className="edit-btn" data-testid="cancel-edit" onClick={onCancel}>
@@ -116,20 +131,22 @@ export function EditableField({
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | null>(null);
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: reset the draft only when the editor opens, not on every value change
   useEffect(() => {
     if (editing) {
       setDraft(toText(value));
       requestAnimationFrame(() => inputRef.current?.focus());
     }
-    // Reset the draft only when the editor opens
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editing]);
 
   const save = () => {
     if (busy) return;
     const next =
       kind === "list"
-        ? draft.split("\n").map((l) => l.trim()).filter(Boolean)
+        ? draft
+            .split("\n")
+            .map((l) => l.trim())
+            .filter(Boolean)
         : kind === "line"
           ? draft.trim()
           : draft.replace(/\s+$/, "");
@@ -162,7 +179,11 @@ export function EditableField({
           />
         )}
         <div className="edit-footer">
-          <span className="edit-hint">{kind === "line" ? "Enter to save · Esc to cancel" : "⌘/Ctrl+Enter to save · Esc to cancel"}</span>
+          <span className="edit-hint">
+            {kind === "line"
+              ? "Enter to save · Esc to cancel"
+              : "⌘/Ctrl+Enter to save · Esc to cancel"}
+          </span>
           <SaveCancel onSave={save} onCancel={session.close} busy={busy} />
         </div>
       </div>
@@ -228,7 +249,14 @@ interface AddItemInlineProps {
 }
 
 /** "+ Add …" button that turns into a name input; Enter adds, Esc cancels. Not optimistic. */
-export function AddItemInline({ testId, label, placeholder, busy = false, onAdd, className = "" }: AddItemInlineProps) {
+export function AddItemInline({
+  testId,
+  label,
+  placeholder,
+  busy = false,
+  onAdd,
+  className = "",
+}: AddItemInlineProps) {
   const session = useEditSession();
   const key = `add:${testId}`;
   const editing = session.activeKey === key;
@@ -273,7 +301,12 @@ export function AddItemInline({ testId, label, placeholder, busy = false, onAdd,
         onChange={(e) => setName(e.target.value)}
         onKeyDown={editorKeys(false, () => void submit(), session.close)}
       />
-      <SaveCancel onSave={() => void submit()} onCancel={session.close} busy={busy} saveLabel="Add" />
+      <SaveCancel
+        onSave={() => void submit()}
+        onCancel={session.close}
+        busy={busy}
+        saveLabel="Add"
+      />
     </div>
   );
 }
@@ -319,6 +352,6 @@ export function Dialog({ title, testId, onClose, children, footer }: DialogProps
         {footer && <div className="dialog-footer">{footer}</div>}
       </div>
     </div>,
-    document.body
+    document.body,
   );
 }

@@ -13,7 +13,10 @@ import {
 } from "@workbench-core";
 
 /** "under <item name>", "new phase"/"new topic", or a note that the target is gone. */
-function placementLabel(project: Project, suggestion: Suggestion): { text: string; missing: boolean } {
+function placementLabel(
+  project: Project,
+  suggestion: Suggestion,
+): { text: string; missing: boolean } {
   if (!suggestion.under) {
     return { text: projectUsesPhases(project) ? "new phase" : "new topic", missing: false };
   }
@@ -52,7 +55,11 @@ export function SuggestionsInbox({ project }: { project: Project }) {
                 className="item-action-btn text"
                 data-testid={`suggestion-keep-${s.id}`}
                 disabled={busy || where.missing}
-                title={where.missing ? "Its target item no longer exists; dismiss it instead" : "Add to the project"}
+                title={
+                  where.missing
+                    ? "Its target item no longer exists; dismiss it instead"
+                    : "Add to the project"
+                }
                 onClick={() => void wb.keepSuggestion(project.id, s.id)}
               >
                 Keep

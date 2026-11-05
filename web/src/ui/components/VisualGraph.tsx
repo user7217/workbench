@@ -80,7 +80,9 @@ function FoldBadge({
         fontWeight: 600,
         cursor: "pointer",
         color: expanded ? "var(--text-muted)" : "var(--accent-bright)",
-        background: expanded ? "var(--bg-elevated)" : "color-mix(in srgb, var(--accent) 14%, transparent)",
+        background: expanded
+          ? "var(--bg-elevated)"
+          : "color-mix(in srgb, var(--accent) 14%, transparent)",
         border: "1px solid var(--border)",
       }}
     >
@@ -128,7 +130,13 @@ function RootCardNode({ data }: { data: { label: string; isLearning?: boolean } 
       <Handle
         type="source"
         position={Position.Right}
-        style={{ background: "var(--accent)", border: HANDLE_BORDER, width: 8, height: 8, right: -4 }}
+        style={{
+          background: "var(--accent)",
+          border: HANDLE_BORDER,
+          width: 8,
+          height: 8,
+          right: -4,
+        }}
       />
     </div>
   );
@@ -173,7 +181,13 @@ function PhaseGroupNode({
       <Handle
         type="target"
         position={Position.Left}
-        style={{ background: statusColorVar(status), border: HANDLE_BORDER, width: 8, height: 8, left: -4 }}
+        style={{
+          background: statusColorVar(status),
+          border: HANDLE_BORDER,
+          width: 8,
+          height: 8,
+          left: -4,
+        }}
       />
       {data.numbered ? (
         <PhaseNumberBadge index={data.index} status={status} />
@@ -205,7 +219,13 @@ function PhaseGroupNode({
       <Handle
         type="source"
         position={Position.Right}
-        style={{ background: statusColorVar(status), border: HANDLE_BORDER, width: 8, height: 8, right: -4 }}
+        style={{
+          background: statusColorVar(status),
+          border: HANDLE_BORDER,
+          width: 8,
+          height: 8,
+          right: -4,
+        }}
       />
     </div>
   );
@@ -254,7 +274,13 @@ function ComponentCardNode({
       <Handle
         type="target"
         position={Position.Left}
-        style={{ background: statusColorVar(data.status), border: HANDLE_BORDER, width: 7, height: 7, left: -3.5 }}
+        style={{
+          background: statusColorVar(data.status),
+          border: HANDLE_BORDER,
+          width: 7,
+          height: 7,
+          left: -3.5,
+        }}
       />
       <StatusNodeGlyph status={data.status} />
       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
@@ -274,7 +300,13 @@ function ComponentCardNode({
         position={Position.Right}
         style={
           data.childCount > 0 && data.expanded
-            ? { background: statusColorVar(data.status), border: HANDLE_BORDER, width: 7, height: 7, right: -3.5 }
+            ? {
+                background: statusColorVar(data.status),
+                border: HANDLE_BORDER,
+                width: 7,
+                height: 7,
+                right: -3.5,
+              }
             : { width: 5, height: 5, opacity: 0 }
         }
       />
@@ -317,9 +349,21 @@ function ChildProjectNode({
         cursor: "pointer",
       }}
     >
-      <Handle type="target" position={Position.Left} style={{ background: "var(--accent)", border: HANDLE_BORDER, width: 7, height: 7, left: -3.5 }} />
+      <Handle
+        type="target"
+        position={Position.Left}
+        style={{
+          background: "var(--accent)",
+          border: HANDLE_BORDER,
+          width: 7,
+          height: 7,
+          left: -3.5,
+        }}
+      />
       <KindBadge isLearning={false} status={data.status} size={20} />
-      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{data.label}</span>
+      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
+        {data.label}
+      </span>
       <StatusNodeGlyph status={data.status} />
       {data.childCount > 0 && (
         <FoldBadge
@@ -340,14 +384,40 @@ function ChildProjectNode({
           e.stopPropagation();
           data.onOpen?.();
         }}
-        style={{ display: "inline-flex", padding: 2, background: "none", border: "none", cursor: "pointer" }}
+        style={{
+          display: "inline-flex",
+          padding: 2,
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+        }}
       >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="var(--accent)"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+        >
           <path d="M7 17L17 7M8 7h9v9" />
         </svg>
       </button>
       {data.childCount > 0 && data.expanded && (
-        <Handle type="source" position={Position.Right} style={{ background: "var(--accent)", border: HANDLE_BORDER, width: 7, height: 7, right: -3.5 }} />
+        <Handle
+          type="source"
+          position={Position.Right}
+          style={{
+            background: "var(--accent)",
+            border: HANDLE_BORDER,
+            width: 7,
+            height: 7,
+            right: -3.5,
+          }}
+        />
       )}
     </div>
   );
@@ -384,7 +454,10 @@ const COMP_COL_W = 308; // 256px card + gap: each nested level is one more colum
 /** True when an item has parts and every part (and everything under it) is done. */
 function isComplete(item: MapItem): boolean {
   const kids = item.children ?? [];
-  return kids.length > 0 && kids.every((k) => k.status === "done" && (!k.children?.length || isComplete(k)));
+  return (
+    kids.length > 0 &&
+    kids.every((k) => k.status === "done" && (!k.children?.length || isComplete(k)))
+  );
 }
 
 /** Toggle keys of every foldable item: groups (as "phase:<id>") and anything with children. */
@@ -393,7 +466,10 @@ function foldableKeys(groups: MapGroup[]): { key: string; isProject: boolean }[]
   const walk = (items: MapItem[]) => {
     for (const item of items) {
       if (item.children?.length) {
-        out.push({ key: item.id, isProject: Boolean(item.isProject) || item.id.startsWith(PROJECT_NODE_PREFIX) });
+        out.push({
+          key: item.id,
+          isProject: Boolean(item.isProject) || item.id.startsWith(PROJECT_NODE_PREFIX),
+        });
         walk(item.children);
       }
     }
@@ -412,7 +488,7 @@ function pathTo(groups: MapGroup[], id: string | null): Set<string> {
   const walk = (items: MapItem[], trail: string[]): boolean => {
     for (const item of items) {
       if (item.id === id) {
-        [...trail, item.id].forEach((x) => found.add(x));
+        for (const x of [...trail, item.id]) found.add(x);
         return true;
       }
       if (item.children && walk(item.children, [...trail, item.id])) return true;
@@ -436,7 +512,7 @@ function buildTreeNodesAndEdges(
   selectedPhaseId: string | null | undefined,
   toggled: Record<string, boolean>,
   onToggle: (key: string, open: boolean) => void,
-  onOpenProject?: (projectId: string, itemId?: string) => void
+  onOpenProject?: (projectId: string, itemId?: string) => void,
 ): { nodes: Node[]; edges: Edge[]; openIds: Set<string> } {
   const rfNodes: Node[] = [];
   const rfEdges: Edge[] = [];
@@ -459,7 +535,13 @@ function buildTreeNodesAndEdges(
   });
 
   /** Lays out an item and its open descendants from `topY`; returns how many rows it takes. */
-  const place = (item: MapItem, depth: number, topY: number, sourceId: string, phaseHighlighted: boolean): number => {
+  const place = (
+    item: MapItem,
+    depth: number,
+    topY: number,
+    sourceId: string,
+    phaseHighlighted: boolean,
+  ): number => {
     const kids = item.children || [];
     const open = isOpen(item, depth);
     if (open) openIds.add(item.id);
@@ -539,7 +621,8 @@ function buildTreeNodesAndEdges(
 
     let rows = 0;
     if (groupOpen) {
-      for (const kid of kids) rows += place(kid, 0, currentY + rows * ROW_H, pNodeId, isPhaseSelected);
+      for (const kid of kids)
+        rows += place(kid, 0, currentY + rows * ROW_H, pNodeId, isPhaseSelected);
     }
 
     const blockHeight = Math.max(rows * ROW_H - (ROW_H - 34), 42);
@@ -612,8 +695,13 @@ function VisualGraphInner({
   const targetKey = project?.id || learningPath?.id || "";
 
   const groups: MapGroup[] = useMemo(
-    () => (project ? projectTree(project, childProjects) : learningPath ? learningTree(learningPath) : []),
-    [project, learningPath, childProjects]
+    () =>
+      project
+        ? projectTree(project, childProjects)
+        : learningPath
+          ? learningTree(learningPath)
+          : [],
+    [project, learningPath, childProjects],
   );
 
   const setFold = useCallback((key: string, open: boolean) => {
@@ -631,7 +719,7 @@ function VisualGraphInner({
       selectedPhaseId,
       toggled,
       setFold,
-      project ? onOpenProject : undefined
+      project ? onOpenProject : undefined,
     );
     openIdsRef.current = built.openIds;
     setNodes(built.nodes);
@@ -653,7 +741,10 @@ function VisualGraphInner({
     const zoom = Math.min(Math.max(widthZoom, MIN_READABLE_ZOOM), MAX_FIT_ZOOM);
     const contentW = bounds.width * zoom;
     const contentH = bounds.height * zoom;
-    const x = contentW <= w - 2 * FIT_PADDING ? (w - contentW) / 2 - bounds.x * zoom : FIT_PADDING - bounds.x * zoom;
+    const x =
+      contentW <= w - 2 * FIT_PADDING
+        ? (w - contentW) / 2 - bounds.x * zoom
+        : FIT_PADDING - bounds.x * zoom;
     const usableH = h - TOP_CLEARANCE - FIT_PADDING;
     const y =
       contentH <= usableH
@@ -663,6 +754,7 @@ function VisualGraphInner({
   }, [getNodes, getNodesBounds, setViewport]);
 
   // Refit whenever a different project or learning path is shown, once its nodes are measured
+  // biome-ignore lint/correctness/useExhaustiveDependencies: targetKey is the trigger, not a value read inside
   useEffect(() => {
     pendingFit.current = true;
     setToggled({});
@@ -706,11 +798,11 @@ function VisualGraphInner({
                 : TOP_CLEARANCE - b.y * zoom,
             zoom,
           },
-          { duration: 220 }
+          { duration: 220 },
         );
       });
     },
-    [getNodes, getInternalNode, getNodesBounds, getViewport, setViewport]
+    [getNodes, getInternalNode, getNodesBounds, getViewport, setViewport],
   );
 
   /** Refit once every node of a changed layout has been measured (sizes live on internal nodes). */
@@ -731,7 +823,7 @@ function VisualGraphInner({
         fitReadable();
       });
     },
-    [getNodes, getInternalNode, fitReadable]
+    [getNodes, getInternalNode, fitReadable],
   );
 
   const foldable = useMemo(() => foldableKeys(groups), [groups]);
@@ -749,7 +841,7 @@ function VisualGraphInner({
       });
       fitWhenMeasured();
     },
-    [foldable, fitWhenMeasured]
+    [foldable, fitWhenMeasured],
   );
 
   // Refit when the panel is resized (dividers, window, sidebar)
@@ -799,7 +891,8 @@ function VisualGraphInner({
         const entry = indexProjectComponents(project).get(node.id);
         if (!entry) return;
         // Selecting a folded node opens it; folding is done with its badge
-        if (entry.comp.components?.length && !openIdsRef.current.has(node.id)) setFold(node.id, true);
+        if (entry.comp.components?.length && !openIdsRef.current.has(node.id))
+          setFold(node.id, true);
         if (onSelectComponent) onSelectComponent(entry.comp, entry.phase);
       } else if (learningPath && onSelectLearningItem) {
         if (node.id.startsWith("phase:")) {
@@ -818,7 +911,16 @@ function VisualGraphInner({
         }
       }
     },
-    [project, learningPath, onSelectPhase, onSelectComponent, onSelectLearningItem, onOpenProject, panToSubtree, setFold]
+    [
+      project,
+      learningPath,
+      onSelectPhase,
+      onSelectComponent,
+      onSelectLearningItem,
+      onOpenProject,
+      panToSubtree,
+      setFold,
+    ],
   );
 
   return (

@@ -29,8 +29,9 @@ import hashlib
 import json
 import os
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from workbench import updater
 from workbench.config import get_workbench_dir, load_local_config
@@ -86,7 +87,8 @@ def _save_state(state_path: Path, state: dict[str, Any], now: float | None = Non
     expired = [
         sid
         for sid, info in sessions.items()
-        if isinstance(info, dict) and (ts - float(info.get("prompted_at", 0))) > SESSION_EXPIRY_SECONDS
+        if isinstance(info, dict)
+        and (ts - float(info.get("prompted_at", 0))) > SESSION_EXPIRY_SECONDS
     ]
     for sid in expired:
         del sessions[sid]
@@ -149,7 +151,9 @@ def compute_fingerprint(repo_top: Path, head_sha: str, env: dict[str, str] | Non
             rel = entry[3:].decode("utf-8", errors="surrogateescape")
             try:
                 st = (repo_top / rel).stat()
-                h.update(f"{rel}\0{st.st_size}\0{st.st_mtime_ns}\0".encode("utf-8", "surrogateescape"))
+                h.update(
+                    f"{rel}\0{st.st_size}\0{st.st_mtime_ns}\0".encode("utf-8", "surrogateescape")
+                )
             except OSError:
                 pass
     return f"{head_sha}:{h.hexdigest()[:32]}"
@@ -260,7 +264,10 @@ def _start_headless_update(
 ) -> None:
     repo_top, root_sha, head_sha = ids
     entry = _repo_entry(state, root_sha)
-    if entry.get("last_seen_commit") == head_sha and entry.get("last_seen_fingerprint") == fingerprint:
+    if (
+        entry.get("last_seen_commit") == head_sha
+        and entry.get("last_seen_fingerprint") == fingerprint
+    ):
         return
     previous_commit = entry.get("last_seen_commit")
     # Seen now, so the next message is compared with this state even while the job runs
@@ -336,8 +343,15 @@ def evaluate_hook_input(
 
         if cfg.update_mode == "headless" and updater.command_available(cfg.updater_command, env):
             _start_headless_update(
-                payload, state, state_path, ids, fingerprint, ts,
-                launcher or updater.launch_update_job, home_dir, env,
+                payload,
+                state,
+                state_path,
+                ids,
+                fingerprint,
+                ts,
+                launcher or updater.launch_update_job,
+                home_dir,
+                env,
             )
             return None
 

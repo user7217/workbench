@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-
 PROJECT_STATUS_ORDER = {"not_started": 0, "in_progress": 1, "parked": 1, "done": 2}
 TOP_STATUS_ORDER = {"planned": 0, "active": 0, "paused": 0, "done": 1, "archived": 2}
 
@@ -23,7 +22,14 @@ class SemanticCheckResult:
 def _collect_string_length(obj: Any, ignore_keys: set[str] | None = None) -> int:
     # suggestions are an inbox, not content: dismissing them must never trip the mass-deletion guard
     ignore = ignore_keys or {
-        "id", "schema_version", "status", "origin", "updated", "root_commit", "refs", "uses_phases",
+        "id",
+        "schema_version",
+        "status",
+        "origin",
+        "updated",
+        "root_commit",
+        "refs",
+        "uses_phases",
         "suggestions",
     }
     total = 0
@@ -76,7 +82,9 @@ def check_semantic_diff(
     old_id = old_data.get("id")
     new_id = new_data.get("id")
     if old_id and new_id and old_id != new_id:
-        res.errors.append(f"IDs must not change: top-level id changed from '{old_id}' to '{new_id}'")
+        res.errors.append(
+            f"IDs must not change: top-level id changed from '{old_id}' to '{new_id}'"
+        )
 
     # 2. Check phases & nested components/topics/subtopics if project
     if "phases" in old_data or "phases" in new_data:

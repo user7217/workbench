@@ -140,7 +140,9 @@ def _merge_items(old_items: list[dict], new_items: list[dict], child_key: str | 
             item["status"] = new["status"]
         if new.get("summary"):
             item["summary"] = new["summary"]
-        item["references"] = _merge_references(old.get("references") or [], new.get("references") or [])
+        item["references"] = _merge_references(
+            old.get("references") or [], new.get("references") or []
+        )
         if child_key:
             item[child_key] = _merge_items(old.get(child_key) or [], new.get(child_key) or [], None)
         merged.append(item)
@@ -162,6 +164,8 @@ def merge_learning_paths(old: dict[str, Any], new: dict[str, Any]) -> dict[str, 
         merged["related_projects"] = old_related + extra_related
     if new.get("description"):
         merged["description"] = new["description"]
-    merged["references"] = _merge_references(old.get("references") or [], new.get("references") or [])
+    merged["references"] = _merge_references(
+        old.get("references") or [], new.get("references") or []
+    )
     merged["topics"] = _merge_items(old.get("topics") or [], new.get("topics") or [], "subtopics")
     return merged

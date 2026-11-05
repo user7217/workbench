@@ -191,7 +191,9 @@ def read_claude_turns(transcript: Path, upto: int | None = None) -> list[_Turn]:
     return turns
 
 
-def exchange_from_hook(payload: dict[str, Any], transcript_size: int | None = None) -> Exchange | None:
+def exchange_from_hook(
+    payload: dict[str, Any], transcript_size: int | None = None
+) -> Exchange | None:
     """The message the hook fired for: Gemini sends it in the payload, Claude in a transcript.
 
     transcript_size is the transcript's size when the hook fired: the turn that started before
@@ -278,10 +280,10 @@ def run_agent(command: str, prompt: str, timeout_seconds: float = 180.0) -> str:
                 timeout=timeout_seconds,
                 check=False,
             )
-        except subprocess.TimeoutExpired:
-            raise UpdaterError(f"updater command timed out after {timeout_seconds:.0f}s")
+        except subprocess.TimeoutExpired as exc:
+            raise UpdaterError(f"updater command timed out after {timeout_seconds:.0f}s") from exc
         except OSError as exc:
-            raise UpdaterError(f"updater command failed to start: {exc}")
+            raise UpdaterError(f"updater command failed to start: {exc}") from exc
     if proc.returncode != 0:
         output = (proc.stderr or proc.stdout or "").strip().splitlines()
         detail = f": {output[-1][:200]}" if output else ""
@@ -304,7 +306,7 @@ def parse_reply(text: str) -> Plan:
     try:
         data = json.loads(text[start : end + 1])
     except json.JSONDecodeError as exc:
-        raise UpdaterError(f"agent reply is not valid JSON: {exc}")
+        raise UpdaterError(f"agent reply is not valid JSON: {exc}") from exc
     if not isinstance(data, dict):
         raise UpdaterError("agent reply is not a JSON object")
     ops = data.get("ops") or []
@@ -421,7 +423,9 @@ def apply_plan(doc: Any, project_id: str, plan: Plan, today: str) -> Applied:
             else:
                 raise edits.EditError(f"unknown op {kind!r} (only set and add are allowed)")
         except (edits.EditError, TypeError, ValueError) as exc:
-            out.skipped.append(f"{kind or '?'} {op.get('item') or op.get('name') or ''}: {exc}".strip())
+            out.skipped.append(
+                f"{kind or '?'} {op.get('item') or op.get('name') or ''}: {exc}".strip()
+            )
     for sug in plan.suggestions:
         name = _text(sug.get("name"), LIMITS["name"]) or ""
         under = sug.get("under") if isinstance(sug.get("under"), str) and sug.get("under") else None
@@ -429,8 +433,12 @@ def apply_plan(doc: Any, project_id: str, plan: Plan, today: str) -> Applied:
             if _norm(name) in _known_names(doc):
                 raise edits.EditError("already on the dashboard")
             new_id = edits.add_suggestion(
-                doc, project_id, name=name, summary=_text(sug.get("summary"), LIMITS["summary"]) or "",
-                under=under, added=today,
+                doc,
+                project_id,
+                name=name,
+                summary=_text(sug.get("summary"), LIMITS["summary"]) or "",
+                under=under,
+                added=today,
             )
             out.changes.append(f"suggest {new_id}")
         except (edits.EditError, TypeError, ValueError) as exc:

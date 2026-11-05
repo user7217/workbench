@@ -5,12 +5,12 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import ValidationError
 from ruamel.yaml.error import YAMLError
 
-from workbench.models import LearningPath, Project, SlugId, WorkbenchRepoRoot, SLUG_PATTERN
+from workbench.models import SLUG_PATTERN, LearningPath, Project, WorkbenchRepoRoot
 from workbench.privacy import scan_data_structure, scan_text_value
 from workbench.yamlio import load_yaml_roundtrip, to_plain_python
 
@@ -27,7 +27,7 @@ class ValidationResult:
     def ok(self) -> bool:
         return len(self.errors) == 0
 
-    def merge(self, other: "ValidationResult") -> None:
+    def merge(self, other: ValidationResult) -> None:
         self.errors.extend(other.errors)
         self.warnings.extend(other.warnings)
 
@@ -112,9 +112,7 @@ def validate_project_file(
         dir_id = path.parent.name
 
     if dir_id is not None and proj.id != dir_id:
-        res.errors.append(
-            f"{path}: Directory name '{dir_id}' must equal project id '{proj.id}'"
-        )
+        res.errors.append(f"{path}: Directory name '{dir_id}' must equal project id '{proj.id}'")
 
     return res, proj, plain
 
@@ -257,7 +255,7 @@ def validate_any_file(path: Path) -> ValidationResult:
     return res
 
 
-def check_project_links(projects: list[Project], known_ids: Optional[set[str]] = None) -> list[str]:
+def check_project_links(projects: list[Project], known_ids: set[str] | None = None) -> list[str]:
     """Child projects name one parent and the phase/component they sit under; no parent cycles.
 
     known_ids lists every project id present in the repo (including ones that failed
@@ -271,9 +269,7 @@ def check_project_links(projects: list[Project], known_ids: Optional[set[str]] =
         if proj.parent is None:
             continue
         if proj.parent not in known:
-            errors.append(
-                f"Project '{proj.id}': parent project '{proj.parent}' does not exist"
-            )
+            errors.append(f"Project '{proj.id}': parent project '{proj.parent}' does not exist")
             continue
         parent = by_id.get(proj.parent)
         if parent is None:
@@ -292,7 +288,7 @@ def check_project_links(projects: list[Project], known_ids: Optional[set[str]] =
         current = by_id[start].parent
         while current is not None and current in by_id:
             if current in chain:
-                cycle = chain[chain.index(current):] + [current]
+                cycle = chain[chain.index(current) :] + [current]
                 key = frozenset(cycle)
                 if key not in reported:
                     reported.add(key)
@@ -309,9 +305,7 @@ def check_related_projects(paths: list[LearningPath], project_ids: set[str]) -> 
     for lp in paths:
         for pid in lp.related_projects:
             if pid not in project_ids:
-                errors.append(
-                    f"Learning path '{lp.id}': related project '{pid}' does not exist"
-                )
+                errors.append(f"Learning path '{lp.id}': related project '{pid}' does not exist")
     return errors
 
 

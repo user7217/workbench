@@ -20,9 +20,7 @@ DEFAULT_REVIEWER_COMMAND = DEFAULT_UPDATER_COMMAND
 class WorkbenchLocalConfig:
     data_repo_url: str = ""
     branch: str = "main"
-    scan_roots: list[str] = field(
-        default_factory=lambda: ["~/Documents", "~/code", "~/projects"]
-    )
+    scan_roots: list[str] = field(default_factory=lambda: ["~/Documents", "~/code", "~/projects"])
     github_owners: list[str] = field(default_factory=list)
     user_emails: list[str] = field(default_factory=list)
     # LLM review of changed free text on `workbench push` is opt-in: "off" (default), "auto" (run

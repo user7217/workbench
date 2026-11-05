@@ -78,21 +78,14 @@ function readStoredPanelWidths(): PanelWidths {
     const raw = window.localStorage.getItem(PANEL_WIDTHS_STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (
-        typeof parsed?.navWidth === "number" &&
-        typeof parsed?.contentsWidth === "number"
-      ) {
+      if (typeof parsed?.navWidth === "number" && typeof parsed?.contentsWidth === "number") {
         const diagH =
           typeof parsed?.diagramHeight === "number"
             ? clampVal(parsed.diagramHeight, MIN_DIAGRAM_HEIGHT, MAX_DIAGRAM_HEIGHT)
             : DEFAULT_DIAGRAM_HEIGHT;
         return {
           navWidth: clampVal(parsed.navWidth, MIN_NAV_WIDTH, MAX_NAV_WIDTH),
-          contentsWidth: clampVal(
-            parsed.contentsWidth,
-            MIN_CONTENTS_WIDTH,
-            MAX_CONTENTS_WIDTH
-          ),
+          contentsWidth: clampVal(parsed.contentsWidth, MIN_CONTENTS_WIDTH, MAX_CONTENTS_WIDTH),
           diagramHeight: diagH,
         };
       }
@@ -156,9 +149,7 @@ export function App() {
 
   // Resizable 3-panel widths & visual/context height with localStorage persistence (§2, §5)
   const [panelWidths, setPanelWidths] = useState<PanelWidths>(readStoredPanelWidths);
-  const [activeResizer, setActiveResizer] = useState<
-    "left" | "right" | "horizontal" | null
-  >(null);
+  const [activeResizer, setActiveResizer] = useState<"left" | "right" | "horizontal" | null>(null);
   const dragStartRef = useRef<{
     which: "left" | "right" | "horizontal";
     startX: number;
@@ -169,11 +160,15 @@ export function App() {
   } | null>(null);
 
   // Look-only disclosure state (selection-driven expand sets live in the core store)
-  const [sidebarExpandedProjects, setSidebarExpandedProjects] = useState<Record<string, boolean>>({});
+  const [sidebarExpandedProjects, setSidebarExpandedProjects] = useState<Record<string, boolean>>(
+    {},
+  );
   const [expandedCardDescs, setExpandedCardDescs] = useState<Record<string, boolean>>({});
   const [collapsedPhases, setCollapsedPhases] = useState<Record<string, boolean>>({});
   const [expandedSubtopicItems, setExpandedSubtopicItems] = useState<Record<string, boolean>>({});
-  const [expandedContextSubtopics, setExpandedContextSubtopics] = useState<Record<string, boolean>>({});
+  const [expandedContextSubtopics, setExpandedContextSubtopics] = useState<Record<string, boolean>>(
+    {},
+  );
 
   // Responsive active panel for narrower viewports (§9)
   const [mobilePanel, setMobilePanel] = useState<"nav" | "contents" | "visual">("contents");
@@ -211,11 +206,7 @@ export function App() {
       if (!drag) return;
       if (drag.which === "left") {
         const deltaX = e.clientX - drag.startX;
-        const nextNav = clampVal(
-          drag.startNav + deltaX,
-          MIN_NAV_WIDTH,
-          MAX_NAV_WIDTH
-        );
+        const nextNav = clampVal(drag.startNav + deltaX, MIN_NAV_WIDTH, MAX_NAV_WIDTH);
         setPanelWidths((prev) => {
           const updated = { ...prev, navWidth: nextNav };
           writeStoredPanelWidths(updated);
@@ -226,7 +217,7 @@ export function App() {
         const nextContents = clampVal(
           drag.startContents + deltaX,
           MIN_CONTENTS_WIDTH,
-          MAX_CONTENTS_WIDTH
+          MAX_CONTENTS_WIDTH,
         );
         setPanelWidths((prev) => {
           const updated = { ...prev, contentsWidth: nextContents };
@@ -238,7 +229,7 @@ export function App() {
         const nextDiagH = clampVal(
           drag.startDiagramHeight + deltaY,
           MIN_DIAGRAM_HEIGHT,
-          MAX_DIAGRAM_HEIGHT
+          MAX_DIAGRAM_HEIGHT,
         );
         setPanelWidths((prev) => {
           const updated = { ...prev, diagramHeight: nextDiagH };
@@ -265,10 +256,7 @@ export function App() {
     };
   }, [activeResizer]);
 
-  const startResizing = (
-    which: "left" | "right" | "horizontal",
-    e: React.MouseEvent
-  ) => {
+  const startResizing = (which: "left" | "right" | "horizontal", e: React.MouseEvent) => {
     e.preventDefault();
     dragStartRef.current = {
       which,
@@ -315,7 +303,7 @@ export function App() {
   const renderItemStatusMenu = (
     projectId: string,
     item: { id: string; name: string; status?: string },
-    testIdPrefix = ""
+    testIdPrefix = "",
   ) => (
     <StatusMenu
       status={item.status || "not_started"}
@@ -331,7 +319,7 @@ export function App() {
   const renderLearningItemStatusMenu = (
     pathId: string,
     item: { id: string; name: string; status: "not_started" | "in_progress" | "done" },
-    testIdPrefix = ""
+    testIdPrefix = "",
   ) => (
     <StatusMenu
       status={item.status}
@@ -354,7 +342,11 @@ export function App() {
       field
     );
 
-  const renderInlineComponents = (ownerId: string, comps: Component[], depth: number): React.ReactNode =>
+  const renderInlineComponents = (
+    ownerId: string,
+    comps: Component[],
+    depth: number,
+  ): React.ReactNode =>
     comps.length === 0 ? null : (
       <ul className="child-overview-list">
         {comps.map((c) => (
@@ -383,7 +375,11 @@ export function App() {
   const renderChildOverview = (child: Project) => {
     const groups = getProjectGroups(child);
     return (
-      <div className="child-overview" data-testid={`child-overview-${child.id}`} onClick={(e) => e.stopPropagation()}>
+      <div
+        className="child-overview"
+        data-testid={`child-overview-${child.id}`}
+        onClick={(e) => e.stopPropagation()}
+      >
         {groups.length === 0 && <div className="child-overview-empty">No phases yet</div>}
         {groups.map((g) => (
           <div key={g.id} className="child-overview-group">
@@ -407,51 +403,65 @@ export function App() {
   const renderChildProjectRow = (child: Project, testIdPrefix = "") => {
     const isOpen = expandedIn("childProjects", child.id);
     return (
-    <div key={child.id} className="child-project-block">
-    <div
-      className={`child-project-row ${isOpen ? "open" : ""}`}
-      data-testid={`${testIdPrefix}child-project-${child.id}`}
-      title={`${child.name} is its own project — click to ${isOpen ? "hide" : "show"} it here`}
-      aria-expanded={isOpen}
-      onClick={(e) => {
-        e.stopPropagation();
-        setExpanded("childProjects", child.id, !isOpen);
-      }}
-    >
-      <span className="child-project-chevron" aria-hidden="true">{isOpen ? "⌄" : "›"}</span>
-      <KindBadge status={child.status} isLearning={false} size={20} />
-      <span className="child-project-name">{child.name}</span>
-      <span className="child-project-status">
-        <StatusNodeGlyph status={child.status} size={12} />
-        {STATUS_LABELS[child.status] ?? child.status}
-      </span>
-      <button
-        type="button"
-        className="child-project-open"
-        data-testid={`${testIdPrefix}child-project-open-${child.id}`}
-        onClick={(e) => {
-          e.stopPropagation();
-          selectProject(child.id);
-        }}
-      >
-        Open
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <path d="M7 17L17 7M8 7h9v9" />
-        </svg>
-      </button>
-    </div>
-    {isOpen && renderChildOverview(child)}
-    </div>
+      <div key={child.id} className="child-project-block">
+        <div
+          className={`child-project-row ${isOpen ? "open" : ""}`}
+          data-testid={`${testIdPrefix}child-project-${child.id}`}
+          title={`${child.name} is its own project — click to ${isOpen ? "hide" : "show"} it here`}
+          aria-expanded={isOpen}
+          onClick={(e) => {
+            e.stopPropagation();
+            setExpanded("childProjects", child.id, !isOpen);
+          }}
+        >
+          <span className="child-project-chevron" aria-hidden="true">
+            {isOpen ? "⌄" : "›"}
+          </span>
+          <KindBadge status={child.status} isLearning={false} size={20} />
+          <span className="child-project-name">{child.name}</span>
+          <span className="child-project-status">
+            <StatusNodeGlyph status={child.status} size={12} />
+            {STATUS_LABELS[child.status] ?? child.status}
+          </span>
+          <button
+            type="button"
+            className="child-project-open"
+            data-testid={`${testIdPrefix}child-project-open-${child.id}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              selectProject(child.id);
+            }}
+          >
+            Open
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M7 17L17 7M8 7h9v9" />
+            </svg>
+          </button>
+        </div>
+        {isOpen && renderChildOverview(child)}
+      </div>
     );
   };
-
 
   const renderChildProjectRows = (parentId: string, slotId: string, testIdPrefix = "") => {
     const kids = childProjectsAt(parentId, slotId);
     if (kids.length === 0) return null;
-    return <div className="child-project-list">{kids.map((c) => renderChildProjectRow(c, testIdPrefix))}</div>;
+    return (
+      <div className="child-project-list">
+        {kids.map((c) => renderChildProjectRow(c, testIdPrefix))}
+      </div>
+    );
   };
-
 
   const isCustomPanelWidths =
     panelWidths.navWidth !== DEFAULT_NAV_WIDTH ||
@@ -618,7 +628,7 @@ export function App() {
     // While searching, show every match; otherwise non-active child projects stay inside their parent
     // Home cards show the most recently changed work first
     const visibleProjects = recentProjects.filter(
-      (p) => buildingArchivedOpen || p.status !== "archived"
+      (p) => buildingArchivedOpen || p.status !== "archived",
     );
     const hasArchived = listedProjects.some((p) => p.status === "archived");
 
@@ -628,7 +638,16 @@ export function App() {
           <div className="domain-header-bar">
             <div className="domain-header-left">
               <span className="domain-header-icon">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ stroke: "var(--accent)" }} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  style={{ stroke: "var(--accent)" }}
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
                   <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
                   <line x1="12" y1="22.08" x2="12" y2="12" />
@@ -658,7 +677,16 @@ export function App() {
           <div className="domain-header-bar">
             <div className="domain-header-left">
               <span className="domain-header-icon">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ stroke: "var(--accent)" }} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  style={{ stroke: "var(--accent)" }}
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
                   <path d="M6 12v5c3 3 9 3 12 0v-5" />
                 </svg>
@@ -684,12 +712,12 @@ export function App() {
     const activeProjectId = activeProject?.id || "";
     const usesPhases = activeProject ? projectUsesPhases(activeProject) : true;
     const groups = activeProject ? getProjectGroups(activeProject) : [];
-    const isEmptyDiscovered =
-      activeProject ? isNewDiscoveredProject(activeProject) : false;
+    const isEmptyDiscovered = activeProject ? isNewDiscoveredProject(activeProject) : false;
 
     const relatedLearning = activeProject ? wb.relatedLearning(activeProject) : [];
 
-    const toggleNested = (compId: string, open: boolean) => setExpanded("nestedComponents", compId, !open);
+    const toggleNested = (compId: string, open: boolean) =>
+      setExpanded("nestedComponents", compId, !open);
 
     /** Collapsible "N parts" toggle for a component's nested components. */
     const renderNestedToggle = (comp: Component, testId: string) => {
@@ -702,7 +730,9 @@ export function App() {
           className={`nested-toggle-btn ${open ? "open" : ""}`}
           data-testid={testId}
           aria-expanded={open}
-          aria-label={open ? `Hide nested parts of ${comp.name}` : `Show nested parts of ${comp.name}`}
+          aria-label={
+            open ? `Hide nested parts of ${comp.name}` : `Show nested parts of ${comp.name}`
+          }
           onClick={(e) => {
             e.stopPropagation();
             toggleNested(comp.id, open);
@@ -717,7 +747,13 @@ export function App() {
     };
 
     /** Left tree: a component row, then (when open) its nested components and child projects. */
-    const renderTreeComp = (p: Project, ph: Phase, comp: Component, depth: number, isSelectedProject: boolean): React.ReactNode => {
+    const renderTreeComp = (
+      p: Project,
+      ph: Phase,
+      comp: Component,
+      depth: number,
+      isSelectedProject: boolean,
+    ): React.ReactNode => {
       const isCompActive = isSelectedProject && selectedComponentId === comp.id;
       const nested = comp.components || [];
       const kidProjects = childProjectsAt(p.id, comp.id);
@@ -787,7 +823,12 @@ export function App() {
     );
 
     /** Level-3 detail rows (items, notes, dependencies, links) of a component. */
-    const renderComponentItems = (projectId: string, items: DetailItem[], testId?: string, withLinks = false) => (
+    const renderComponentItems = (
+      projectId: string,
+      items: DetailItem[],
+      testId?: string,
+      withLinks = false,
+    ) => (
       <div className="tier-3-items-list" data-testid={testId}>
         {items.map((item) => (
           <div
@@ -822,7 +863,12 @@ export function App() {
     );
 
     /** Centre pane: one component card, its child projects, and (when open) its nested components. */
-    const renderCentreComp = (projectId: string, ph: Phase, comp: Component, depth: number): React.ReactNode => {
+    const renderCentreComp = (
+      projectId: string,
+      ph: Phase,
+      comp: Component,
+      depth: number,
+    ): React.ReactNode => {
       const isCompSelected = selectedComponentId === comp.id;
       const isItemsOpen = !!expandedSubtopicItems[comp.id];
       const childItems = wb.componentDetails(activeProject!, comp);
@@ -868,7 +914,9 @@ export function App() {
           </div>
 
           {/* LEVEL 3: Individual Items shown only when explicitly requested (§3) */}
-          {isItemsOpen && childItems.length > 0 && renderComponentItems(projectId, childItems, undefined, true)}
+          {isItemsOpen &&
+            childItems.length > 0 &&
+            renderComponentItems(projectId, childItems, undefined, true)}
 
           {renderChildProjectRows(projectId, comp.id)}
 
@@ -882,7 +930,12 @@ export function App() {
     };
 
     /** Right context pane: same structure as the centre list, with its own test ids. */
-    const renderContextComp = (projectId: string, ph: Phase, comp: Component, depth: number): React.ReactNode => {
+    const renderContextComp = (
+      projectId: string,
+      ph: Phase,
+      comp: Component,
+      depth: number,
+    ): React.ReactNode => {
       const isSubSelected = selectedComponentId === comp.id;
       const isExpanded = !!expandedContextSubtopics[comp.id];
       const items = wb.componentDetails(activeProject!, comp);
@@ -926,7 +979,8 @@ export function App() {
             </div>
           </div>
 
-          {isExpanded && items.length > 0 &&
+          {isExpanded &&
+            items.length > 0 &&
             renderComponentItems(projectId, items, `visual-context-items-${comp.id}`)}
 
           {renderChildProjectRows(projectId, comp.id, "visual-context-")}
@@ -941,7 +995,9 @@ export function App() {
     };
 
     const activeComponentEntry = wb.activeComponent;
-    const structureBusy = activeProject ? isPending(pendingKeys.structure(activeProject.id)) : false;
+    const structureBusy = activeProject
+      ? isPending(pendingKeys.structure(activeProject.id))
+      : false;
     const compFieldsBusy =
       activeProject && activeComponentEntry
         ? isPending(pendingKeys.itemFields(activeProject.id, activeComponentEntry.comp.id))
@@ -1062,8 +1118,7 @@ export function App() {
                       <div className="tree-phases-children">
                         {rootChildren.map((c) => renderTreeChildProject(c, 0))}
                         {pGroups.map((ph, idx) => {
-                          const isPhaseActive =
-                            isSelected && activePhase?.id === ph.id;
+                          const isPhaseActive = isSelected && activePhase?.id === ph.id;
                           const isPhaseExpanded = expandedIn("phases", ph.id, isPhaseActive);
                           const comps = getGroupChildren(ph);
                           const phaseChildren = childProjectsAt(p.id, ph.id);
@@ -1085,23 +1140,21 @@ export function App() {
                                   type="button"
                                   className="tree-chevron-btn sm"
                                   aria-label={
-                                    isPhaseExpanded
-                                      ? "Collapse subtopics"
-                                      : "Expand subtopics"
+                                    isPhaseExpanded ? "Collapse subtopics" : "Expand subtopics"
                                   }
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setExpanded("phases", ph.id, !isPhaseExpanded);
                                   }}
                                 >
-                                  {hasPhaseKids
-                                    ? isPhaseExpanded
-                                      ? "⌄"
-                                      : "›"
-                                    : "·"}
+                                  {hasPhaseKids ? (isPhaseExpanded ? "⌄" : "›") : "·"}
                                 </button>
                                 {pUsesPhases && (
-                                  <PhaseNumberBadge index={idx} status={ph.status || "not_started"} size={18} />
+                                  <PhaseNumberBadge
+                                    index={idx}
+                                    status={ph.status || "not_started"}
+                                    size={18}
+                                  />
                                 )}
                                 <span className="tree-phase-name" title={ph.name}>
                                   {ph.name}
@@ -1173,7 +1226,11 @@ export function App() {
               {/* Project Summary Header — status badges removed per §1 */}
               <div className="centre-project-header" data-testid="project-detail-banner">
                 <div className="centre-project-title-row">
-                  <KindBadge status={activeProject.status || "active"} isLearning={false} size={32} />
+                  <KindBadge
+                    status={activeProject.status || "active"}
+                    isLearning={false}
+                    size={32}
+                  />
                   <div className="centre-project-title-text">
                     <EditableField
                       id={activeProject.id}
@@ -1182,7 +1239,9 @@ export function App() {
                       kind="line"
                       value={activeProject.name}
                       busy={isPending(pendingKeys.projectFields(activeProject.id))}
-                      onSave={(v) => void wb.updateProjectFields(activeProject.id, { name: v as string })}
+                      onSave={(v) =>
+                        void wb.updateProjectFields(activeProject.id, { name: v as string })
+                      }
                     >
                       <h1 className="detail-title">{activeProject.name}</h1>
                     </EditableField>
@@ -1195,7 +1254,11 @@ export function App() {
                           onClick={() => {
                             const deepest = parentRef.components[parentRef.components.length - 1];
                             if (parentRef.phase) {
-                              selectProject(parentRef.parentId, parentRef.phase.id, deepest?.id ?? null);
+                              selectProject(
+                                parentRef.parentId,
+                                parentRef.phase.id,
+                                deepest?.id ?? null,
+                              );
                             } else {
                               selectProject(parentRef.parentId);
                             }
@@ -1240,15 +1303,17 @@ export function App() {
                   kind="text"
                   value={activeProject.description ?? ""}
                   busy={isPending(pendingKeys.projectFields(activeProject.id))}
-                  onSave={(v) => void wb.updateProjectFields(activeProject.id, { description: v as string })}
+                  onSave={(v) =>
+                    void wb.updateProjectFields(activeProject.id, { description: v as string })
+                  }
                 >
                   <p className="centre-project-desc">{activeProject.description}</p>
                 </EditableField>
                 {(activeProject.links || []).length > 0 && (
                   <div className="detail-links">
-                    {(activeProject.links || []).map((lnk, i) => (
+                    {(activeProject.links || []).map((lnk) => (
                       <a
-                        key={i}
+                        key={`${lnk.label}|${lnk.url}`}
                         href={lnk.url}
                         target="_blank"
                         rel="noopener noreferrer"
@@ -1300,9 +1365,7 @@ export function App() {
                           onClick={() => selectProject(activeProject.id, ph.id, null)}
                         >
                           <StatusNodeGlyph status={ph.status || "not_started"} />
-                          <span>
-                            {usesPhases ? `${idx + 1}. ${ph.name}` : ph.name}
-                          </span>
+                          <span>{usesPhases ? `${idx + 1}. ${ph.name}` : ph.name}</span>
                         </button>
                       );
                     })}
@@ -1315,9 +1378,7 @@ export function App() {
                 <div className="selected-item-detail-card" data-testid="inspector-panel">
                   <div className="inspector-header">
                     <div className="inspector-header-left">
-                      <StatusNodeGlyph
-                        status={activeComponentEntry.comp.status || "not_started"}
-                      />
+                      <StatusNodeGlyph status={activeComponentEntry.comp.status || "not_started"} />
                       <div>
                         <span className="inspector-field-label">
                           Selected Subtopic · {activeComponentEntry.phase.name}
@@ -1330,7 +1391,13 @@ export function App() {
                           kind="line"
                           value={activeComponentEntry.comp.name}
                           busy={compFieldsBusy}
-                          onSave={(v) => void wb.updateItemFields(activeProject.id, activeComponentEntry.comp.id, { name: v as string })}
+                          onSave={(v) =>
+                            void wb.updateItemFields(
+                              activeProject.id,
+                              activeComponentEntry.comp.id,
+                              { name: v as string },
+                            )
+                          }
                         >
                           <h2 className="inspector-title" data-testid="inspector-title">
                             {activeComponentEntry.comp.name}
@@ -1351,7 +1418,11 @@ export function App() {
                   </div>
 
                   <div className="inspector-structure-row">
-                    <ItemStructureActions project={activeProject} item={activeComponentEntry.comp} isPhase={false} />
+                    <ItemStructureActions
+                      project={activeProject}
+                      item={activeComponentEntry.comp}
+                      isPhase={false}
+                    />
                     <AddItemInline
                       testId={`add-part-${activeComponentEntry.comp.id}`}
                       label="Add part"
@@ -1374,7 +1445,11 @@ export function App() {
                     value={activeComponentEntry.comp.summary ?? ""}
                     displayEmpty={!getItemShortDescription(activeComponentEntry.comp)}
                     busy={compFieldsBusy}
-                    onSave={(v) => void wb.updateItemFields(activeProject.id, activeComponentEntry.comp.id, { summary: v as string })}
+                    onSave={(v) =>
+                      void wb.updateItemFields(activeProject.id, activeComponentEntry.comp.id, {
+                        summary: v as string,
+                      })
+                    }
                   >
                     <div className="inspector-inset-card" data-testid="inspector-summary">
                       {getItemShortDescription(activeComponentEntry.comp)}
@@ -1391,12 +1466,16 @@ export function App() {
                       kind="text"
                       value={activeComponentEntry.comp.notes ?? ""}
                       busy={compFieldsBusy}
-                      onSave={(v) => void wb.updateItemFields(activeProject.id, activeComponentEntry.comp.id, { notes: v as string })}
+                      onSave={(v) =>
+                        void wb.updateItemFields(activeProject.id, activeComponentEntry.comp.id, {
+                          notes: v as string,
+                        })
+                      }
                     >
                       <div className="inspector-inset-card" data-testid="inspector-notes">
                         {activeComponentEntry.comp.notes}
                       </div>
-                    </EditableField>
+                    </EditableField>,
                   )}
 
                   {renderSection(
@@ -1409,14 +1488,19 @@ export function App() {
                       kind="list"
                       value={activeComponentEntry.comp.items ?? []}
                       busy={compFieldsBusy}
-                      onSave={(v) => void wb.updateItemFields(activeProject.id, activeComponentEntry.comp.id, { items: v as string[] })}
+                      onSave={(v) =>
+                        void wb.updateItemFields(activeProject.id, activeComponentEntry.comp.id, {
+                          items: v as string[],
+                        })
+                      }
                     >
                       <ul className="inspector-items-list" data-testid="inspector-items">
                         {(activeComponentEntry.comp.items || []).map((it, i) => (
+                          // biome-ignore lint/suspicious/noArrayIndexKey: a fixed, display-only list (items may repeat)
                           <li key={i}>{it}</li>
                         ))}
                       </ul>
-                    </EditableField>
+                    </EditableField>,
                   )}
 
                   {(() => {
@@ -1439,16 +1523,10 @@ export function App() {
                                   className="dep-chip"
                                   data-testid={`inspector-dep-${d.comp.id}`}
                                   onClick={() =>
-                                    selectProject(
-                                      activeProject.id,
-                                      d.phase.id,
-                                      d.comp.id
-                                    )
+                                    selectProject(activeProject.id, d.phase.id, d.comp.id)
                                   }
                                 >
-                                  <StatusNodeGlyph
-                                    status={d.comp.status || "not_started"}
-                                  />
+                                  <StatusNodeGlyph status={d.comp.status || "not_started"} />
                                   <span>{d.comp.name}</span>
                                 </button>
                               ))}
@@ -1469,16 +1547,10 @@ export function App() {
                                   className="dep-chip"
                                   data-testid={`inspector-dep-by-${d.comp.id}`}
                                   onClick={() =>
-                                    selectProject(
-                                      activeProject.id,
-                                      d.phase.id,
-                                      d.comp.id
-                                    )
+                                    selectProject(activeProject.id, d.phase.id, d.comp.id)
                                   }
                                 >
-                                  <StatusNodeGlyph
-                                    status={d.comp.status || "not_started"}
-                                  />
+                                  <StatusNodeGlyph status={d.comp.status || "not_started"} />
                                   <span>{d.comp.name}</span>
                                 </button>
                               ))}
@@ -1497,8 +1569,8 @@ export function App() {
                     Discovered repository — structure has not been populated yet.
                   </p>
                   <p style={{ margin: 0, fontSize: 12, color: "var(--text-muted)" }}>
-                    Open a coding agent session in this repo and run{" "}
-                    <code>/workbench</code> to populate its breakdown.
+                    Open a coding agent session in this repo and run <code>/workbench</code> to
+                    populate its breakdown.
                   </p>
                 </div>
               ) : (
@@ -1516,9 +1588,7 @@ export function App() {
                     return (
                       <div
                         key={ph.id}
-                        className={`tier-1-phase-section ${
-                          isActivePh ? "active-phase-card" : ""
-                        }`}
+                        className={`tier-1-phase-section ${isActivePh ? "active-phase-card" : ""}`}
                         data-testid={`phase-block-${ph.id}`}
                       >
                         {/* LEVEL 1: Phase (when uses_phases is true) or Direct Topic (when uses_phases is false) */}
@@ -1529,9 +1599,7 @@ export function App() {
                           <div className="tier-1-header-main">
                             <div className="tier-1-kicker-row">
                               <span className="tier-1-kicker-badge">
-                                {usesPhases
-                                  ? `PHASE ${String(idx + 1).padStart(2, "0")}`
-                                  : "TOPIC"}
+                                {usesPhases ? `PHASE ${String(idx + 1).padStart(2, "0")}` : "TOPIC"}
                               </span>
                               {renderItemStatusMenu(activeProject.id, ph)}
                               <EditableField
@@ -1541,7 +1609,11 @@ export function App() {
                                 kind="line"
                                 value={ph.name}
                                 busy={phBusy}
-                                onSave={(v) => void wb.updateItemFields(activeProject.id, ph.id, { name: v as string })}
+                                onSave={(v) =>
+                                  void wb.updateItemFields(activeProject.id, ph.id, {
+                                    name: v as string,
+                                  })
+                                }
                               >
                                 <span className="tier-1-phase-title">{ph.name}</span>
                               </EditableField>
@@ -1555,7 +1627,11 @@ export function App() {
                               displayEmpty={!phDesc}
                               addWhenEmpty={isActivePh}
                               busy={phBusy}
-                              onSave={(v) => void wb.updateItemFields(activeProject.id, ph.id, { summary: v as string })}
+                              onSave={(v) =>
+                                void wb.updateItemFields(activeProject.id, ph.id, {
+                                  summary: v as string,
+                                })
+                              }
                             >
                               <span className="tier-1-phase-summary">{phDesc}</span>
                             </EditableField>
@@ -1568,9 +1644,16 @@ export function App() {
                                 value={ph.notes ?? ""}
                                 addWhenEmpty={isActivePh}
                                 busy={phBusy}
-                                onSave={(v) => void wb.updateItemFields(activeProject.id, ph.id, { notes: v as string })}
+                                onSave={(v) =>
+                                  void wb.updateItemFields(activeProject.id, ph.id, {
+                                    notes: v as string,
+                                  })
+                                }
                               >
-                                <span className="tier-1-phase-notes" data-testid={`phase-notes-${ph.id}`}>
+                                <span
+                                  className="tier-1-phase-notes"
+                                  data-testid={`phase-notes-${ph.id}`}
+                                >
                                   {ph.notes}
                                 </span>
                               </EditableField>
@@ -1591,13 +1674,15 @@ export function App() {
                           </button>
                         </div>
 
-                        {!isCollapsed && (comps.length > 0 || childProjectsAt(activeProject.id, ph.id).length > 0) && (
-                          /* LEVEL 2: Concise Subtopic Cards (name + 1-2 line description; extra details on demand per §3) */
-                          <div className="tier-2-subtopics-Indent">
-                            {renderChildProjectRows(activeProject.id, ph.id)}
-                            {comps.map((comp) => renderCentreComp(activeProject.id, ph, comp, 0))}
-                          </div>
-                        )}
+                        {!isCollapsed &&
+                          (comps.length > 0 ||
+                            childProjectsAt(activeProject.id, ph.id).length > 0) && (
+                            /* LEVEL 2: Concise Subtopic Cards (name + 1-2 line description; extra details on demand per §3) */
+                            <div className="tier-2-subtopics-Indent">
+                              {renderChildProjectRows(activeProject.id, ph.id)}
+                              {comps.map((comp) => renderCentreComp(activeProject.id, ph, comp, 0))}
+                            </div>
+                          )}
                         <div className="phase-footer-row">
                           {!isCollapsed && (
                             <AddItemInline
@@ -1606,7 +1691,10 @@ export function App() {
                               placeholder="Component name"
                               busy={structureBusy}
                               onAdd={async (name) => {
-                                const id = await wb.addItem(activeProject.id, { parentId: ph.id, name });
+                                const id = await wb.addItem(activeProject.id, {
+                                  parentId: ph.id,
+                                  name,
+                                });
                                 if (id) selectProject(activeProject.id, ph.id, id);
                                 return id !== null;
                               }}
@@ -1633,9 +1721,7 @@ export function App() {
               />
             </div>
           ) : (
-            <div className="empty-pane-card">
-              Select a project from the navigation panel.
-            </div>
+            <div className="empty-pane-card">Select a project from the navigation panel.</div>
           )}
         </section>
 
@@ -1673,14 +1759,10 @@ export function App() {
               )}
               {activeProject && !isEmptyDiscovered && (
                 <div className="segmented-view-switch">
-                  <span
-                    className={`seg-indicator ${viewMode === "list" ? "active" : ""}`}
-                  >
+                  <span className={`seg-indicator ${viewMode === "list" ? "active" : ""}`}>
                     List View
                   </span>
-                  <span
-                    className={`seg-indicator ${viewMode === "visual" ? "active" : ""}`}
-                  >
+                  <span className={`seg-indicator ${viewMode === "visual" ? "active" : ""}`}>
                     Visual View
                   </span>
                   <button
@@ -1689,9 +1771,7 @@ export function App() {
                     data-testid="view-mode-toggle"
                     onClick={toggleProjectViewMode}
                   >
-                    {viewMode === "list"
-                      ? "Switch to visual view"
-                      : "Switch to list view"}
+                    {viewMode === "list" ? "Switch to visual view" : "Switch to list view"}
                   </button>
                 </div>
               )}
@@ -1713,9 +1793,7 @@ export function App() {
                     project={activeProject}
                     selectedId={selectedComponentId || selectedPhaseId}
                     selectedPhaseId={activePhase?.id || null}
-                    onSelectPhase={(phase) =>
-                      selectProject(activeProject.id, phase.id, null)
-                    }
+                    onSelectPhase={(phase) => selectProject(activeProject.id, phase.id, null)}
                     onSelectComponent={(component, phase) =>
                       selectProject(activeProject.id, phase.id, component.id)
                     }
@@ -1741,10 +1819,7 @@ export function App() {
                     />
 
                     {/* Independently Scrollable Contextual Panel Beneath Visual Overview (§2, §3, §13) */}
-                    <div
-                      className="visual-context-panel"
-                      data-testid="visual-context-panel"
-                    >
+                    <div className="visual-context-panel" data-testid="visual-context-panel">
                       <div
                         data-testid="panel-c-scroll"
                         style={{
@@ -1763,17 +1838,11 @@ export function App() {
                             </span>
                             {renderItemStatusMenu(activeProject.id, activePhase, "context-")}
                           </div>
-                          <h3
-                            className="visual-context-title"
-                            data-testid="visual-context-title"
-                          >
+                          <h3 className="visual-context-title" data-testid="visual-context-title">
                             {activePhase.name}
                           </h3>
                           {getItemShortDescription(activePhase) && (
-                            <p
-                              className="visual-context-desc"
-                              data-testid="visual-context-desc"
-                            >
+                            <p className="visual-context-desc" data-testid="visual-context-desc">
                               {getItemShortDescription(activePhase)}
                             </p>
                           )}
@@ -1781,9 +1850,13 @@ export function App() {
 
                         {/* Concise Subtopics (name + 1-2 line description; items shown on demand per §3) */}
                         <div className="visual-context-subtopics">
-                          {renderChildProjectRows(activeProject.id, activePhase.id, "visual-context-")}
+                          {renderChildProjectRows(
+                            activeProject.id,
+                            activePhase.id,
+                            "visual-context-",
+                          )}
                           {getGroupChildren(activePhase).map((comp) =>
-                            renderContextComp(activeProject.id, activePhase, comp, 0)
+                            renderContextComp(activeProject.id, activePhase, comp, 0),
                           )}
                         </div>
                       </div>
@@ -1841,10 +1914,7 @@ export function App() {
               const lpTopics = lp.topics || [];
 
               return (
-                <div
-                  key={lp.id}
-                  className={`tree-project-block ${isSelected ? "selected" : ""}`}
-                >
+                <div key={lp.id} className={`tree-project-block ${isSelected ? "selected" : ""}`}>
                   <div
                     className={`tree-project-row ${isSelected ? "active" : ""}`}
                     data-testid={`learning-card-${lp.id}`}
@@ -1869,8 +1939,7 @@ export function App() {
                   {isExpanded && lpTopics.length > 0 && (
                     <div className="tree-phases-children">
                       {lpTopics.map((top) => {
-                        const isTopActive =
-                          isSelected && activeTopic?.id === top.id;
+                        const isTopActive = isSelected && activeTopic?.id === top.id;
                         const isTopExpanded = expandedIn("topics", top.id, isTopActive);
                         const subs = top.subtopics || [];
 
@@ -1904,14 +1973,11 @@ export function App() {
                             {isTopExpanded && subs.length > 0 && (
                               <div className="tree-comp-children">
                                 {subs.map((sub) => {
-                                  const isSubActive =
-                                    isSelected && selectedSubtopicId === sub.id;
+                                  const isSubActive = isSelected && selectedSubtopicId === sub.id;
                                   return (
                                     <div
                                       key={sub.id}
-                                      className={`tree-comp-row ${
-                                        isSubActive ? "active" : ""
-                                      }`}
+                                      className={`tree-comp-row ${isSubActive ? "active" : ""}`}
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         selectLearningPath(lp.id, top.id, sub.id);
@@ -1919,10 +1985,7 @@ export function App() {
                                     >
                                       <span className="tree-branch-tick">└</span>
                                       <StatusNodeGlyph status={sub.status} />
-                                      <span
-                                        className="tree-comp-name"
-                                        title={sub.name}
-                                      >
+                                      <span className="tree-comp-name" title={sub.name}>
                                         {sub.name}
                                       </span>
                                     </div>
@@ -1973,10 +2036,7 @@ export function App() {
           </div>
 
           {activeLp ? (
-            <div
-              className="panel-independent-scroll"
-              data-testid={`learning-page-${activeLp.id}`}
-            >
+            <div className="panel-independent-scroll" data-testid={`learning-page-${activeLp.id}`}>
               {/* Learning Path Header — status badges removed per §1 */}
               <div className="centre-project-header" data-testid="learning-detail-banner">
                 <div className="centre-project-title-row">
@@ -1989,7 +2049,9 @@ export function App() {
                       kind="line"
                       value={activeLp.name}
                       busy={isPending(pendingKeys.learningFields(activeLp.id))}
-                      onSave={(v) => void wb.updateLearningFields(activeLp.id, { name: v as string })}
+                      onSave={(v) =>
+                        void wb.updateLearningFields(activeLp.id, { name: v as string })
+                      }
                     >
                       <h1 className="detail-title">{activeLp.name}</h1>
                     </EditableField>
@@ -2013,7 +2075,9 @@ export function App() {
                   kind="text"
                   value={activeLp.description ?? ""}
                   busy={isPending(pendingKeys.learningFields(activeLp.id))}
-                  onSave={(v) => void wb.updateLearningFields(activeLp.id, { description: v as string })}
+                  onSave={(v) =>
+                    void wb.updateLearningFields(activeLp.id, { description: v as string })
+                  }
                 >
                   <p className="centre-project-desc">{activeLp.description}</p>
                 </EditableField>
@@ -2043,7 +2107,7 @@ export function App() {
                         >
                           <span>{id}</span>
                         </span>
-                      )
+                      ),
                     )}
                   </div>
                 )}
@@ -2083,7 +2147,11 @@ export function App() {
                           kind="line"
                           value={activeLearningItem.name}
                           busy={learningItemBusy}
-                          onSave={(v) => void wb.updateLearningItemFields(activeLp.id, activeLearningItem.id, { name: v as string })}
+                          onSave={(v) =>
+                            void wb.updateLearningItemFields(activeLp.id, activeLearningItem.id, {
+                              name: v as string,
+                            })
+                          }
                         >
                           <h2 className="inspector-title" data-testid="inspector-title">
                             {activeLearningItem.name}
@@ -2099,16 +2167,10 @@ export function App() {
                           type="button"
                           data-testid={`status-btn-${st}`}
                           className={
-                            activeLearningItem.status === st
-                              ? "status-btn active"
-                              : "status-btn"
+                            activeLearningItem.status === st ? "status-btn active" : "status-btn"
                           }
                           onClick={() =>
-                            wb.setLearningItemStatus(
-                              activeLp.id,
-                              activeLearningItem.id,
-                              st
-                            )
+                            wb.setLearningItemStatus(activeLp.id, activeLearningItem.id, st)
                           }
                         >
                           {st.replace("_", " ")}
@@ -2125,7 +2187,11 @@ export function App() {
                     value={activeLearningItem.summary ?? ""}
                     displayEmpty={!getItemShortDescription(activeLearningItem)}
                     busy={learningItemBusy}
-                    onSave={(v) => void wb.updateLearningItemFields(activeLp.id, activeLearningItem.id, { summary: v as string })}
+                    onSave={(v) =>
+                      void wb.updateLearningItemFields(activeLp.id, activeLearningItem.id, {
+                        summary: v as string,
+                      })
+                    }
                   >
                     <div className="inspector-inset-card" data-testid="inspector-summary">
                       {getItemShortDescription(activeLearningItem)}
@@ -2142,12 +2208,16 @@ export function App() {
                       kind="text"
                       value={activeLearningItem.notes ?? ""}
                       busy={learningItemBusy}
-                      onSave={(v) => void wb.updateLearningItemFields(activeLp.id, activeLearningItem.id, { notes: v as string })}
+                      onSave={(v) =>
+                        void wb.updateLearningItemFields(activeLp.id, activeLearningItem.id, {
+                          notes: v as string,
+                        })
+                      }
                     >
                       <div className="inspector-inset-card" data-testid="inspector-notes">
                         {activeLearningItem.notes}
                       </div>
-                    </EditableField>
+                    </EditableField>,
                   )}
 
                   {activeMd && (
@@ -2168,9 +2238,7 @@ export function App() {
                   return (
                     <div
                       key={top.id}
-                      className={`tier-1-phase-section ${
-                        isActiveTop ? "active-phase-card" : ""
-                      }`}
+                      className={`tier-1-phase-section ${isActiveTop ? "active-phase-card" : ""}`}
                       data-testid={`learning-topic-${top.id}`}
                     >
                       <div
@@ -2183,9 +2251,7 @@ export function App() {
                             {renderLearningItemStatusMenu(activeLp.id, top)}
                             <span className="tier-1-phase-title">{top.name}</span>
                           </div>
-                          {topDesc && (
-                            <span className="tier-1-phase-summary">{topDesc}</span>
-                          )}
+                          {topDesc && <span className="tier-1-phase-summary">{topDesc}</span>}
                         </div>
                       </div>
 
@@ -2215,13 +2281,9 @@ export function App() {
                                   <div className="tier-2-header-left">
                                     {renderLearningItemStatusMenu(activeLp.id, sub)}
                                     <div className="tier-2-text-col">
-                                      <span className="tier-2-subtopic-title">
-                                        {sub.name}
-                                      </span>
+                                      <span className="tier-2-subtopic-title">{sub.name}</span>
                                       {shortDesc && (
-                                        <p className="tier-2-subtopic-desc">
-                                          {shortDesc}
-                                        </p>
+                                        <p className="tier-2-subtopic-desc">{shortDesc}</p>
                                       )}
                                     </div>
                                   </div>
@@ -2248,12 +2310,8 @@ export function App() {
                                       <div key={item.id} className="tier-3-item-row">
                                         <span className="tier-3-branch-line">└</span>
                                         <StatusNodeGlyph status={item.status} />
-                                        <span className="tier-3-item-kind">
-                                          {item.kindLabel}:
-                                        </span>
-                                        <span className="tier-3-item-text">
-                                          {item.text}
-                                        </span>
+                                        <span className="tier-3-item-kind">{item.kindLabel}:</span>
+                                        <span className="tier-3-item-text">{item.text}</span>
                                       </div>
                                     ))}
                                   </div>
@@ -2294,11 +2352,7 @@ export function App() {
           <div className="panel-sticky-header">
             <span className="panel-header-title">Curriculum Map & Topic Context</span>
             {isCustomPanelWidths && (
-              <button
-                type="button"
-                className="ghost-sm-btn"
-                onClick={resetPanelWidths}
-              >
+              <button type="button" className="ghost-sm-btn" onClick={resetPanelWidths}>
                 Reset layout
               </button>
             )}
@@ -2343,10 +2397,7 @@ export function App() {
                       onDoubleClick={resetPanelWidths}
                     />
 
-                    <div
-                      className="visual-context-panel"
-                      data-testid="visual-context-panel"
-                    >
+                    <div className="visual-context-panel" data-testid="visual-context-panel">
                       <div
                         data-testid="panel-c-scroll"
                         style={{
@@ -2360,22 +2411,14 @@ export function App() {
                       >
                         <div className="visual-context-header">
                           <div className="visual-context-header-top">
-                            <span className="tier-1-kicker-badge accent">
-                              SELECTED TOPIC
-                            </span>
+                            <span className="tier-1-kicker-badge accent">SELECTED TOPIC</span>
                             {renderLearningItemStatusMenu(activeLp.id, activeTopic, "context-")}
                           </div>
-                          <h3
-                            className="visual-context-title"
-                            data-testid="visual-context-title"
-                          >
+                          <h3 className="visual-context-title" data-testid="visual-context-title">
                             {activeTopic.name}
                           </h3>
                           {getItemShortDescription(activeTopic) && (
-                            <p
-                              className="visual-context-desc"
-                              data-testid="visual-context-desc"
-                            >
+                            <p className="visual-context-desc" data-testid="visual-context-desc">
                               {getItemShortDescription(activeTopic)}
                             </p>
                           )}
@@ -2401,23 +2444,15 @@ export function App() {
                                   }`}
                                   data-testid={`visual-context-subtopic-${sub.id}`}
                                   onClick={() =>
-                                    selectLearningPath(
-                                      activeLp.id,
-                                      activeTopic.id,
-                                      sub.id
-                                    )
+                                    selectLearningPath(activeLp.id, activeTopic.id, sub.id)
                                   }
                                 >
                                   <div className="tier-2-header-left">
                                     {renderLearningItemStatusMenu(activeLp.id, sub, "context-")}
                                     <div className="tier-2-text-col">
-                                      <span className="tier-2-subtopic-title">
-                                        {sub.name}
-                                      </span>
+                                      <span className="tier-2-subtopic-title">{sub.name}</span>
                                       {shortDesc && (
-                                        <p className="tier-2-subtopic-desc">
-                                          {shortDesc}
-                                        </p>
+                                        <p className="tier-2-subtopic-desc">{shortDesc}</p>
                                       )}
                                     </div>
                                   </div>
@@ -2448,12 +2483,8 @@ export function App() {
                                       <div key={item.id} className="tier-3-item-row">
                                         <span className="tier-3-branch-line">└</span>
                                         <StatusNodeGlyph status={item.status} />
-                                        <span className="tier-3-item-kind">
-                                          {item.kindLabel}:
-                                        </span>
-                                        <span className="tier-3-item-text">
-                                          {item.text}
-                                        </span>
+                                        <span className="tier-3-item-kind">{item.kindLabel}:</span>
+                                        <span className="tier-3-item-text">{item.text}</span>
                                       </div>
                                     ))}
                                   </div>
@@ -2490,7 +2521,16 @@ export function App() {
         <div className="sidebar-top-row">
           <div className="wordmark" onClick={() => navigate({ page: "home" })}>
             <span className="wordmark-icon">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ stroke: "var(--accent)" }} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                style={{ stroke: "var(--accent)" }}
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <polygon points="12 2 2 7 12 12 22 7 12 2" />
                 <polyline points="2 17 12 22 22 17" />
                 <polyline points="2 12 12 17 22 12" />
@@ -2518,7 +2558,16 @@ export function App() {
             onClick={() => navigate({ page: "home" })}
             title="Home"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
               <polyline points="9 22 9 12 15 12 15 22" />
             </svg>
@@ -2536,7 +2585,16 @@ export function App() {
             onClick={() => navigate({ page: "learning" })}
             title="Learning"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
               <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
             </svg>
@@ -2547,14 +2605,21 @@ export function App() {
             type="button"
             data-testid="nav-building"
             className={
-              route.page === "building" || route.page === "project"
-                ? "nav-item active"
-                : "nav-item"
+              route.page === "building" || route.page === "project" ? "nav-item active" : "nav-item"
             }
             onClick={() => navigate({ page: "building" })}
             title="Building"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
               <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
               <line x1="12" y1="22.08" x2="12" y2="12" />
@@ -2576,17 +2641,13 @@ export function App() {
                   <div key={p.id} className="sidebar-tree-group">
                     <div
                       className={
-                        isProjActive
-                          ? "sidebar-shortcut-row active"
-                          : "sidebar-shortcut-row"
+                        isProjActive ? "sidebar-shortcut-row active" : "sidebar-shortcut-row"
                       }
                     >
                       <button
                         type="button"
                         className="sidebar-expand-btn"
-                        aria-label={
-                          isTreeOpen ? "Collapse phases" : "Expand phases"
-                        }
+                        aria-label={isTreeOpen ? "Collapse phases" : "Expand phases"}
                         onClick={(e) => {
                           e.stopPropagation();
                           setSidebarExpandedProjects((prev) => ({
@@ -2599,11 +2660,7 @@ export function App() {
                       </button>
                       <button
                         type="button"
-                        className={
-                          isProjActive
-                            ? "sidebar-shortcut active"
-                            : "sidebar-shortcut"
-                        }
+                        className={isProjActive ? "sidebar-shortcut active" : "sidebar-shortcut"}
                         onClick={() => selectProject(p.id)}
                         title={p.name}
                       >
@@ -2614,16 +2671,13 @@ export function App() {
                     {isTreeOpen && pGroups.length > 0 && (
                       <div className="sidebar-nested-phases">
                         {pGroups.map((ph) => {
-                          const isPhSelected =
-                            isProjActive && selectedPhaseId === ph.id;
+                          const isPhSelected = isProjActive && selectedPhaseId === ph.id;
                           return (
                             <button
                               key={ph.id}
                               type="button"
                               className={
-                                isPhSelected
-                                  ? "sidebar-phase-link active"
-                                  : "sidebar-phase-link"
+                                isPhSelected ? "sidebar-phase-link active" : "sidebar-phase-link"
                               }
                               onClick={() => selectProject(p.id, ph.id, null)}
                               title={ph.name}
@@ -2644,17 +2698,12 @@ export function App() {
             </div>
             <div className="sidebar-shortcut-list">
               {sidebarLearning.map((l) => {
-                const isLpActive =
-                  route.page === "learning-path" && route.id === l.id;
+                const isLpActive = route.page === "learning-path" && route.id === l.id;
                 return (
                   <button
                     key={l.id}
                     type="button"
-                    className={
-                      isLpActive
-                        ? "sidebar-shortcut active"
-                        : "sidebar-shortcut"
-                    }
+                    className={isLpActive ? "sidebar-shortcut active" : "sidebar-shortcut"}
                     onClick={() => selectLearningPath(l.id)}
                     title={l.name}
                   >
@@ -2671,7 +2720,16 @@ export function App() {
       <div className="main-column">
         <header className="top-search-header">
           <div className="search-box-wrapper">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" style={{ stroke: "var(--text-muted)" }} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              style={{ stroke: "var(--text-muted)" }}
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <circle cx="11" cy="11" r="8" />
               <line x1="21" y1="21" x2="16.65" y2="16.65" />
             </svg>
@@ -2698,9 +2756,7 @@ export function App() {
         </header>
 
         <div className="content-and-inspector">
-          <main
-            className={isSplitWorkspace ? "main-scroll split-mode" : "main-scroll"}
-          >
+          <main className={isSplitWorkspace ? "main-scroll split-mode" : "main-scroll"}>
             {route.page === "home" && renderHomeView()}
             {route.page === "building" && renderBuildingWorkspace()}
             {route.page === "project" && renderBuildingWorkspace()}
@@ -2713,9 +2769,7 @@ export function App() {
           {syncStatus.last_error && (
             <div className="footer-amber-banner" data-testid="failed-sync-banner">
               <div>
-                <span>
-                  Latest update failed validation — showing previous version
-                </span>
+                <span>Latest update failed validation — showing previous version</span>
                 <button
                   type="button"
                   onClick={() => setErrorExpanded(!errorExpanded)}
@@ -2730,8 +2784,8 @@ export function App() {
                   style={{ fontSize: 11, color: "var(--danger)" }}
                   data-testid="error-details-box"
                 >
-                  Commit {syncStatus.last_error.commit.slice(0, 7)} (
-                  {syncStatus.last_error.file}): {syncStatus.last_error.message}
+                  Commit {syncStatus.last_error.commit.slice(0, 7)} ({syncStatus.last_error.file}):{" "}
+                  {syncStatus.last_error.message}
                 </div>
               )}
             </div>

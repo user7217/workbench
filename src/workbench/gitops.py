@@ -11,9 +11,7 @@ class GitError(RuntimeError):
     """Raised when a git command fails."""
 
 
-def make_isolated_git_env(
-    home_dir: Path, base_env: dict[str, str] | None = None
-) -> dict[str, str]:
+def make_isolated_git_env(home_dir: Path, base_env: dict[str, str] | None = None) -> dict[str, str]:
     """Create a completely isolated git environment pointing HOME and gitconfig to home_dir."""
     env = dict(os.environ if base_env is None else base_env)
     home_dir.mkdir(parents=True, exist_ok=True)
@@ -69,9 +67,7 @@ def run_git(
     return proc
 
 
-def git_output_bytes(
-    args: list[str], cwd: Path, env: dict[str, str] | None = None
-) -> bytes | None:
+def git_output_bytes(args: list[str], cwd: Path, env: dict[str, str] | None = None) -> bytes | None:
     """Raw stdout of a git command (no text decoding), or None if it failed."""
     proc = subprocess.run(
         ["git", *args], cwd=str(cwd), env=_prepare_env(env), capture_output=True, check=False
@@ -124,9 +120,7 @@ def ls_remote(remote_url: str, env: dict[str, str] | None = None) -> bool:
     return proc.returncode == 0
 
 
-def fetch_origin(
-    repo_dir: Path, branch: str = "main", env: dict[str, str] | None = None
-) -> None:
+def fetch_origin(repo_dir: Path, branch: str = "main", env: dict[str, str] | None = None) -> None:
     """Fetch origin/<branch> in repo_dir."""
     run_git(["fetch", "origin", branch], cwd=repo_dir, env=env)
 
@@ -146,9 +140,7 @@ def get_root_commit(repo_dir: Path, env: dict[str, str] | None = None) -> str | 
 
     Returns None if the repository has no commits yet.
     """
-    proc = run_git(
-        ["rev-list", "--max-parents=0", "HEAD"], cwd=repo_dir, env=env, check=False
-    )
+    proc = run_git(["rev-list", "--max-parents=0", "HEAD"], cwd=repo_dir, env=env, check=False)
     if proc.returncode != 0 or not proc.stdout.strip():
         return None
     roots = [line.strip() for line in proc.stdout.splitlines() if line.strip()]
@@ -191,9 +183,7 @@ def create_worktree(
     )
 
 
-def remove_worktree(
-    repo_dir: Path, worktree_path: Path, env: dict[str, str] | None = None
-) -> None:
+def remove_worktree(repo_dir: Path, worktree_path: Path, env: dict[str, str] | None = None) -> None:
     """Remove a git worktree and prune metadata."""
     run_git(
         ["worktree", "remove", "--force", str(worktree_path)],
@@ -243,15 +233,15 @@ def list_files_at_ref(
     repo_dir: Path, ref: str, rel_dir: str, env: dict[str, str] | None = None
 ) -> list[str]:
     """List repo-relative file paths under rel_dir at ref."""
-    proc = run_git(["ls-tree", "-r", "--name-only", ref, rel_dir], cwd=repo_dir, env=env, check=False)
+    proc = run_git(
+        ["ls-tree", "-r", "--name-only", ref, rel_dir], cwd=repo_dir, env=env, check=False
+    )
     if proc.returncode != 0:
         return []
     return [line.strip() for line in proc.stdout.splitlines() if line.strip()]
 
 
-def commit_all(
-    repo_dir: Path, message: str, env: dict[str, str] | None = None
-) -> str:
+def commit_all(repo_dir: Path, message: str, env: dict[str, str] | None = None) -> str:
     """Stage all changes and create a commit, returning the new commit SHA."""
     run_git(["add", "-A"], cwd=repo_dir, env=env)
     status = run_git(["status", "--porcelain"], cwd=repo_dir, env=env)
