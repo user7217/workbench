@@ -15,3 +15,6 @@ web/node_modules/
 web/dist/
 web/docs/
 web/*.tsbuildinfo
+# Tests are not needed to build the image
+tests/
+web/src/core/__tests__/

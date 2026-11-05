@@ -16,7 +16,6 @@ WORKDIR /app
 COPY pyproject.toml README.md hatch_build.py ./
 COPY src/ ./src/
 COPY schema/ ./schema/
-COPY agent/ ./agent/
 COPY --from=web-builder /build/web/dist ./web/dist
 
 RUN uv pip install --system .

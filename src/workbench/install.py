@@ -8,14 +8,15 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+# Skill, rule and prompt files ship inside the package, so an installed workbench finds them
+ASSETS_DIR = Path(__file__).resolve().parent / "agents" / "assets"
 CLAUDE_SKILL_NAMES: tuple[str, ...] = ("workbench-update", "workbench-review")
 CLAUDE_SKILL_TEMPLATES = {
-    name: REPO_ROOT / "agent" / "claude" / name / "SKILL.md" for name in CLAUDE_SKILL_NAMES
+    name: ASSETS_DIR / "claude" / name / "SKILL.md" for name in CLAUDE_SKILL_NAMES
 }
-GEMINI_MD_TEMPLATE = REPO_ROOT / "agent" / "gemini" / "GEMINI.md"
+GEMINI_MD_TEMPLATE = ASSETS_DIR / "gemini" / "GEMINI.md"
 GEMINI_CMD_TEMPLATES = {
-    f"{name}.toml": REPO_ROOT / "agent" / "gemini" / "commands" / f"{name}.toml"
+    f"{name}.toml": ASSETS_DIR / "gemini" / "commands" / f"{name}.toml"
     for name in CLAUDE_SKILL_NAMES
 }
 

@@ -72,7 +72,7 @@ uv run python -c "from pathlib import Path; from workbench.models import write_j
 
 ## 4. Testing & Quality Checks
 
-> **The test suites are not published yet.** `tests/` (Python and Playwright) and `web/src/core/__tests__/` (Vitest) are kept out of the repository for now (see `.gitignore`), so in a fresh clone `make test` finds no tests and `npm test` reports no test files. Until they are published, check a change with:
+> **The test suites are not published.** `tests/` (Python and Playwright) and `web/src/core/__tests__/` (Vitest) are kept out of the repository (see `.gitignore`), so in a fresh clone `make test` finds no tests and `npm test` reports no test files. Check a change with:
 >
 > ```bash
 > uv run python -c "import workbench.cli, workbench.server.app"   # the backend imports cleanly

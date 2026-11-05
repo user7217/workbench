@@ -152,7 +152,7 @@ See **[SETUP_REAL.md](SETUP_REAL.md)** for full step-by-step instructions, inclu
 Once `workbench setup` has installed the agent hooks:
 - Work normally in any Git repository with Claude Code or Gemini CLI.
 - When files change or a commit is made, the hook triggers `workbench-update` (or runs the background headless updater if `update_mode = "headless"` is enabled in `~/.workbench/config.toml`) to record status updates, implementation notes, or new suggestions in the project's inbox.
-- Run `/workbench-review` (or bring a chat transcript using [`agent/chat/PROMPT.md`](agent/chat/PROMPT.md)) whenever you want a full structural reconciliation of the project.
+- Run `/workbench-review` (or bring a chat transcript using [`src/workbench/agents/assets/chat/PROMPT.md`](src/workbench/agents/assets/chat/PROMPT.md)) whenever you want a full structural reconciliation of the project.
 
 ### Managing Projects from the Terminal (Manual)
 
@@ -173,7 +173,7 @@ workbench new "Gripper Force Sensor" --parent robot-arm --under wrist-diff --sta
 
 ### Importing & Updating Learning Paths
 
-Create a Markdown outline (`# Path Name`, `## Topic`, `### Subtopic` — or generate one with [`agent/chat/LEARNING_PROMPT.md`](agent/chat/LEARNING_PROMPT.md)) and import or merge it without losing existing progress:
+Create a Markdown outline (`# Path Name`, `## Topic`, `### Subtopic` — or generate one with [`src/workbench/agents/assets/chat/LEARNING_PROMPT.md`](src/workbench/agents/assets/chat/LEARNING_PROMPT.md)) and import or merge it without losing existing progress:
 
 ```bash
 workbench learning import my-study-plan.md
