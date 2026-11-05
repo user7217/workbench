@@ -1,8 +1,8 @@
 # Workbench
 
-**A calm, Git-backed architectural map and personal dashboard for everything you are building and learning.**
+**A calm, Git-backed architectural map and personal dashboard for everything being built and learned.**
 
-Workbench keeps a live visual inventory of your software/hardware projects and self-directed learning paths in one place—so you can switch contexts, pause a build for weeks, and dive right back in without digging through scattered notes or terminal history.
+Workbench keeps a live visual inventory of software/hardware projects and self-directed learning paths in one place—making it easy to switch contexts, pause a build for weeks, and dive right back in without digging through scattered notes or terminal history.
 
 ![Workbench Home screen showing unified Projects and Learning Paths](web/docs/images/default-home.png)
 
@@ -27,12 +27,12 @@ Workbench keeps a live visual inventory of your software/hardware projects and s
 
 ## Why Workbench?
 
-Most project trackers assume you work on one linear backlog of tickets and punish context-switching with overdue badges, completion percentages, and broken streaks. At the same time, static notes and `TODO.md` files go stale because updating them manually at the end of a coding session is a chore.
+Most project trackers assume all work happens on one linear backlog of tickets and punish context-switching with overdue badges, completion percentages, and broken streaks. At the same time, static notes and `TODO.md` files go stale because updating them manually at the end of a coding session is a chore.
 
 Workbench is built around three principles:
 
 1. **Architectural mental map over ticket queues:** Instead of tracking ephemeral tickets, Workbench maps the structural breakdown of each project—phases or topics, nested subtopics/components, and dependency links (`depends_on`)—with zero deadlines, streaks, percentages, or item counters.
-2. **Zero-friction upkeep via coding agents:** When you work in a repository with Claude Code or Gemini CLI, a lightweight lifecycle hook (`workbench hook-check`) detects changes and updates the project's YAML metadata automatically (`workbench-update` for quick per-message status/note updates, or `workbench-review` for commit milestones). With `update_mode = "headless"`, per-message updates run in a background Haiku agent so your main coding session spends zero extra tokens.
+2. **Zero-friction upkeep via coding agents:** During work in a repository with Claude Code or Gemini CLI, a lightweight lifecycle hook (`workbench hook-check`) detects changes and updates the project's YAML metadata automatically (`workbench-update` for quick per-message status/note updates, or `workbench-review` for commit milestones). With `update_mode = "headless"`, per-message updates run in a background Haiku agent so the main coding session spends zero extra tokens.
 3. **Plain-text Git state with a deterministic privacy firewall:** All metadata lives in a separate private Git repository (`workbench-data`) as human-readable YAML and Markdown. Every write—whether from the CLI, an agent, or the web UI—passes strict Pydantic schema validation, semantic diff protection (blocking silent deletions or ID renames), and a secret/PII/local-path scanner before being committed.
 
 ---
@@ -63,7 +63,7 @@ Click any status icon to update it, click the pencil (`✎`) on any title, summa
   - **Suggestions Inbox (`suggestions:`):** Agents can file suggested next steps into a project's inbox; click **Keep** in the dashboard to promote a suggestion into the tree or **Dismiss** to drop it.
 - **Learning Paths with Markdown Notes:** Import structured study outlines from Markdown (`workbench learning import`), attach up to 20 KB of Markdown notes per topic or subtopic, and link related engineering projects (`related_projects`).
 - **Automatic Repository Discovery:** Scheduled local folder scans (`workbench discover --local` via `launchd`) and daily GitHub API scans register unknown repositories automatically using their canonical root commit SHA.
-- **Swappable UI Themes ("Build Your Own Look"):** The frontend separates its headless state store (`web/src/core/`) from its visual presentation layer (`web/src/ui/`). See **[web/README.md](web/README.md)** to customize colors or build a completely custom look in ~150 lines of React.
+- **Swappable UI Themes ("Build a Custom Look"):** The frontend separates its headless state store (`web/src/core/`) from its visual presentation layer (`web/src/ui/`). See **[web/README.md](web/README.md)** to customize colors or build a completely custom look in ~150 lines of React.
 
 ---
 
@@ -84,7 +84,7 @@ Click any status icon to update it, click the pencil (`✎`) on any title, summa
 
 1. **Two-Repository Separation (`workbench` vs. `workbench-data`):**
    - `workbench` (this repository) contains the Python CLI, validation/privacy engine, FastAPI server, and React/TypeScript frontend.
-   - `workbench-data` is your private data repository containing only `workbench.yaml`, `projects/<id>/project.yaml`, and `learning/<id>/path.yaml` (+ optional `topics/<item-id>.md` notes). The server never needs access to your source code repositories.
+   - `workbench-data` is the private data repository containing only `workbench.yaml`, `projects/<id>/project.yaml`, and `learning/<id>/path.yaml` (+ optional `topics/<item-id>.md` notes). The server never needs access to the source code repositories.
 2. **Root-Commit Repository Identity ([`src/workbench/identity.py`](src/workbench/identity.py)):**
    - Every repository is matched to its Workbench project by its initial commit SHA (`git rev-list --max-parents=0 HEAD`) and disambiguated by its `owner/repo` GitHub remote slug on forks. Moving or renaming a folder on disk never breaks its link.
 3. **Isolated Worktree Transactions ([`src/workbench/cli.py`](src/workbench/cli.py), [`src/workbench/server/writes.py`](src/workbench/server/writes.py)):**
@@ -113,7 +113,7 @@ uv sync
 make demo
 ```
 
-Open **http://127.0.0.1:8420** in your browser (or set `WORKBENCH_PORT` to use a different port).
+Open **http://127.0.0.1:8420** in a browser (or set `WORKBENCH_PORT` to use a different port).
 
 - `make demo` builds the frontend and spins up a temporary, sandboxed `workbench-data` repository seeded with sample hardware/software projects and learning paths. It never touches `~/.workbench`, `~/.claude`, or `~/.gemini`.
 - Press `/` on the Home screen to filter projects and learning paths.
@@ -123,18 +123,18 @@ Open **http://127.0.0.1:8420** in your browser (or set `WORKBENCH_PORT` to use a
 
 ## Production & Home Server Setup
 
-When you are ready to connect Workbench to your real repositories and deploy the dashboard on a home server or local machine, follow **[SETUP_REAL.md](SETUP_REAL.md)**. In brief:
+To connect Workbench to real repositories and deploy the dashboard on a home server or local machine, follow **[SETUP_REAL.md](SETUP_REAL.md)**. In brief:
 
 1. **Create a private `workbench-data` repo on GitHub** seeded with `workbench.yaml` (`schema_version: 1`).
 2. **Deploy the server (Docker Compose + Tailscale):**
    ```bash
    mkdir -p secrets
    ssh-keygen -t ed25519 -C "workbench-server-deploy-key" -f secrets/deploy_key -N ""
-   # Add secrets/deploy_key.pub as a Deploy Key (with write access) on your workbench-data repo
+   # Add secrets/deploy_key.pub as a Deploy Key (with write access) on the workbench-data repo
    # Create .env with WORKBENCH_DATA_REMOTE and WORKBENCH_BIND=<tailscale-ip>
    docker compose up -d --build
    ```
-3. **Configure your laptop:**
+3. **Configure the laptop:**
    ```bash
    uv tool install .
    workbench setup
@@ -152,7 +152,7 @@ See **[SETUP_REAL.md](SETUP_REAL.md)** for full step-by-step instructions, inclu
 Once `workbench setup` has installed the agent hooks:
 - Work normally in any Git repository with Claude Code or Gemini CLI.
 - When files change or a commit is made, the hook triggers `workbench-update` (or runs the background headless updater if `update_mode = "headless"` is enabled in `~/.workbench/config.toml`) to record status updates, implementation notes, or new suggestions in the project's inbox.
-- Run `/workbench-review` (or bring a chat transcript using [`src/workbench/agents/assets/chat/PROMPT.md`](src/workbench/agents/assets/chat/PROMPT.md)) whenever you want a full structural reconciliation of the project.
+- Run `/workbench-review` (or bring a chat transcript using [`src/workbench/agents/assets/chat/PROMPT.md`](src/workbench/agents/assets/chat/PROMPT.md)) whenever a full structural reconciliation of the project is needed.
 
 ### Managing Projects from the Terminal (Manual)
 
@@ -198,7 +198,7 @@ workbench learning export signal-processing
 | `workbench attach --id <child> --parent <id> --under <item>` | Attach an existing project under a parent project's phase or component |
 | `workbench detach --id <child>` | Detach a child project back to top-level |
 | `workbench link --id <project>` | Link the current Git repository to an existing project (and clean up any empty discovered stub) |
-| `workbench discover --local` | Scan your local scan roots for repositories you own and register unknown ones (GitHub discovery runs on the server) |
+| `workbench discover --local` | Scan the local scan roots for repositories the user owns and register unknown ones (GitHub discovery runs on the server) |
 | `workbench archive-empty [--dry-run] [--keep <id>]` | Archive unpopulated `origin: discovered` project stubs |
 | `workbench learning import <file.md\|.yaml>` / `export <id>` | Import/merge a learning path outline from Markdown/YAML or export an existing path to Markdown |
 | `workbench history [--kind K] [--project P] [-n N]` | View recent commits in `workbench-data` filtered by commit kind or project/learning scope |

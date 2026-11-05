@@ -61,7 +61,7 @@ src/workbench/
 
 ## 3. Repository Identity Resolution (`identity.py` & `gitops.py`)
 
-Workbench links local Git clones and GitHub repositories to `projects/<id>/project.yaml` without placing tracking files inside your code repositories:
+Workbench links local Git clones and GitHub repositories to `projects/<id>/project.yaml` without placing tracking files inside the code repositories:
 
 1. **Canonical Root Commit (`get_root_commit`):**
    - Runs `git rev-list --max-parents=0 HEAD`.
@@ -126,7 +126,7 @@ Every write to `workbench-data` must pass three checks before a commit is pushed
 It lets the agent finish without doing anything when `stop_hook_active` is true, the directory is not a git repo with commits, it runs inside the headless updater's own agent (`WORKBENCH_UPDATER` is set), `update_mode = "off"`, or anything fails (fail open: an error never traps a session). Otherwise `update_mode` in `config.toml` decides:
 
 - **`session` (default):** a new `HEAD` blocks the agent with "run the **workbench-review** skill"; a changed fingerprint blocks it with "run the **workbench-update** skill". A session is never blocked twice for the same state. `workbench set`/`add`/`push` and `workbench hook-check --mark-seen` record the state as seen.
-- **`headless`:** when `HEAD` or the fingerprint changed, the hook records both as seen, writes a job file to `~/.workbench/jobs/`, starts `python -m workbench auto-update --job <file>` detached (`updater.launch_update_job`), and returns at once. The session is never blocked, a new commit is recorded like any other change, and full reviews run only when you call `/workbench-review`. If `updater_command`'s program is not installed, the hook behaves as in `session` mode.
+- **`headless`:** when `HEAD` or the fingerprint changed, the hook records both as seen, writes a job file to `~/.workbench/jobs/`, starts `python -m workbench auto-update --job <file>` detached (`updater.launch_update_job`), and returns at once. The session is never blocked, a new commit is recorded like any other change, and full reviews run only when `/workbench-review` is called. If `updater_command`'s program is not installed, the hook behaves as in `session` mode.
 
 The background job (`cli._run_auto_update`, one at a time under `~/.workbench/updater.lock`):
 

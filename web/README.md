@@ -1,6 +1,6 @@
-# Workbench web UI — build your own look
+# Workbench web UI — build a custom look
 
-The dashboard is split into a **core** that never changes and a **look** you can replace. This page
+The dashboard is split into a **core** that never changes and a **look** that can be replaced. This page
 explains the split, gets a custom look running in a few minutes, and documents everything a look can
 use.
 
@@ -15,7 +15,7 @@ use.
 
 Why: the rules about *what* the dashboard shows (which projects are listed, what a status may be,
 how a write is saved and rolled back) are the part that has to stay correct. Keeping them in one
-tested, framework-light place means a new look can be as different as you like (a single column, a
+tested, framework-light place means a new look can be as different as desired (a single column, a
 kanban, a terminal-style page) without re-implementing or breaking them.
 
 **The one contract:** a look is a folder whose `index.tsx` default-exports a React component.
@@ -47,7 +47,7 @@ Start the demo API (artificial `demo-*` data in a throw-away folder) from the **
 WORKBENCH_PORT=8441 uv run python demo/run_demo.py
 ```
 
-Run your look against it with hot reload (the dev server proxies `/api` to `WORKBENCH_API`):
+Run the new look against it with hot reload (the dev server proxies `/api` to `WORKBENCH_API`):
 
 ```bash
 cd web
@@ -62,7 +62,7 @@ WORKBENCH_UI=examples/my-look npm run build         # writes web/dist
 ```
 
 The Python server serves whatever is in `web/dist` for every non-`/api` path, so after a build,
-restarting the server (`make demo`, `demo/run_demo.py`, or your real server) serves your look. Run
+restarting the server (`make demo`, `demo/run_demo.py`, or the real server) serves the new look. Run
 `npm run build` without `WORKBENCH_UI` to go back to the default look.
 
 ![The minimal example look: one column per project, status selects and an editable description](docs/images/minimal-look.png)
@@ -162,7 +162,7 @@ Writes — **structure** (projects only; *not* optimistic — they wait for the 
 
 | Action | Notes |
 |---|---|
-| `addItem(projectId, {parentId, name, id?, status?, summary?, position?})` → `Promise<string \| null>` | `parentId: null` adds a phase (a topic when the project has `uses_phases: false`); a phase id adds a component; a component id adds a nested component. Resolves to the new id (the server makes it unique) so you can select it. |
+| `addItem(projectId, {parentId, name, id?, status?, summary?, position?})` → `Promise<string \| null>` | `parentId: null` adds a phase (a topic when the project has `uses_phases: false`); a phase id adds a component; a component id adds a nested component. Resolves to the new id (the server makes it unique) so the caller can select it. |
 | `moveItem(projectId, itemId, {parentId?, position})` → `Promise<boolean>` | Omit `parentId` to reorder in place. Components can move under any phase/component except themselves and their descendants; phases only reorder. |
 | `deleteItem(projectId, itemId)` → `Promise<boolean>` | Permanent; removes everything nested. Refused (422) while a `depends_on` or a child project points into it — `lastError.detail` names them. Clears a selection that pointed into it. |
 | `setParent(projectId, {parent, under} \| null)` → `Promise<boolean>` | Attach under a parent project's phase/component, or detach with `null`. |
@@ -221,7 +221,7 @@ calls `dismissError()`.
 
 ## 4. Just want different colours?
 
-You don't need a new look for that: the default look takes every colour, radius and easing from the
+A new look is not needed for that: the default look takes every colour, radius and easing from the
 CSS variables at the top of `src/ui/styles.css` (`--bg-*`, `--text-*`, `--border*`, `--accent*`,
 `--status-*`, `--danger`, `--radius-*`). Edit them and rebuild.
 

@@ -22,7 +22,7 @@ origin: agent           # manual | agent | discovered
 updated: 2026-10-29
 uses_phases: true
 repos:
-  - github: youruser/weather-station
+  - github: github-user/weather-station
     root_commit: 3f2a9c1e3f2a9c1e3f2a9c1e3f2a9c1e3f2a9c1e
     name: weather-station
 links:
@@ -77,7 +77,7 @@ origin: manual
 updated: 2026-10-29
 uses_phases: false
 repos:
-  - github: youruser/portfolio-site
+  - github: github-user/portfolio-site
     root_commit: 8b1d4e2a8b1d4e2a8b1d4e2a8b1d4e2a8b1d4e2a
     name: portfolio-site
 links:
@@ -156,10 +156,10 @@ Optional Markdown notes for any topic or subtopic live at `learning/<path-id>/to
 Created by `workbench setup` (TOML only). Every key is optional; missing keys take the defaults shown:
 
 ```toml
-data_repo_url = "git@github.com:<YOUR_GITHUB_USER>/workbench-data.git"
+data_repo_url = "git@github.com:<github-user>/workbench-data.git"
 branch = "main"
-github_owners = ["<YOUR_GITHUB_USER>"]
-user_emails = ["you@users.noreply.github.com"]
+github_owners = ["<github-user>"]
+user_emails = ["<github-user>@users.noreply.github.com"]
 scan_roots = ["~/Documents", "~/code", "~/projects"]
 github_api_base = "https://api.github.com"
 
@@ -167,7 +167,7 @@ github_api_base = "https://api.github.com"
 #   "session"  (default) the hook asks the coding agent to run the workbench-update skill,
 #              and asks for workbench-review after a new commit
 #   "headless" a background agent records the message; the session is never blocked and
-#              reviews run only when you call /workbench-review
+#              reviews run only when /workbench-review is called
 #   "off"      the hook does nothing
 # An unknown value falls back to "session". If updater_command's program is not installed,
 # headless mode also falls back to "session".
@@ -240,7 +240,7 @@ Every command runs on the laptop (where `~/.workbench/config.toml` and the `~/.w
 
 | Command | Arguments & options |
 | :--- | :--- |
-| `workbench setup` | `--home <dir>`. Interactive wizard: writes `config.toml`, clones `workbench-data`, installs the agent skills, hooks and the macOS discovery job after you type `yes`. |
+| `workbench setup` | `--home <dir>`. Interactive wizard: writes `config.toml`, clones `workbench-data`, installs the agent skills, hooks and the macOS discovery job after the user types `yes`. |
 | `workbench install` | `--home <dir>` (required), `--claude`, `--gemini`, `--launchd`. Install or refresh the skills and hooks for each agent, and the macOS `launchd` job. |
 | `workbench show` | `--id <project>`, `--item <item-id>`, `--brief`. Without `--id`, the project registered for the current repo. |
 | `workbench focus` | `--set <project>[/<item>]`, `--clear`. Without options, print the current repo's focus. |
@@ -254,7 +254,7 @@ Every command runs on the laptop (where `~/.workbench/config.toml` and the `~/.w
 | `workbench detach` | `--id <child>`. |
 | `workbench link` | `--id <project>`. Run inside the repo to attach it to that project. |
 | `workbench archive-empty` | `--dry-run`, `--keep <id>` (repeatable). Only `origin: discovered` projects with no phases or topics. |
-| `workbench discover` | `--local`. Scan `scan_roots` for repositories you own. |
+| `workbench discover` | `--local`. Scan `scan_roots` for repositories the user owns. |
 | `workbench learning import <file>` | A `.md` outline or `.yaml` path; merges into an existing path without moving statuses back. |
 | `workbench learning export <path-id>` | Print the path as a Markdown outline. |
 | `workbench history [<id>]` | `-n/--limit` (default 20), `--kind <kind>[,<kind>]`, `--project <id>`. |

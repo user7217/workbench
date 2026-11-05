@@ -1,8 +1,8 @@
 # Workbench — Production & Home Server Deployment Guide
 
-This guide walks through setting up Workbench in production: creating your private `workbench-data` repository on GitHub, deploying the dashboard server on an always-on home server (via **Docker Compose + Tailscale** or standalone **`workbench serve`**), and connecting your laptop's CLI and coding agents.
+This guide walks through setting up Workbench in production: creating the private `workbench-data` repository on GitHub, deploying the dashboard server on an always-on home server (via **Docker Compose + Tailscale** or standalone **`workbench serve`**), and connecting the laptop's CLI and coding agents.
 
-> **How data flows in production:** Your source code never leaves your laptop. Your laptop CLI and coding agents push small, validated `.yaml` and `.md` metadata files to your private `workbench-data` repository on GitHub. Your home server polls `workbench-data` to serve the dashboard over Tailscale and pushes back any edits you make in the web UI.
+> **How data flows in production:** Source code never leaves the laptop. The laptop CLI and coding agents push small, validated `.yaml` and `.md` metadata files to the private `workbench-data` repository on GitHub. The home server polls `workbench-data` to serve the dashboard over Tailscale and pushes back any edits made in the web UI.
 
 ---
 
@@ -12,16 +12,16 @@ Workbench uses three narrowly scoped credentials so no machine has more access t
 
 | Machine | Credential | Scope & Purpose |
 | :--- | :--- | :--- |
-| **1. Your Laptop** | Your normal Git SSH key (`~/.ssh/...`) or credential helper | Pulls and pushes metadata commits from the `workbench` CLI to `<you>/workbench-data`. |
-| **2. Home Server (Git Push/Pull)** | Dedicated SSH Deploy Key (`./secrets/deploy_key`) | Registered **only** on `<you>/workbench-data` with **Allow write access** enabled. Allows the server to fetch updates and commit inline web UI edits. |
-| **3. Home Server (Optional Discovery)** | Fine-grained GitHub Personal Access Token (`WORKBENCH_GITHUB_READ_TOKEN`) | **Read-only** access (`Metadata: Read-only` and `Contents: Read-only`) across your repositories so the server's daily background job can discover new non-fork, non-archived GitHub repos. |
+| **1. Laptop** | The laptop's normal Git SSH key (`~/.ssh/...`) or credential helper | Pulls and pushes metadata commits from the `workbench` CLI to `<github-user>/workbench-data`. |
+| **2. Home Server (Git Push/Pull)** | Dedicated SSH Deploy Key (`./secrets/deploy_key`) | Registered **only** on `<github-user>/workbench-data` with **Allow write access** enabled. Allows the server to fetch updates and commit inline web UI edits. |
+| **3. Home Server (Optional Discovery)** | Fine-grained GitHub Personal Access Token (`WORKBENCH_GITHUB_READ_TOKEN`) | **Read-only** access (`Metadata: Read-only` and `Contents: Read-only`) across the owner's repositories so the server's daily background job can discover new non-fork, non-archived GitHub repos. |
 
 ---
 
-## Step 1: Create Your Private `workbench-data` Repository
+## Step 1: Create the Private `workbench-data` Repository
 
 1. On GitHub, create a new **private** repository named **`workbench-data`** (leave *Add a README* and *.gitignore* unchecked).
-2. On your laptop, initialize the repository with the root `workbench.yaml` marker file and push it to `main`:
+2. On the laptop, initialize the repository with the root `workbench.yaml` marker file and push it to `main`:
 
 ```bash
 mkdir -p /tmp/init-workbench-data && cd /tmp/init-workbench-data
@@ -32,7 +32,7 @@ EOF
 mkdir -p projects learning
 git add workbench.yaml
 git commit -m "Initialize workbench-data (schema_version 1)"
-git remote add origin git@github.com:<YOUR_GITHUB_USER>/workbench-data.git
+git remote add origin git@github.com:<github-user>/workbench-data.git
 git push -u origin main
 cd ~ && rm -rf /tmp/init-workbench-data
 ```
@@ -41,11 +41,11 @@ cd ~ && rm -rf /tmp/init-workbench-data
 
 ## Step 2: Deploy the Server (Option A: Docker Compose + Tailscale — Recommended)
 
-Running the server in Docker on a home server, NAS, Raspberry Pi, or VPS keeps the dashboard reachable across your devices over [Tailscale](https://tailscale.com) without exposing any ports to the public internet.
+Running the server in Docker on a home server, NAS, Raspberry Pi, or VPS keeps the dashboard reachable across the owner's devices over [Tailscale](https://tailscale.com) without exposing any ports to the public internet.
 
-### 2.1 Find Your Server's Tailscale IP
+### 2.1 Find the Server's Tailscale IP
 
-SSH into your server, ensure Tailscale is connected, and note the server's `100.x.y.z` Tailscale IPv4 address:
+SSH into the server, ensure Tailscale is connected, and note the server's `100.x.y.z` Tailscale IPv4 address:
 
 ```bash
 tailscale ip -4
@@ -55,7 +55,7 @@ tailscale ip -4
 ### 2.2 Clone the Workbench Application Repo on the Server
 
 ```bash
-git clone https://github.com/<YOUR_GITHUB_USER>/workbench.git ~/workbench
+git clone https://github.com/<github-user>/workbench.git ~/workbench
 cd ~/workbench
 ```
 
@@ -70,8 +70,8 @@ chmod 600 secrets/deploy_key
 cat secrets/deploy_key.pub
 ```
 
-Register that public key on your **`workbench-data`** repository:
-1. Open `https://github.com/<YOUR_GITHUB_USER>/workbench-data/settings/keys`.
+Register that public key on the **`workbench-data`** repository:
+1. Open `https://github.com/<github-user>/workbench-data/settings/keys`.
 2. Click **Add deploy key**.
 3. Title it `workbench-server`, paste the output of `cat secrets/deploy_key.pub`, check **Allow write access**, and click **Add key**.
 
@@ -79,9 +79,9 @@ Register that public key on your **`workbench-data`** repository:
 
 ### 2.4 (Optional) Create a Read-Only GitHub Token for Daily Repo Discovery
 
-If you want the server to automatically discover new GitHub repositories that aren't cloned on your laptop:
+For the server to automatically discover new GitHub repositories that aren't cloned on the laptop:
 1. Go to GitHub **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**.
-2. Set **Resource owner** to `<YOUR_GITHUB_USER>` and **Repository access** to **All repositories**.
+2. Set **Resource owner** to `<github-user>` and **Repository access** to **All repositories**.
 3. Under **Repository permissions**, grant:
    - **Contents:** `Read-only` (used to read the oldest commit SHA of each repo)
    - **Metadata:** `Read-only`
@@ -93,17 +93,17 @@ Create `.env` in `~/workbench` on the server, setting `WORKBENCH_BIND` to the Ta
 
 ```bash
 cat > .env << 'EOF'
-WORKBENCH_DATA_REMOTE=git@github.com:<YOUR_GITHUB_USER>/workbench-data.git
+WORKBENCH_DATA_REMOTE=git@github.com:<github-user>/workbench-data.git
 WORKBENCH_BRANCH=main
 WORKBENCH_POLL_SECONDS=600
 WORKBENCH_BIND=100.101.102.103
-WORKBENCH_GITHUB_OWNERS=<YOUR_GITHUB_USER>
+WORKBENCH_GITHUB_OWNERS=<github-user>
 WORKBENCH_GITHUB_READ_TOKEN=
 EOF
 chmod 600 .env
 ```
 
-*(If you created a discovery token in Step 2.4, paste it after `WORKBENCH_GITHUB_READ_TOKEN=`.)*
+*(If a discovery token was created in Step 2.4, paste it after `WORKBENCH_GITHUB_READ_TOKEN=`.)*
 
 ### 2.6 Build, Start, and Verify the Container
 
@@ -116,7 +116,7 @@ What happens inside the container (`Dockerfile` + `docker-compose.yml`):
 - Stage 1 (`node:22-slim`) compiles the React/TypeScript frontend (`web/dist`).
 - Stage 2 (`python:3.13-slim`) installs the Python package via `uv`, pre-populates `/etc/ssh/ssh_known_hosts` with GitHub's official SSH host keys (`docker/github_known_hosts`), mounts `./secrets/deploy_key` at `/root/.ssh/id_ed25519`, clones `workbench-data` into the persistent `workbench-data` Docker volume (`/data`), and starts `uvicorn` on port `8420`.
 
-Verify from your laptop browser (connected to the same Tailscale tailnet):
+Verify from a browser on the laptop (connected to the same Tailscale tailnet):
 - Open `http://100.101.102.103:8420/api/status` — confirm `"last_error": null` and `"last_good_commit"` is populated.
 - Open `http://100.101.102.103:8420` — confirm the Workbench UI loads. With MagicDNS on, `http://<server-name>:8420` works too.
 - Change one status in the dashboard and check that an `edit(<project-id>): ...` commit appears in `workbench-data` on GitHub (this proves the deploy key can push), then change it back.
@@ -127,7 +127,7 @@ To update the server after pulling new code changes in the future:
 cd ~/workbench && git pull && docker compose up -d --build
 ```
 
-The `workbench` command exists only inside the container, and the container has no laptop config, so run CLI commands (`workbench archive-empty`, `workbench set`, ...) on your laptop. The server picks up their commits on its next sync, or straight away when you press sync in the dashboard.
+The `workbench` command exists only inside the container, and the container has no laptop config, so run CLI commands (`workbench archive-empty`, `workbench set`, ...) on the laptop. The server picks up their commits on its next sync, or straight away when sync is pressed in the dashboard.
 
 **After a reboot:** Docker can start before Tailscale has assigned the server its `100.x.y.z` address. Binding to that address then fails with `cannot assign requested address` and the container does not come up. Reboot once to check. If it happens, make Docker wait for Tailscale with `sudo systemctl edit docker` and add:
 
@@ -141,7 +141,7 @@ Or use Tailscale Serve (below), which binds the container to `127.0.0.1` and avo
 
 ### 2.7 (Optional) HTTPS with Tailscale Serve
 
-[Tailscale Serve](https://tailscale.com/kb/1312/serve) can give the dashboard an `https://<server-name>.<tailnet>.ts.net` address with a real certificate, still reachable only from your tailnet.
+[Tailscale Serve](https://tailscale.com/kb/1312/serve) can give the dashboard an `https://<server-name>.<tailnet>.ts.net` address with a real certificate, still reachable only from the tailnet.
 
 1. Enable **HTTPS Certificates** in the Tailscale admin console (DNS page).
 2. **Check what Serve already publishes before adding anything:**
@@ -155,7 +155,7 @@ Or use Tailscale Serve (below), which binds the container to `127.0.0.1` and avo
    ```bash
    sudo tailscale serve --bg --https=443 http://127.0.0.1:8420
    ```
-5. Open `https://<server-name>.<tailnet>.ts.net` (add `:8443` or `:10000` if you used those). Remove it later with `sudo tailscale serve --https=443 off`.
+5. Open `https://<server-name>.<tailnet>.ts.net` (add `:8443` or `:10000` if one of those was used). Remove it later with `sudo tailscale serve --https=443 off`.
 
 Never put Workbench on **Funnel** (`tailscale funnel`): that publishes it on the internet, and the dashboard has no login of its own.
 
@@ -163,7 +163,7 @@ Never put Workbench on **Funnel** (`tailscale funnel`): that publishes it on the
 
 ## Step 3: Deploy the Server (Option B: Without Docker via `workbench serve`)
 
-If you prefer running the server directly on macOS or Linux without Docker:
+To run the server directly on macOS or Linux without Docker:
 
 1. **Build the frontend bundle and install the CLI tool:**
    ```bash
@@ -171,24 +171,24 @@ If you prefer running the server directly on macOS or Linux without Docker:
    (cd web && npm ci && npm run build)
    uv tool install --force .
    ```
-2. **Start the server bound to `127.0.0.1` (local Mac) or your Tailscale IP:**
+2. **Start the server bound to `127.0.0.1` (local Mac) or the server's Tailscale IP:**
    ```bash
-   export WORKBENCH_DATA_REMOTE="git@github.com:<YOUR_GITHUB_USER>/workbench-data.git"
-   export WORKBENCH_GITHUB_OWNERS="<YOUR_GITHUB_USER>"
+   export WORKBENCH_DATA_REMOTE="git@github.com:<github-user>/workbench-data.git"
+   export WORKBENCH_GITHUB_OWNERS="<github-user>"
    export WORKBENCH_POLL_SECONDS="600"
 
    workbench serve --host 127.0.0.1 --port 8420
    ```
-   `workbench serve` reads `data_repo_url` from `~/.workbench/config.toml` if `WORKBENCH_DATA_REMOTE` is not set, maintains its own clone in `~/.workbench/server`, and serves the built UI alongside the JSON API. Pass `--host <tailscale-ip>` to reach it from your other devices; never bind it to a public address.
+   `workbench serve` reads `data_repo_url` from `~/.workbench/config.toml` if `WORKBENCH_DATA_REMOTE` is not set, maintains its own clone in `~/.workbench/server`, and serves the built UI alongside the JSON API. Pass `--host <tailscale-ip>` to reach it from other devices; never bind it to a public address.
 3. **Keep it running:** `workbench serve` stops when the terminal closes. Run it under `systemd` (Linux) or `launchd` (macOS) to keep it up across logouts and reboots.
 
 If the dashboard page returns `404` and the server log says `Web UI not found`, the UI was not built before `uv tool install`: rebuild it (`cd web && npm run build`) and reinstall, or set `WORKBENCH_WEB_DIST` to a built `web/dist` folder.
 
 ---
 
-## Step 4: Set Up Your Laptop CLI & Agent Hooks
+## Step 4: Set Up the Laptop CLI & Agent Hooks
 
-On the Mac or Linux machine where you write code:
+On the Mac or Linux machine where code is written:
 
 1. **Install the `workbench` CLI globally:**
    ```bash
@@ -199,30 +199,30 @@ On the Mac or Linux machine where you write code:
    ```bash
    workbench setup
    ```
-   The wizard prompts you for:
-   - **Workbench data repository URL:** `git@github.com:<YOUR_GITHUB_USER>/workbench-data.git` (verified immediately with `git ls-remote`).
-   - **GitHub owner username(s):** `<YOUR_GITHUB_USER>`
-   - **Git author email(s):** Your commit email(s) (`git config user.email`) so local discovery only registers repositories you authored.
-   - **Local scan roots:** Directories where your code lives (e.g., `~/Documents, ~/code, ~/projects`).
+   The wizard prompts for:
+   - **Workbench data repository URL:** `git@github.com:<github-user>/workbench-data.git` (verified immediately with `git ls-remote`).
+   - **GitHub owner username(s):** `<github-user>`
+   - **Git author email(s):** The commit email(s) (`git config user.email`) so local discovery only registers repositories the user authored.
+   - **Local scan roots:** Directories where the code lives (e.g., `~/Documents, ~/code, ~/projects`).
    - **LLM privacy reviewer (default: no):** whether `workbench push` should also send changed text to Claude Haiku for a privacy check. The built-in secret, path and email scan runs either way. Change it later with `privacy_review` in `~/.workbench/config.toml`.
 
    It then clones `workbench-data` to `~/.workbench/data`, previews the exact hook and skill files it will write to `~/.claude`, `~/.gemini`, and `~/Library/LaunchAgents/com.workbench.discover.plist`, and asks for confirmation (`yes`).
-3. **Run your first local discovery scan:**
+3. **Run the first local discovery scan:**
    ```bash
    workbench discover --local
    ```
-   All Git repositories under your scan roots that match your Git email or GitHub username are registered in a single commit and appear on your dashboard with a **New** badge. The scheduled scan that `workbench setup` installs is a macOS `launchd` job; on Linux, run `workbench discover --local` yourself or from `cron`.
+   All Git repositories under the scan roots that match the configured Git email or GitHub username are registered in a single commit and appear on the dashboard with a **New** badge. The scheduled scan that `workbench setup` installs is a macOS `launchd` job; on Linux, run `workbench discover --local` manually or from `cron`.
 4. **(Optional) Enable Headless Background Agent Updates:**
-   To have per-message updates run in a background Haiku call (spending zero tokens in your interactive coding session), add to `~/.workbench/config.toml`:
+   To have per-message updates run in a background Haiku call (spending zero tokens in the interactive coding session), add to `~/.workbench/config.toml`:
    ```toml
    update_mode = "headless"
    updater_command = 'claude -p --model haiku --tools "" --strict-mcp-config --no-session-persistence'
    ```
    - The updater runs only after a message that changed files or made a commit; pure chat triggers nothing. It sends the last message, the reply, the project's entry and `git diff --stat` to `updater_command`.
-   - The coding session is never interrupted, and automatic reviews after commits stop: run `/workbench-review` yourself at milestones.
-   - Ideas the assistant offered but you did not agree to land in the project's **Inbox** on the dashboard (Keep / Dismiss) instead of the tree.
+   - The coding session is never interrupted, and automatic reviews after commits stop: run `/workbench-review` manually at milestones.
+   - Ideas the assistant offered but the user did not agree to land in the project's **Inbox** on the dashboard (Keep / Dismiss) instead of the tree.
    - Results go to `~/.workbench/logs/updater.log` and `workbench history --kind update`. To preview what it would record, run `workbench auto-update --transcript <session.jsonl> --dry-run` inside the project's repo.
-   - If you upgrade from an older version, reinstall the CLI (`uv tool install --force .`) so the hook runs the new code.
+   - After an upgrade from an older version, reinstall the CLI (`uv tool install --force .`) so the hook runs the new code.
 
 ---
 
@@ -237,7 +237,7 @@ On the Mac or Linux machine where you write code:
   ```bash
   workbench undo <commit-sha>
   ```
-- **Archiving empty discovered repositories you don't want on the Home grid:**
+- **Archiving empty discovered repositories that should not appear on the Home grid:**
   ```bash
   workbench archive-empty --dry-run
   workbench archive-empty --keep <project-id-to-keep>
