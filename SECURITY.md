@@ -26,8 +26,8 @@ Before any CLI command (`workbench push`, `workbench set`, `workbench add`, `wor
    - Personal email addresses (only `@example.com` and `@example.invalid` placeholder addresses are permitted).
 2. **Zero Secret Echoing:**
    - When a violation is detected, Workbench reports **only** the YAML field path and pattern identifier (e.g., `Privacy violation in 'phases[0].notes': detected aws_access_key`). The matched value is never printed to terminal output, logs, or HTTP error responses.
-3. **Optional Isolated LLM Privacy Review:**
-   - When `privacy_review = "auto"` or `"required"` in `~/.workbench/config.toml`, `workbench push` pipes the changed free-text fields to `reviewer_command` in an empty temporary directory. The default command runs Claude Haiku with all tools disabled (`--tools ""`) and no MCP servers, so the reviewer can only answer. A `reviewer_command` you set yourself is run as given. Quick updates (`workbench set` / `add`) and dashboard edits skip this step; the deterministic scan above always runs.
+3. **Optional Isolated LLM Privacy Review (opt-in, off by default):**
+   - Nothing is sent to an LLM for review unless you turn it on: `workbench setup` asks (default no), or set `privacy_review = "auto"` or `"required"` in `~/.workbench/config.toml`. Then `workbench push` pipes the changed free-text fields to `reviewer_command` in an empty temporary directory. The default command runs Claude Haiku with all tools disabled (`--tools ""`) and no MCP servers, so the reviewer can only answer. A `reviewer_command` you set yourself is run as given. Quick updates (`workbench set` / `add`) and dashboard edits skip this step; the deterministic scan above always runs.
 
 ---
 

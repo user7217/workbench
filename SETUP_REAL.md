@@ -204,6 +204,7 @@ On the Mac or Linux machine where you write code:
    - **GitHub owner username(s):** `<YOUR_GITHUB_USER>`
    - **Git author email(s):** Your commit email(s) (`git config user.email`) so local discovery only registers repositories you authored.
    - **Local scan roots:** Directories where your code lives (e.g., `~/Documents, ~/code, ~/projects`).
+   - **LLM privacy reviewer (default: no):** whether `workbench push` should also send changed text to Claude Haiku for a privacy check. The built-in secret, path and email scan runs either way. Change it later with `privacy_review` in `~/.workbench/config.toml`.
 
    It then clones `workbench-data` to `~/.workbench/data`, previews the exact hook and skill files it will write to `~/.claude`, `~/.gemini`, and `~/Library/LaunchAgents/com.workbench.discover.plist`, and asks for confirmation (`yes`).
 3. **Run your first local discovery scan:**

@@ -25,7 +25,9 @@ class WorkbenchLocalConfig:
     )
     github_owners: list[str] = field(default_factory=list)
     user_emails: list[str] = field(default_factory=list)
-    privacy_review: Literal["auto", "required", "off"] = "auto"
+    # LLM review of changed free text on `workbench push` is opt-in: "off" (default), "auto" (run
+    # reviewer_command when it is installed) or "required" (refuse to push without a review)
+    privacy_review: Literal["auto", "required", "off"] = "off"
     reviewer_command: str = DEFAULT_REVIEWER_COMMAND
     github_api_base: str = "https://api.github.com"
     # How the per-message Workbench update runs: "session" (the hook asks the agent to run the
@@ -76,9 +78,9 @@ def load_local_config(
     if not cfg_path.exists():
         return WorkbenchLocalConfig()
     data = tomllib.loads(cfg_path.read_text(encoding="utf-8"))
-    review_mode = data.get("privacy_review", "auto")
+    review_mode = data.get("privacy_review", "off")
     if review_mode not in ("auto", "required", "off"):
-        review_mode = "auto"
+        review_mode = "off"
     update_mode = data.get("update_mode", "session")
     if update_mode not in ("session", "headless", "off"):
         update_mode = "session"

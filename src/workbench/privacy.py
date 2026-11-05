@@ -210,7 +210,7 @@ def build_free_text_diff(
 
 def run_llm_privacy_reviewer(
     diff_text: str,
-    mode: str = "auto",
+    mode: str = "off",
     reviewer_command: str = DEFAULT_REVIEWER_COMMAND,
     timeout_seconds: float = 60.0,
     env: dict[str, str] | None = None,

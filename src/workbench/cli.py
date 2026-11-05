@@ -1792,6 +1792,11 @@ def cmd_setup(
     roots_raw = typer.prompt(
         "Local scan roots (comma-separated)", default="~/Documents, ~/code, ~/projects"
     ).strip()
+    llm_review = typer.confirm(
+        "Also send changed text to an LLM privacy reviewer (Claude Haiku) on `workbench push`? "
+        "The built-in secret and path scan always runs",
+        default=False,
+    )
 
     typer.echo(f"Checking repository access for {data_repo_url}...")
     if not ls_remote(data_repo_url):
@@ -1812,6 +1817,7 @@ def cmd_setup(
         scan_roots=roots,
         github_owners=owners,
         user_emails=emails,
+        privacy_review="auto" if llm_review else "off",
     )
     cfg_path = save_local_config(cfg, home_dir=target_home)
     typer.echo(f"Wrote configuration to {cfg_path}")

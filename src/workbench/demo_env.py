@@ -1305,7 +1305,7 @@ topics:
         scan_roots=[str(code_dir)],
         github_owners=["demouser"],
         user_emails=["demo@example.invalid"],
-        privacy_review="auto",
+        privacy_review="off",
         reviewer_command=DEFAULT_REVIEWER_COMMAND,
     )
     save_local_config(cfg, home_dir=laptop_home, env=env)

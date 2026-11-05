@@ -174,8 +174,12 @@ github_api_base = "https://api.github.com"
 update_mode = "session"
 updater_command = 'claude -p --model haiku --tools "" --strict-mcp-config --no-session-persistence'
 
-# LLM privacy review of changed free text on `workbench push`: "auto" | "required" | "off"
-privacy_review = "auto"
+# LLM privacy review of changed free text on `workbench push` (opt-in; the deterministic
+# secret/path scan always runs):
+#   "off"      (default) no LLM review; an unknown value also means "off"
+#   "auto"     run reviewer_command when its program is installed, else skip with a warning
+#   "required" refuse to push when the review fails or cannot run
+privacy_review = "off"
 reviewer_command = 'claude -p --model haiku --tools "" --strict-mcp-config --no-session-persistence'
 ```
 
