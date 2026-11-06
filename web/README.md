@@ -222,7 +222,7 @@ calls `dismissError()`.
 ## 4. Just want different colours?
 
 A new look is not needed for that: the default look takes every colour, radius and easing from the
-CSS variables at the top of `src/ui/styles.css` (`--bg-*`, `--text-*`, `--border*`, `--accent*`,
+CSS variables in `src/ui/styles/tokens.css` (`--bg-*`, `--text-*`, `--border*`, `--accent*`,
 `--status-*`, `--danger`, `--radius-*`). Edit them and rebuild.
 
 ## 5. Data contract

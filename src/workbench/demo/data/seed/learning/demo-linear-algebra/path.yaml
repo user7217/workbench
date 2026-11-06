@@ -1,0 +1,51 @@
+schema_version: 1
+id: demo-linear-algebra
+name: Applied Linear Algebra
+description: Orthogonal projections, singular value decomposition, spectral theorems, and numerical conditioning.
+status: paused
+updated: 2026-09-12
+references: []
+topics:
+  - id: subspaces-orthogonality
+    name: Four Fundamental Subspaces & QR
+    status: done
+    summary: Column space, nullspace, Gram-Schmidt orthogonalization, and Householder reflections.
+    references: []
+    subtopics:
+      - id: householder-qr
+        name: Householder Reflections for QR
+        status: done
+        summary: Numerically stable triangularization without loss of orthogonality.
+        references: []
+      - id: normal-equations
+        name: Orthogonal Projection & Least Squares
+        status: done
+        summary: Projecting incompatible measurement vectors onto the column space.
+        references: []
+  - id: svd
+    name: Singular Value Decomposition
+    status: in_progress
+    summary: Geometric interpretation of orthogonal input-output bases and rank-k approximations.
+    references: []
+    subtopics:
+      - id: pseudoinverse
+        name: Moore-Penrose Pseudoinverse
+        status: in_progress
+        summary: Minimum-norm least squares solutions for rank-deficient and ill-conditioned systems.
+        references: []
+      - id: eckart-young
+        name: Low-Rank Matrix Approximation
+        status: done
+        summary: Optimal spectral and Frobenius norm compression via truncated singular modes.
+        references: []
+  - id: eigen-spectral
+    name: Spectral Theorem & Positive Definite Matrices
+    status: not_started
+    summary: Cholesky factorization, Rayleigh quotients, and quadratic forms.
+    references: []
+    subtopics:
+      - id: cholesky-spd
+        name: Cholesky Decomposition & Conditioning
+        status: not_started
+        summary: Symmetric positive-definite solvers and ellipse principal axes.
+        references: []

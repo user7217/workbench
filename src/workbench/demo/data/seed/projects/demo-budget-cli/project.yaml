@@ -1,0 +1,67 @@
+schema_version: 1
+id: demo-budget-cli
+name: Plaintext Budget CLI
+description: Double-entry plain-text accounting ledger parser, multi-currency lot tracker, and terminal cashflow reporting suite.
+status: paused
+origin: agent
+updated: 2026-10-10
+uses_phases: true
+repos:
+  - github: demouser/budget-cli
+    root_commit: "{{root:budget-cli}}"
+    name: budget-cli
+links: []
+phases:
+  - id: core-ledger
+    name: Core Ledger Parser
+    status: done
+    summary: Parses journal files, include directives, and verifies balanced postings.
+    notes: ""
+    components:
+      - id: lexer-parser
+        name: Transaction parser
+        status: done
+        summary: Recursive descent parser for dated journal entries and metadata comments.
+        notes: ""
+        depends_on: []
+        links: []
+        refs: []
+      - id: balance-check
+        name: Multi-currency balance verifier
+        status: done
+        summary: Verifies zero-sum commodity lots and cost-basis conversions per transaction.
+        notes: ""
+        depends_on:
+          - lexer-parser
+        links: []
+        refs: []
+  - id: reports
+    name: Terminal Reports
+    status: parked
+    summary: Monthly register and hierarchical account tree formatting.
+    notes: Paused while deciding on commodity price history format.
+    components:
+      - id: tree-formatter
+        name: Account tree view
+        status: parked
+        summary: Hierarchical balance sheet output with ANSI color alignment.
+        notes: ""
+        depends_on:
+          - balance-check
+        links: []
+        refs: []
+  - id: importers
+    name: CSV Bank Importers
+    status: not_started
+    summary: Rule-based categorization of bank statement CSV exports into journal syntax.
+    notes: ""
+    components:
+      - id: csv-dedup
+        name: Fingerprint deduplicator
+        status: not_started
+        summary: Hashes date, payee, and amount to skip already-imported postings.
+        notes: ""
+        depends_on:
+          - lexer-parser
+        links: []
+        refs: []

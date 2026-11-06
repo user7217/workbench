@@ -1,0 +1,28 @@
+schema_version: 1
+id: demo-old-game
+name: Voxel Cavern Prototype
+description: Early experiment in procedural 3D cave generation, cellular automata erosion, and fixed-step DDA voxel raycasting.
+status: archived
+origin: manual
+updated: 2026-06-01
+uses_phases: true
+repos:
+  - github: demouser/old-game
+    root_commit: "{{root:old-game}}"
+    name: old-game
+links: []
+phases:
+  - id: prototype
+    name: Raycast Engine
+    status: done
+    summary: DDA voxel traversal in C with distance fog and point-light attenuation.
+    notes: Archived after exploring signed distance fields.
+    components:
+      - id: dda-caster
+        name: DDA traversal loop
+        status: done
+        summary: Fixed-step octree grid raycaster.
+        notes: ""
+        depends_on: []
+        links: []
+        refs: []

@@ -1,0 +1,167 @@
+/* Child projects: breadcrumb back to the parent, and rows listing children inside the parent */
+.project-breadcrumb {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.project-breadcrumb button {
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--accent-bright);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.project-breadcrumb button:hover {
+  text-decoration: underline;
+}
+
+.project-breadcrumb .crumb-sep {
+  margin: 0 6px;
+  color: var(--text-quiet);
+}
+
+/* Child project rows inside their parent (KindBadge + name + status + Open) */
+.child-project-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tier-2-subtopic-group > .child-project-list {
+  padding: 0 11px 8px;
+}
+
+.child-project-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  background: var(--bg-card);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  min-width: 0;
+  transition:
+    border-color 140ms var(--ease-out),
+    background-color 140ms var(--ease-out);
+}
+
+.child-project-row:hover {
+  background: var(--bg-card-hover);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.child-project-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.child-project-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.child-project-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent-bright);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.child-project-open:hover {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+.tree-child-project-row .tree-comp-name {
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+/* Nested components: indented, collapsed by default */
+.tier-2-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.nested-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.nested-toggle-btn:hover,
+.nested-toggle-btn.open {
+  color: var(--text-primary);
+  border-color: var(--border-strong);
+}
+
+.nested-toggle-caret {
+  width: 8px;
+  display: inline-flex;
+  justify-content: center;
+}
+
+.nested-comp-children {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0 8px 8px 18px;
+  padding-left: 8px;
+  border-left: 1px solid var(--border-strong);
+}
+
+.tier-2-subtopic-group.nested {
+  background: var(--bg-panel);
+}
+
+.tree-chevron-btn.xs {
+  width: 14px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.tree-nested-count {
+  margin-left: auto;
+  flex-shrink: 0;
+  min-width: 16px;
+  padding: 0 4px;
+  font-size: 10px;
+  line-height: 15px;
+  text-align: center;
+  color: var(--text-quiet);
+  background: var(--bg-elevated);
+  border-radius: 4px;
+}

@@ -87,7 +87,7 @@ Click any status icon to update it, click the pencil (`✎`) on any title, summa
    - `workbench-data` is the private data repository containing only `workbench.yaml`, `projects/<id>/project.yaml`, and `learning/<id>/path.yaml` (+ optional `topics/<item-id>.md` notes). The server never needs access to the source code repositories.
 2. **Root-Commit Repository Identity ([`src/workbench/identity.py`](src/workbench/identity.py)):**
    - Every repository is matched to its Workbench project by its initial commit SHA (`git rev-list --max-parents=0 HEAD`) and disambiguated by its `owner/repo` GitHub remote slug on forks. Moving or renaming a folder on disk never breaks its link.
-3. **Isolated Worktree Transactions ([`src/workbench/cli.py`](src/workbench/cli.py), [`src/workbench/server/writes.py`](src/workbench/server/writes.py)):**
+3. **Isolated Worktree Transactions ([`src/workbench/cli/`](src/workbench/cli/), [`src/workbench/server/writes/`](src/workbench/server/writes/)):**
    - Every CLI or web edit runs in a temporary Git worktree, validates the change, rebases onto `origin/main`, and pushes atomically.
 
 ---

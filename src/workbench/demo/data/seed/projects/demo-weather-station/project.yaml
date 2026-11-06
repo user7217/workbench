@@ -1,0 +1,145 @@
+schema_version: 1
+id: demo-weather-station
+name: Weather Station
+description: Solar-powered environmental telemetry node logging temperature, barometric pressure, humidity, and wind vectors over long-range sub-GHz radio.
+status: active
+origin: agent
+updated: 2026-10-20
+uses_phases: true
+repos:
+  - github: demouser/weather-station
+    root_commit: "{{root:weather-station}}"
+    name: weather-station
+links:
+  - label: Docs
+    url: https://example.com/weather-docs
+  - label: Schematics
+    url: https://example.com/weather-schematics
+phases:
+  - id: hardware
+    name: Hardware & Power
+    status: done
+    summary: Custom four-layer carrier board, sensor breakout headers, and LiFePO4 solar harvesting.
+    notes: Verified 3.3V LDO rail stability and reverse-polarity protection under cold soak.
+    components:
+      - id: sensor-board
+        name: Sensor board
+        status: done
+        summary: BME280 and SHT45 wired over redundant I2C bus with TVS diodes.
+        notes: Uses 0x76 primary address with hardware reset line.
+        depends_on: []
+        links:
+          - label: Datasheet
+            url: https://example.com/bme280
+        refs:
+          - "{{first:weather-station}}"
+      - id: solar-charger
+        name: Solar charger
+        status: done
+        summary: MPPT LiFePO4 charge controller and tilted anodized panel mount.
+        notes: Sustains continuous operation across seven overcast days.
+        depends_on:
+          - sensor-board
+        links: []
+        refs: []
+      - id: anemometer-frontend
+        name: Ultrasonic wind frontend
+        status: done
+        summary: Time-of-flight transducer driver and zero-crossing comparator.
+        notes: Calibrated in low-speed wind tunnel.
+        depends_on:
+          - sensor-board
+        links: []
+        refs: []
+  - id: firmware
+    name: Embedded Firmware
+    status: in_progress
+    summary: Deep-sleep RTOS sampling scheduler, ring buffer storage, and LoRa packet radio telemetry.
+    notes: Sleep current is down to 18 microamps with RTC wake timer enabled.
+    components:
+      - id: i2c-driver
+        name: I2C sensor driver
+        status: done
+        summary: Reads temperature, pressure, and humidity frames with CRC8 verification.
+        notes: Automatic bus recovery on stuck SDA line.
+        depends_on:
+          - sensor-board
+        links: []
+        refs:
+          - "{{last:weather-station}}"
+      - id: radio-tx
+        name: Radio transmitter
+        status: in_progress
+        summary: Framed LoRa packet transmission every 15 minutes with ACK retries.
+        notes: Working on adaptive spreading factor negotiation.
+        depends_on:
+          - i2c-driver
+          - solar-charger
+        links: []
+        refs: []
+      - id: flash-ringbuffer
+        name: SPI NOR ring buffer
+        status: done
+        summary: Wear-leveled circular log storing offline telemetry samples during link outages.
+        notes: ""
+        depends_on:
+          - i2c-driver
+        links: []
+        refs: []
+      - id: watchdog-supervisor
+        name: Hardware watchdog supervisor
+        status: in_progress
+        summary: Brownout detector and task heartbeat monitor.
+        notes: ""
+        depends_on:
+          - radio-tx
+        links: []
+        refs: []
+  - id: enclosure
+    name: Weatherproof Enclosure
+    status: not_started
+    summary: UV-stabilized radiation shield, Gore-Tex breather vent, and mast bracket.
+    notes: ""
+    components:
+      - id: radiation-shield
+        name: Radiation shield
+        status: not_started
+        summary: Stacked PETG louver plates for passive solar reflection and airflow.
+        notes: ""
+        depends_on:
+          - radio-tx
+        links: []
+        refs: []
+      - id: mast-clamp
+        name: Stainless mast mount
+        status: not_started
+        summary: Guy-wire collar and lightning arrestor ground lug.
+        notes: ""
+        depends_on:
+          - radiation-shield
+        links: []
+        refs: []
+  - id: base-receiver
+    name: Base Station & Ingestion
+    status: in_progress
+    summary: Indoor gateway daemon decoding LoRa frames into local time-series storage.
+    notes: ""
+    components:
+      - id: packet-decoder
+        name: Binary frame decoder
+        status: done
+        summary: Unpacks Reed-Solomon parity and validates sensor bounds.
+        notes: ""
+        depends_on:
+          - radio-tx
+        links: []
+        refs: []
+      - id: timeseries-writer
+        name: SQLite WAL archiver
+        status: in_progress
+        summary: Batches decoded readings into daily compressed partitions.
+        notes: ""
+        depends_on:
+          - packet-decoder
+        links: []
+        refs: []

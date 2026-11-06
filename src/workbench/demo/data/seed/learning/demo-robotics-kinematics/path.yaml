@@ -1,0 +1,51 @@
+schema_version: 1
+id: demo-robotics-kinematics
+name: Modern Robotics & Rigid-Body Kinematics
+description: Screw theory, product-of-exponentials forward kinematics, manipulator Jacobians, and closed-loop dynamics.
+status: active
+updated: 2026-10-15
+references: []
+topics:
+  - id: rigid-motions
+    name: Configuration Space & Rigid Motions
+    status: done
+    summary: Rotation matrices in SO3, homogeneous transformations in SE3, and twists.
+    references: []
+    subtopics:
+      - id: exponential-coords
+        name: Rodriques Formula & Matrix Exponential
+        status: done
+        summary: Axis-angle representation and Lie algebra so3 skew-symmetric matrices.
+        references: []
+      - id: screw-axes
+        name: Twists & Screw Displacements
+        status: done
+        summary: Chasles-Mozzi theorem and spatial velocity representations.
+        references: []
+  - id: poe-kinematics
+    name: Product of Exponentials Formula
+    status: in_progress
+    summary: Space-frame and body-frame forward kinematics without link reference frame clutter.
+    references: []
+    subtopics:
+      - id: space-poe
+        name: Space-Frame PoE Derivation
+        status: done
+        summary: Computing end-effector pose from home configuration M and joint screw axes.
+        references: []
+      - id: body-jacobian
+        name: Space & Body Manipulator Jacobians
+        status: in_progress
+        summary: Adjoint transformations, velocity ellipsoids, and kinematic singularities.
+        references: []
+  - id: numerical-ik
+    name: Numerical Inverse Kinematics
+    status: not_started
+    summary: Newton-Raphson iterations on SE3 matrix logarithms and damped pseudoinverses.
+    references: []
+    subtopics:
+      - id: se3-error-twist
+        name: Body-Frame Error Twist Convergence
+        status: not_started
+        summary: Driving spatial configuration error to zero with joint limit clamping.
+        references: []

@@ -5,7 +5,7 @@ Flow (update_mode = "headless" in ~/.workbench/config.toml):
     Stop / AfterAgent hook (hooks.py)
         files or HEAD changed since the last message -> write a job file, start
         `workbench auto-update --job <file>` in the background, never block the session
-    workbench auto-update (cli.py)
+    workbench auto-update (cli/agents.py)
         read the last exchange from the transcript, build a prompt with the project's full
         entry and the repo changes, run `updater_command` (prompt on stdin, JSON on stdout),
         check the reply, apply it in one worktree and push one `update(...)` commit

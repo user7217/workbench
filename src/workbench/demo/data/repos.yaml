@@ -1,0 +1,67 @@
+# Fake project repos created under <demo>/code/, in this order, each with real commits.
+# Seed YAML refers to their commits as {{root:<repo>}} (full root SHA) and
+# {{first:<repo>}} / {{last:<repo>}} (first / last commit, 12 characters).
+weather-station:
+  github: demouser/weather-station
+  files:
+    README.md: "# Weather Station\nSolar-powered sensor node.\n"
+    firmware/main.c: "int main() { return 0; }\n"
+  commits:
+    - message: "Add BME280 driver"
+      files:
+        firmware/bme280.c: "// I2C driver\n"
+robot-arm-firmware:
+  github: demouser/robot-arm-firmware
+  files:
+    README.md: "# Robot Arm Firmware\nStepper and encoder loop.\n"
+    src/motor.c: "// motor loop\n"
+  commits:
+    - message: "Add closed-loop PID"
+      files:
+        src/pid.c: "// pid controller\n"
+robot-arm-planner:
+  github: demouser/robot-arm-planner
+  files:
+    README.md: "# Robot Arm Planner\nInverse kinematics and trajectory planner.\n"
+    planner.py: "def solve_ik(): pass\n"
+budget-cli:
+  github: demouser/budget-cli
+  files:
+    README.md: "# Budget CLI\nDouble-entry ledger from terminal.\n"
+portfolio-site:
+  github: demouser/portfolio-site
+  files:
+    README.md: "# Portfolio Site\nStatic showcase.\n"
+old-game:
+  github: demouser/old-game
+  files:
+    README.md: "# Old Game\nRetro arcade experiment.\n"
+notes-sync:
+  github: demouser/notes-sync
+  files:
+    README.md: "# Notes Sync\nPlaintext note synchronizer.\n"
+home-lab-cluster:
+  github: demouser/home-lab-cluster
+  files:
+    README.md: "# Home Lab Cluster\nDeclarative NixOS and container stack.\n"
+esp32-audio-dsp:
+  github: demouser/esp32-audio-dsp
+  files:
+    README.md: "# ESP32 Audio Synth & Effects\nReal-time I2S parametric equalizer.\n"
+fpga-logic-analyzer:
+  github: demouser/fpga-logic-analyzer
+  files:
+    README.md: "# FPGA Logic Analyzer\nHigh-speed protocol capture over USB.\n"
+# Unregistered owned repo that discovery MUST register
+demo-habit-tracker:
+  github: demouser/demo-habit-tracker
+  files:
+    README.md: "# Habit Tracker\nMinimal CLI log.\n"
+# Third-party clone that discovery MUST NOT register
+third-party-lib:
+  github: external-org/third-party-lib
+  author:
+    name: Third Party
+    email: maintainer@thirdparty.example.invalid
+  files:
+    README.md: "# Third Party Lib\nUpstream library clone.\n"

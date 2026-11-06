@@ -1,0 +1,78 @@
+/* Learning status buttons, markdown notes, empty panes and the footer */
+.status-button-group {
+  display: flex;
+  gap: 5px;
+}
+
+.status-btn.active {
+  border-color: var(--accent);
+  color: var(--bg-app);
+  background: var(--accent);
+  font-weight: 600;
+}
+
+.markdown-body {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3 {
+  margin-top: 6px;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.empty-discovered-card,
+.empty-pane-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  color: var(--text-muted);
+}
+
+/* Footer Status Line */
+.footer-bar {
+  background: var(--bg-sidebar);
+  border-top: 1px solid var(--border);
+  padding: 6px 18px;
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.footer-main-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.footer-amber-banner {
+  color: var(--status-parked);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.toast-error {
+  position: fixed;
+  bottom: 44px;
+  right: 20px;
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--danger) 45%, transparent);
+  color: var(--danger);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  z-index: 100;
+}

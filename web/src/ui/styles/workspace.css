@@ -1,0 +1,148 @@
+/* THREE-PANEL COORDINATED RESIZABLE WORKSPACE (§4–§13) */
+.three-panel-workspace {
+  display: flex;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+}
+
+.responsive-panel-switcher {
+  display: none;
+}
+
+.workspace-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.panel-a-nav {
+  background: var(--bg-panel);
+  flex-shrink: 0;
+}
+
+.panel-b-contents {
+  background: var(--bg-panel-alt);
+  flex-shrink: 0;
+}
+
+.panel-c-visual {
+  flex: 1;
+  min-width: 300px;
+  background: var(--bg-app);
+}
+
+/* Draggable Vertical Resizer Dividers (§5) */
+.panel-resizer {
+  width: 6px;
+  margin: 0 -2px;
+  z-index: 20;
+  cursor: col-resize;
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.panel-resizer::after {
+  content: "";
+  width: 1px;
+  height: 100%;
+  background: var(--border);
+  transition:
+    background-color 140ms var(--ease-out),
+    width 140ms var(--ease-out);
+}
+
+.panel-resizer:hover::after,
+.panel-resizer.dragging::after {
+  width: 2px;
+  background: var(--accent);
+}
+
+/* Draggable Horizontal Divider Between Visual Overview and Context Section (§2) */
+.panel-resizer-horizontal {
+  height: 10px;
+  width: 100%;
+  cursor: row-resize;
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  z-index: 15;
+}
+
+.panel-resizer-horizontal::before {
+  content: "";
+  width: 100%;
+  height: 1px;
+  background: var(--border);
+  transition:
+    background-color 140ms var(--ease-out),
+    height 140ms var(--ease-out);
+}
+
+.panel-resizer-horizontal::after {
+  content: "";
+  position: absolute;
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  transition: background-color 140ms var(--ease-out);
+}
+
+.panel-resizer-horizontal:hover::before,
+.panel-resizer-horizontal.dragging::before {
+  height: 2px;
+  background: var(--accent);
+}
+
+.panel-resizer-horizontal:hover::after,
+.panel-resizer-horizontal.dragging::after {
+  background: var(--accent-bright);
+}
+
+.panel-sticky-header {
+  height: 40px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-panel);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.panel-header-title {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Independent Scroll Containers (§6, §13) */
+.panel-independent-scroll {
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}

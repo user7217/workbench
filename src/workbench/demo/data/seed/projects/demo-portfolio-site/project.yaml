@@ -1,0 +1,55 @@
+schema_version: 1
+id: demo-portfolio-site
+name: Personal Portfolio Site
+description: Minimal static engineering notebook for hardware schematics, PCB teardowns, and software architecture writeups.
+status: done
+origin: manual
+updated: 2026-09-15
+uses_phases: false
+repos:
+  - github: demouser/portfolio-site
+    root_commit: "{{root:portfolio-site}}"
+    name: portfolio-site
+links:
+  - label: Live Site
+    url: https://example.com/portfolio
+phases: []
+topics:
+  - id: design
+    name: Typography & Layout
+    status: done
+    summary: Clean dark stylesheet, interactive SVG schematic viewer, and code blocks.
+    notes: ""
+    components:
+      - id: article-layout
+        name: Article template
+        status: done
+        summary: Semantic HTML layout with sidenote margin annotations.
+        notes: ""
+        depends_on: []
+        links: []
+        refs: []
+      - id: schematic-pan-zoom
+        name: Interactive SVG schematic embed
+        status: done
+        summary: Pan-and-zoom netlist highlighting for hardware project posts.
+        notes: ""
+        depends_on:
+          - article-layout
+        links: []
+        refs: []
+  - id: deployment
+    name: Static Build Pipeline
+    status: done
+    summary: Automated static bundle generation and Atom feed syndication.
+    notes: ""
+    components:
+      - id: feed-generator
+        name: Atom feed builder
+        status: done
+        summary: Generates validated XML feed from article frontmatter.
+        notes: ""
+        depends_on:
+          - article-layout
+        links: []
+        refs: []

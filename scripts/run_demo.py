@@ -8,7 +8,7 @@ from pathlib import Path
 
 import uvicorn
 
-from workbench.demo_env import FakeGitHubServer, init_demo_environment
+from workbench.demo import FakeGitHubServer, init_demo_environment
 from workbench.gitops import make_isolated_git_env
 from workbench.server.app import create_app
 from workbench.server.sync import ServerState

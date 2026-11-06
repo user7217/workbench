@@ -1,0 +1,40 @@
+/* Design tokens of the default look: every colour, radius and easing. The rest of the look uses only these. */
+:root {
+  /* Neutral dark surfaces: color is reserved for meaning (status, selection) */
+  --bg-app: #0e0f13;
+  --bg-sidebar: #111218;
+  --bg-panel: #13151b;
+  --bg-panel-alt: #161820;
+  --bg-card: #1a1c25;
+  --bg-card-hover: #20232e;
+  --bg-elevated: #262a37;
+  --bg-selected: #15263a;
+
+  --border-subtle: #1e2129;
+  --border: #2b2f3c;
+  --border-strong: #3c4152;
+  --border-selected: var(--accent);
+
+  /* Text: every level stays comfortably readable on the darkest surface */
+  --text-primary: #f5f6f8;
+  --text-secondary: #ccd1da;
+  --text-muted: #a3abb8;
+  --text-quiet: #8b93a1;
+
+  /* Accent = selection, links, focus. Status colors = state, and nothing else */
+  --accent: #38bdf8;
+  --accent-bright: #7dd3fc;
+  --accent-strong: #0ea5e9;
+  --status-done: #34d399;
+  --status-in-progress: #fbbf24;
+  --status-not-started: #8b93a1;
+  --status-parked: #a78bfa;
+  --status-archived: #6b7280;
+  --status-planned: var(--status-not-started);
+  --danger: #f87171;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}

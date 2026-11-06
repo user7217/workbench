@@ -1,0 +1,58 @@
+# Fixture data for the fake GitHub server. root_commit_of names the repo in repos.yaml
+# whose root commit is reported as the entry's root_commit.
+owner: demouser
+repos:
+  - name: weather-station
+    full_name: demouser/weather-station
+    description: "Solar-powered sensor node that logs temperature and humidity."
+    fork: false
+    archived: false
+    root_commit_of: weather-station
+  - name: robot-arm-firmware
+    full_name: demouser/robot-arm-firmware
+    description: "Stepper and encoder loop."
+    fork: false
+    archived: false
+    root_commit_of: robot-arm-firmware
+  - name: robot-arm-planner
+    full_name: demouser/robot-arm-planner
+    description: "Inverse kinematics and trajectory planner."
+    fork: false
+    archived: false
+    root_commit_of: robot-arm-planner
+  - name: home-lab-cluster
+    full_name: demouser/home-lab-cluster
+    description: "Declarative NixOS and container stack."
+    fork: false
+    archived: false
+    root_commit_of: home-lab-cluster
+  - name: esp32-audio-dsp
+    full_name: demouser/esp32-audio-dsp
+    description: "Real-time I2S parametric equalizer."
+    fork: false
+    archived: false
+    root_commit_of: esp32-audio-dsp
+  - name: fpga-logic-analyzer
+    full_name: demouser/fpga-logic-analyzer
+    description: "High-speed protocol capture over USB."
+    fork: false
+    archived: false
+    root_commit_of: fpga-logic-analyzer
+  - name: demo-habit-tracker
+    full_name: demouser/demo-habit-tracker
+    description: "Minimal CLI habit log discovered from GitHub."
+    fork: false
+    archived: false
+    root_commit_of: demo-habit-tracker
+  - name: forked-upstream-tool
+    full_name: demouser/forked-upstream-tool
+    description: "Forked repo that should be skipped."
+    fork: true
+    archived: false
+    root_commit_of: third-party-lib
+  - name: archived-experiment
+    full_name: demouser/archived-experiment
+    description: "Archived repo that should be skipped."
+    fork: false
+    archived: true
+    root_commit_of: old-game

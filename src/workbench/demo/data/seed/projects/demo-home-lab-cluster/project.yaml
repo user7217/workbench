@@ -1,0 +1,115 @@
+schema_version: 1
+id: demo-home-lab-cluster
+name: Home Server & NixOS Fleet
+description: Declarative mini-PC cluster running ZFS encrypted storage, WireGuard/Tailscale mesh routing, automated restic snapshots, and local observability.
+status: active
+origin: agent
+updated: 2026-10-21
+uses_phases: true
+repos:
+  - github: demouser/home-lab-cluster
+    root_commit: "{{root:home-lab-cluster}}"
+    name: home-lab-cluster
+links:
+  - label: Network Topology
+    url: https://example.com/homelab-topology
+phases:
+  - id: base-os
+    name: Declarative Base OS
+    status: done
+    summary: Flake-based NixOS host definitions, ZFS root pools, and initrd SSH unlock.
+    notes: All three nodes boot identically from locked flake inputs.
+    components:
+      - id: zfs-storage-pool
+        name: ZFS mirrored nvme pool
+        status: done
+        summary: Native dataset encryption with hourly local snapshots and scrub timers.
+        notes: ""
+        depends_on: []
+        links: []
+        refs: []
+      - id: initrd-unlock
+        name: Headless initrd SSH unlock
+        status: done
+        summary: Dropbear initramfs listener for remote boot passphrase entry.
+        notes: ""
+        depends_on:
+          - zfs-storage-pool
+        links: []
+        refs: []
+      - id: sops-secrets
+        name: SOPS age secret provisioning
+        status: done
+        summary: Decrypts host service keys at activation time using ed25519 host keys.
+        notes: ""
+        depends_on:
+          - zfs-storage-pool
+        links: []
+        refs: []
+  - id: networking
+    name: Mesh Networking & Ingress
+    status: done
+    summary: Private overlay routing, split-horizon DNS, and internal TLS termination.
+    notes: ""
+    components:
+      - id: tailscale-subnet
+        name: Tailscale subnet router
+        status: done
+        summary: Advertises internal VLAN service routes with nftables ACL isolation.
+        notes: ""
+        depends_on:
+          - sops-secrets
+        links: []
+        refs: []
+      - id: coredns-split
+        name: Split-horizon CoreDNS
+        status: done
+        summary: Resolves internal hostnames to overlay addresses with DNSSEC forwarding.
+        notes: ""
+        depends_on:
+          - tailscale-subnet
+        links: []
+        refs: []
+      - id: caddy-reverse-proxy
+        name: Internal ACME reverse proxy
+        status: done
+        summary: DNS-01 wildcard certificates for zero-exposure local services.
+        notes: ""
+        depends_on:
+          - coredns-split
+        links: []
+        refs: []
+  - id: services
+    name: Self-Hosted Services
+    status: in_progress
+    summary: Git mirror, document archive, and off-site encrypted backup replication.
+    notes: ""
+    components:
+      - id: forgejo-mirror
+        name: Private Git mirror node
+        status: done
+        summary: Mirrors critical repositories and hosts local CI runners.
+        notes: ""
+        depends_on:
+          - caddy-reverse-proxy
+        links: []
+        refs: []
+      - id: restic-offsite
+        name: Offsite B2 backup job
+        status: in_progress
+        summary: Deduplicated nightly snapshots with automated restore verification.
+        notes: Testing monthly prune retention policy.
+        depends_on:
+          - zfs-storage-pool
+          - sops-secrets
+        links: []
+        refs: []
+      - id: ups-nut-daemon
+        name: UPS power shutdown coordinator
+        status: not_started
+        summary: USB HID battery monitor triggering clean ZFS export on low runtime.
+        notes: ""
+        depends_on:
+          - zfs-storage-pool
+        links: []
+        refs: []

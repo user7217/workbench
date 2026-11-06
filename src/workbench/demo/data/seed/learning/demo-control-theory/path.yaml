@@ -1,0 +1,40 @@
+schema_version: 1
+id: demo-control-theory
+name: Classical & State-Space Control
+description: Frequency-domain loop shaping, Nyquist stability margins, state observers, and linear quadratic regulators.
+status: done
+updated: 2026-08-20
+references: []
+topics:
+  - id: pid-stability
+    name: PID & Frequency-Domain Loop Shaping
+    status: done
+    summary: Lead-lag compensators, sensitivity transfer functions, and integrator anti-windup.
+    references: []
+    subtopics:
+      - id: bode-plots
+        name: Bode & Nyquist Stability Criterion
+        status: done
+        summary: Gain margin, phase margin, and encirclements of the critical point.
+        references: []
+      - id: anti-windup
+        name: Actuator Saturation & Back-Calculation
+        status: done
+        summary: Discharging integrator state during torque or voltage clamping.
+        references: []
+  - id: state-space-lqr
+    name: Controllability, LQR & Luenberger Observers
+    status: done
+    summary: Algebraic Riccati equation, pole placement, and separation principle.
+    references: []
+    subtopics:
+      - id: riccati-lqr
+        name: Infinite-Horizon LQR Cost Tradeoffs
+        status: done
+        summary: Balancing state excursion penalty Q against control effort R.
+        references: []
+      - id: kalman-duality
+        name: Observer Duality & Kalman Gain
+        status: done
+        summary: Optimal state estimation under process and measurement covariance.
+        references: []

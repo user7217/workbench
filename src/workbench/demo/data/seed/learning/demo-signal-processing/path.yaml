@@ -1,0 +1,77 @@
+schema_version: 1
+id: demo-signal-processing
+name: Signal Processing Basics
+description: Continuous-time sampling theory, discrete Fourier analysis, FIR and IIR digital filter design, and spectral estimation.
+status: active
+updated: 2026-10-01
+references: []
+topics:
+  - id: sampling
+    name: Sampling & Reconstruction
+    status: done
+    summary: Nyquist criterion, Dirac impulse trains, and sinc interpolation.
+    references: []
+    subtopics:
+      - id: aliasing
+        name: Aliasing & Folding
+        status: in_progress
+        summary: Why undersampling folds high frequencies into the discrete baseband.
+        references: []
+      - id: quantization
+        name: ADC Quantization Noise
+        status: done
+        summary: Signal-to-quantization-noise ratio, dithering, and oversampling.
+        references: []
+      - id: zero-order-hold
+        name: Zero-Order Hold & DAC Droop
+        status: done
+        summary: Sinc-envelope frequency roll-off and digital pre-emphasis compensation.
+        references: []
+  - id: dft-fft
+    name: Discrete Fourier Transform & FFT
+    status: done
+    summary: Circular convolution, spectral leakage, and Radix-2 butterfly decomposition.
+    references: []
+    subtopics:
+      - id: window-functions
+        name: Hann, Hamming & Blackman Windows
+        status: done
+        summary: Main-lobe width versus side-lobe attenuation tradeoffs.
+        references: []
+      - id: radix2-fft
+        name: Decimation-in-Time Radix-2 FFT
+        status: done
+        summary: Bit-reversal permutation and in-place twiddle factor butterflies.
+        references: []
+  - id: filters
+    name: Digital Filter Design
+    status: in_progress
+    summary: Linear-phase FIR windowing and IIR bilinear transform methods.
+    references: []
+    subtopics:
+      - id: fir-design
+        name: Windowed FIR Design
+        status: in_progress
+        summary: Linear-phase impulse response truncation with Kaiser windows.
+        references: []
+      - id: bilinear-iir
+        name: Bilinear Transform & Frequency Warping
+        status: not_started
+        summary: Mapping analog Butterworth and Chebyshev poles into the z-plane.
+        references: []
+      - id: biquad-stability
+        name: Fixed-Point Biquad Quantization
+        status: not_started
+        summary: Limit cycles, pole movement inside the unit circle, and noise shaping.
+        references: []
+  - id: spectral-estimation
+    name: Power Spectral Density & Welch Method
+    status: not_started
+    summary: Periodogram variance reduction via overlapping windowed segments.
+    references: []
+    subtopics:
+      - id: welch-averaging
+        name: Overlap-Add Periodogram Averaging
+        status: not_started
+        summary: Variance versus spectral resolution in noisy stationary signals.
+        references: []

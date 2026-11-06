@@ -1,0 +1,71 @@
+schema_version: 1
+id: demo-esp32-audio-dsp
+name: Parametric Audio DSP Engine
+description: Low-latency 24-bit I2S audio processor with biquad parametric EQ cascade, rotary encoder OLED interface, and WebUSB preset control.
+status: active
+origin: agent
+updated: 2026-10-19
+uses_phases: false
+repos:
+  - github: demouser/esp32-audio-dsp
+    root_commit: "{{root:esp32-audio-dsp}}"
+    name: esp32-audio-dsp
+links: []
+phases: []
+topics:
+  - id: audio-pipeline
+    name: Real-Time I2S Pipeline
+    status: done
+    summary: Double-buffered DMA audio transport and fixed-point biquad cascade.
+    notes: Round-trip latency measured at 2.6 milliseconds at 48 kHz sample rate.
+    components:
+      - id: i2s-dma-engine
+        name: Ping-pong I2S DMA driver
+        status: done
+        summary: Zero-copy stereo 24-bit audio capture and playback over PCM5102 DAC.
+        notes: ""
+        depends_on: []
+        links: []
+        refs: []
+      - id: biquad-cascade
+        name: Direct-Form II biquad cascade
+        status: done
+        summary: Eight-band parametric peaking and shelving filters with smooth coefficient ramping.
+        notes: ""
+        depends_on:
+          - i2s-dma-engine
+        links: []
+        refs: []
+      - id: limiter-stage
+        name: Lookahead soft-knee limiter
+        status: in_progress
+        summary: Prevents digital clipping after high-gain shelving boosts.
+        notes: ""
+        depends_on:
+          - biquad-cascade
+        links: []
+        refs: []
+  - id: panel-ui
+    name: Front Panel & Presets
+    status: in_progress
+    summary: SPI OLED spectrum analyzer, detented encoder navigation, and NVS preset slots.
+    notes: ""
+    components:
+      - id: oled-bode-plot
+        name: Live frequency response curve
+        status: done
+        summary: Evaluates composite transfer function magnitude on 128x64 monochrome display.
+        notes: ""
+        depends_on:
+          - biquad-cascade
+        links: []
+        refs: []
+      - id: preset-storage
+        name: Flash preset bank manager
+        status: in_progress
+        summary: Saves custom EQ curves per output headphone profile.
+        notes: ""
+        depends_on:
+          - oled-bode-plot
+        links: []
+        refs: []

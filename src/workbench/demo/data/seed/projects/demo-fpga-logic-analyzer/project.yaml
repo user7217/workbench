@@ -1,0 +1,62 @@
+schema_version: 1
+id: demo-fpga-logic-analyzer
+name: FPGA Protocol Logic Analyzer
+description: Lattice iCE40 gateware and host protocol decoder for capturing high-speed SPI, I2C, and UART traces with RLE compression.
+status: paused
+origin: manual
+updated: 2026-10-05
+uses_phases: false
+repos:
+  - github: demouser/fpga-logic-analyzer
+    root_commit: "{{root:fpga-logic-analyzer}}"
+    name: fpga-logic-analyzer
+links: []
+phases: []
+topics:
+  - id: gateware
+    name: Verilog Capture Gateware
+    status: done
+    summary: Synchronous input synchronizers, edge trigger comparator, and RLE FIFO.
+    notes: Synthesizes cleanly at 100 MHz sample clock on iCE40HX8K.
+    components:
+      - id: trigger-unit
+        name: Multi-channel pattern trigger
+        status: done
+        summary: Matches rising, falling, or level masks across 16 digital channels.
+        notes: ""
+        depends_on: []
+        links: []
+        refs: []
+      - id: rle-encoder
+        name: Run-length stream compressor
+        status: done
+        summary: Compresses idle bus periods into timestamped run counts inside BRAM FIFO.
+        notes: ""
+        depends_on:
+          - trigger-unit
+        links: []
+        refs: []
+  - id: host-decoder
+    name: Host Stream & Protocol Decoders
+    status: parked
+    summary: FTDI synchronous FIFO reader and protocol frame annotations.
+    notes: ""
+    components:
+      - id: spi-decoder
+        name: SPI transaction analyzer
+        status: done
+        summary: Reconstructs MOSI and MISO byte streams framed by chip-select edges.
+        notes: ""
+        depends_on:
+          - rle-encoder
+        links: []
+        refs: []
+      - id: vcd-exporter
+        name: Value Change Dump writer
+        status: parked
+        summary: Exports captured waveforms for inspection in GTKWave and Surfer.
+        notes: ""
+        depends_on:
+          - spi-decoder
+        links: []
+        refs: []

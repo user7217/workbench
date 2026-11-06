@@ -1,0 +1,217 @@
+/* ============================================================================
+   §12 & Refinement §3, §4: Concise Hierarchy (Phases/Topics -> Subtopics -> Items)
+   ============================================================================ */
+.centre-phases-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* LEVEL 1: Topic / Phase Major Section */
+.tier-1-phase-section {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.24);
+}
+
+.tier-1-phase-section.active-phase-card {
+  border-color: var(--border-strong);
+}
+
+.tier-1-phase-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 11px 14px;
+  background: var(--bg-card-hover);
+  cursor: pointer;
+  border-bottom: 1px solid var(--border);
+  gap: 10px;
+}
+
+.tier-1-header-main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.tier-1-kicker-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tier-1-kicker-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--text-muted);
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.tier-1-kicker-badge.accent {
+  color: var(--accent-bright);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.tier-1-phase-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.tier-1-phase-summary {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* LEVEL 2: Indented Concise Subtopic Containers (§3) */
+.tier-2-subtopics-Indent {
+  padding: 9px 12px 11px 18px;
+  margin-left: 11px;
+  border-left: 1.5px solid var(--border-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tier-2-subtopic-group {
+  background: var(--bg-panel-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transition:
+    background-color 140ms var(--ease-out),
+    border-color 140ms var(--ease-out);
+}
+
+.tier-2-subtopic-group:hover {
+  background: var(--bg-card);
+  border-color: var(--border-strong);
+}
+
+.tier-2-subtopic-group.selected {
+  background: var(--bg-selected);
+  border-color: var(--accent);
+}
+
+.tier-2-subtopic-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 8px 11px;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.tier-2-header-left {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+  flex: 1;
+}
+
+.tier-2-text-col {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.tier-2-subtopic-title {
+  font-weight: 600;
+  font-size: 12px;
+  color: var(--text-primary);
+  line-height: 1.3;
+}
+
+/* Concise 1-2 line truncated subtopic description (§3) */
+.tier-2-subtopic-desc {
+  margin: 0;
+  font-size: 11.5px;
+  color: var(--text-muted);
+  line-height: 1.38;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* LEVEL 3: Compact On-Demand Individual Item Rows beneath a Subtopic */
+.tier-3-items-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 6px 10px 8px 26px;
+  background: var(--bg-sidebar);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.tier-3-item-row {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  font-size: 11.5px;
+  color: var(--text-secondary);
+}
+
+.tier-3-item-row.clickable {
+  cursor: pointer;
+}
+
+.tier-3-item-row.clickable:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--text-primary);
+}
+
+.tier-3-branch-line {
+  color: var(--text-quiet);
+  font-family: monospace;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.tier-3-item-kind {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-quiet);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tier-3-item-text {
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.ghost-sm-btn {
+  font-size: 11px;
+  padding: 2px 7px;
+  background: transparent;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.card-repos {
+  font-size: 11px;
+  color: var(--text-quiet);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}

@@ -1,0 +1,102 @@
+/* Status menu: the status icon is a button; a small popover lists the allowed statuses */
+.status-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 1px;
+  margin: -1px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  color: var(--text-secondary);
+  font: inherit;
+  cursor: pointer;
+  transition:
+    border-color 120ms var(--ease-out),
+    background-color 120ms var(--ease-out);
+}
+
+.status-menu-trigger:hover:not(:disabled),
+.status-menu-trigger.open {
+  border-color: var(--border-strong);
+  background: var(--bg-elevated);
+}
+
+.status-menu-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.status-menu-trigger:disabled {
+  cursor: progress;
+}
+
+.status-menu-trigger.busy {
+  opacity: 0.55;
+}
+
+.status-menu-trigger.pill {
+  padding: 3px 8px;
+  margin: 0;
+  border-radius: var(--radius-sm);
+  border-color: var(--border);
+  background: var(--bg-card);
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.status-menu-caret {
+  color: var(--text-quiet);
+  font-size: 10px;
+  line-height: 1;
+  margin-top: -3px;
+}
+
+.status-menu-popover {
+  position: fixed;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+.status-menu-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 28px;
+  padding: 0 8px;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  text-align: left;
+}
+
+.status-menu-option:hover,
+.status-menu-option:focus-visible {
+  outline: none;
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+
+.status-menu-option.current {
+  color: var(--text-primary);
+  font-weight: 600;
+  background: var(--bg-selected);
+}
+
+.header-status-control {
+  margin-left: auto;
+  flex-shrink: 0;
+  align-self: flex-start;
+}
