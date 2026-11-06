@@ -133,7 +133,7 @@ cd ~/workbench && git pull && docker compose up -d --build
 cd ~/workbench && git pull && docker compose pull && docker compose up -d
 ```
 
-`git pull` keeps `docker-compose.yml` in step with the image. A newly published GHCR package is private until its visibility is set to public (GitHub → Packages → `workbench` → Package settings); until then the server needs `docker login ghcr.io` with a token that can read packages. `docker compose up -d --build` still builds from the checkout and tags the result with the same name.
+`git pull` keeps `docker-compose.yml` in step with the image. The image is public (it takes the visibility of the public repository), so pulling needs no login; a fork's image may start private, in which case set it to public under the package's page → Package settings, or `docker login ghcr.io` on the server. `docker compose up -d --build` still builds from the checkout and tags the result with the same name.
 
 The `workbench` command exists only inside the container, and the container has no laptop config, so run CLI commands (`workbench archive-empty`, `workbench set`, ...) on the laptop. The server picks up their commits on its next sync, or straight away when sync is pressed in the dashboard.
 

@@ -66,7 +66,7 @@ On an up-to-date `main` with a clean working tree:
   ```
 - **After publishing:** do not reuse the version. Fix the problem and release the next patch version (`0.2.1`), with the fix under **Fixed**.
 
-The first published image creates a private `workbench` package on GHCR. Set it to public once under GitHub → Packages → `workbench` → Package settings, so servers can pull it without logging in.
+The first published image creates the `workbench` package on GHCR. The workflow links it to this repository, so it takes the repository's visibility: public here, so servers pull it without logging in. A package that shows as private can be made public under its page → Package settings → Change visibility.
 
 ## 5. Not Yet Automated
 
