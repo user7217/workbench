@@ -136,7 +136,7 @@ def get_head_commit(
 
 
 def get_root_commit(repo_dir: Path, env: dict[str, str] | None = None) -> str | None:
-    """Get canonical root commit SHA (lexicographically smallest if multiple roots, §5.4).
+    """Get canonical root commit SHA (lexicographically smallest if multiple roots).
 
     Returns None if the repository has no commits yet.
     """

@@ -1,4 +1,4 @@
-"""GitHub REST API discovery via httpx (§10.3)."""
+"""GitHub REST API discovery via httpx."""
 
 from __future__ import annotations
 
@@ -66,7 +66,7 @@ def fetch_github_candidates(
     api_base: str = "https://api.github.com",
     client: httpx.Client | None = None,
 ) -> tuple[list[DiscoveredRepoCandidate], GitHubDiscoveryResult]:
-    """Query GitHub REST API for non-fork, non-archived repos and their root commits (§10.3)."""
+    """Query GitHub REST API for non-fork, non-archived repos and their root commits."""
     result = GitHubDiscoveryResult()
     candidates: list[DiscoveredRepoCandidate] = []
     base = api_base.rstrip("/")
@@ -107,7 +107,7 @@ def fetch_github_candidates(
                 for repo in repos_page:
                     if not isinstance(repo, dict):
                         continue
-                    # Skip forks and archived repos by default (§10.3)
+                    # Skip forks and archived repos by default
                     if repo.get("fork") or repo.get("archived"):
                         continue
                     repo_name = str(repo.get("name", "")).strip()
@@ -181,7 +181,7 @@ def run_github_discovery(
     env: dict[str, str] | None = None,
     client: httpx.Client | None = None,
 ) -> GitHubDiscoveryResult:
-    """Run GitHub discovery and register unknown repositories in a single commit (§10.3)."""
+    """Run GitHub discovery and register unknown repositories in a single commit."""
     candidates, res = fetch_github_candidates(
         github_owners=github_owners,
         token=token,

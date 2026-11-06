@@ -2,7 +2,7 @@
 import { useWorkbench } from "@workbench-core";
 import { UnifiedLearningCard, UnifiedProjectCard } from "../components/HomeCards";
 
-// Home View — Unified project & learning grids without separate status sections (§2)
+// Home View — Unified project & learning grids without separate status sections
 export function HomePage() {
   const {
     showArchived: buildingArchivedOpen,

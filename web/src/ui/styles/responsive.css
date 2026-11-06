@@ -1,4 +1,4 @@
-/* Responsive Breakpoint for Narrower Viewports (§9) */
+/* Responsive Breakpoint for Narrower Viewports */
 @media (max-width: 1080px) {
   .three-panel-workspace {
     flex-direction: column;

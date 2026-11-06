@@ -1,4 +1,4 @@
-"""Dashboard write path on the server: status edits committed to the data repo (§10.2).
+"""Dashboard write path on the server: status edits committed to the data repo.
 
 Every edit goes through `_commit_edit` (in `_transaction`), which holds the repo lock for
 the whole operation, edits one YAML file in a fresh worktree cut from origin/<branch>,

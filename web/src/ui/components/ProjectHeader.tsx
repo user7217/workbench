@@ -20,7 +20,7 @@ import { KindBadge, StatusNodeGlyph } from "./status";
 import { ParentControl } from "./StructureControls";
 import { SuggestionsInbox } from "./SuggestionsInbox";
 
-// Project Summary Header — status badges removed per §1
+// Project Summary Header (no status badge)
 export function ProjectHeader({ project: activeProject }: { project: Project }) {
   const wb = useWorkbench();
   const {

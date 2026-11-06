@@ -18,7 +18,7 @@ import { ProjectVisualPanel } from "../components/ProjectVisualPanel";
 import { MAX_CONTENTS_WIDTH, MIN_CONTENTS_WIDTH } from "../layoutPrefs";
 import { useLook } from "../lookState";
 
-// Building Workspace — Three Coordinated Resizable Panels + Optional Phases + Adjustable Context Panel (§1–§5)
+// Building Workspace — Three Coordinated Resizable Panels + Optional Phases + Adjustable Context Panel
 export function ProjectPage() {
   const wb = useWorkbench();
   const { isPending, selectProject, activeProject, activePhase } = wb;

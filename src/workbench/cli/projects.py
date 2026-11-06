@@ -319,7 +319,7 @@ def cmd_push(
         False, "--allow-removals", help="Allow removing existing IDs or >30% content deletion"
     ),
 ) -> None:
-    """Validate, privacy-check, commit, rebase, and push changes from a worktree (§8).
+    """Validate, privacy-check, commit, rebase, and push changes from a worktree.
 
     The commit is filed as `review(<project>): <message>` (scope omitted when several entries
     changed); a message that already uses a standard kind, e.g. `update(x/y): ...`, is kept.

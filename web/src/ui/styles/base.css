@@ -28,7 +28,7 @@ body,
   -webkit-font-smoothing: antialiased;
 }
 
-/* Prevent accidental text selection while dragging panel dividers (§2, §5) */
+/* Prevent accidental text selection while dragging panel dividers */
 body.is-resizing-panels,
 body.is-resizing-panels * {
   user-select: none !important;

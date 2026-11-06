@@ -1,4 +1,4 @@
-"""Structural and privacy validation for Workbench metadata files and repositories (§6)."""
+"""Structural and privacy validation for Workbench metadata files and repositories."""
 
 from __future__ import annotations
 
@@ -43,7 +43,7 @@ def _format_pydantic_error(err: ValidationError, prefix: str = "") -> list[str]:
 
 
 def is_allowed_repo_relative_path(rel_path: str) -> bool:
-    """Return True if rel_path is an allowed path inside workbench-data (§4.2)."""
+    """Return True if rel_path is an allowed path inside workbench-data."""
     parts = Path(rel_path).parts
     if not parts:
         return False
@@ -70,7 +70,7 @@ def is_allowed_repo_relative_path(rel_path: str) -> bool:
 
 
 def validate_changed_paths(rel_paths: list[str]) -> ValidationResult:
-    """Verify that every changed path is permitted by §4.2."""
+    """Verify that every changed path is an allowed path."""
     res = ValidationResult()
     for rel in rel_paths:
         norm = rel.strip("/")

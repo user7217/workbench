@@ -1,4 +1,4 @@
-"""Local filesystem repository discovery (§8)."""
+"""Local filesystem repository discovery."""
 
 from __future__ import annotations
 
@@ -68,7 +68,7 @@ def is_repo_owned_by_user(
     user_emails: list[str],
     env: dict[str, str] | None = None,
 ) -> bool:
-    """Return True if remote owner is in github_owners OR at least one commit was authored by user_emails (§8)."""
+    """Return True if remote owner is in github_owners OR at least one commit was authored by user_emails."""
     owners_lower = {o.lower() for o in github_owners if o}
     emails_lower = {e.lower() for e in user_emails if e}
 
@@ -100,7 +100,7 @@ def scan_local_candidates(
         for repo_dir in find_git_repos_under(root_path, max_depth=max_depth):
             root_commit, github_slug, repo_name = resolve_local_repo_identity(repo_dir, env=env)
             if not root_commit:
-                # Ignore repos with no commits until their first commit (§5.4, §14)
+                # Ignore repos with no commits until their first commit
                 continue
             if root_commit in seen_roots:
                 continue

@@ -49,7 +49,7 @@ def cmd_new(
         "active", "--status", help="Initial status: planned, active, paused, done, archived"
     ),
 ) -> None:
-    """Create a project with no repo, or a learning path, by hand (§8)."""
+    """Create a project with no repo, or a learning path, by hand."""
     if (parent is None) != (under is None):
         typer.echo("Error: --parent and --under must be given together.", err=True)
         raise typer.Exit(code=1)

@@ -76,7 +76,7 @@ def build_minimal_discovered_project_map(
     candidate: DiscoveredRepoCandidate,
     today: datetime.date | None = None,
 ) -> CommentedMap:
-    """Create a round-trip CommentedMap for a newly discovered project (§5.1)."""
+    """Create a round-trip CommentedMap for a newly discovered project."""
     d = today or datetime.date.today()
     cm = CommentedMap()
     cm["schema_version"] = 1

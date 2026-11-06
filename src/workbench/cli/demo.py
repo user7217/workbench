@@ -17,6 +17,6 @@ def cmd_demo_init(
         ..., help="Directory where artificial demo environment will be created"
     ),
 ) -> None:
-    """Create the artificial demo environment with bare remote, fake HOME, and fake repos (§11)."""
+    """Create the artificial demo environment with bare remote, fake HOME, and fake repos."""
     info = init_demo_environment(directory)
     typer.echo(f"Initialized demo environment at {info['base_dir']}")

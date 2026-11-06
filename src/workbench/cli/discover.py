@@ -15,7 +15,7 @@ app = typer.Typer()
 def cmd_discover(
     local: bool = typer.Option(True, "--local", help="Scan configured local roots"),
 ) -> None:
-    """Scan local folders and register unknown owned repositories (§8)."""
+    """Scan local folders and register unknown owned repositories."""
     data_dir = _get_data_repo_dir()
     cfg = load_local_config()
     try:

@@ -1,4 +1,4 @@
-"""Build the artificial demo environment (§11) from the data files under data/.
+"""Build the artificial demo environment from the data files under data/.
 
 data/repos.yaml lists the fake code repos, data/seed/ mirrors the seeded workbench-data repo,
 and data/github_fixtures.yaml feeds the fake GitHub server. Seed YAML names commits of the
@@ -138,7 +138,7 @@ def _github_fixtures(commits: RepoCommits) -> dict[str, Any]:
 
 
 def init_demo_environment(base_dir: Path) -> dict[str, Any]:
-    """Build the complete artificial Workbench environment under base_dir (§11)."""
+    """Build the complete artificial Workbench environment under base_dir."""
     base_dir = base_dir.resolve()
     remote_bare = base_dir / "remote" / "workbench-data.git"
     laptop_home = base_dir / "laptop"

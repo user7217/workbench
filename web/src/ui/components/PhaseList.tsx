@@ -127,7 +127,7 @@ export function PhaseList({ project: activeProject }: { project: Project }) {
 
             {!isCollapsed &&
               (comps.length > 0 || childProjectsAt(activeProject.id, ph.id).length > 0) && (
-                /* LEVEL 2: Concise Subtopic Cards (name + 1-2 line description; extra details on demand per §3) */
+                /* LEVEL 2: Concise Subtopic Cards (name + 1-2 line description; extra details on demand) */
                 <div className="tier-2-subtopics-Indent">
                   <ChildProjectRows parentId={activeProject.id} slotId={ph.id} />
                   {comps.map((comp) => (

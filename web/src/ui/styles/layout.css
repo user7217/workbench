@@ -1,4 +1,4 @@
-/* App Shell — Locked 100vh viewport for independent panel scrolling (§6) */
+/* App Shell — Locked 100vh viewport for independent panel scrolling */
 .workbench-layout {
   display: flex;
   height: 100vh;
@@ -7,7 +7,7 @@
   background: var(--bg-app);
 }
 
-/* Left Sidebar — Compact, readable, collapsible (§3) */
+/* Left Sidebar — Compact, readable, collapsible */
 .sidebar {
   width: 220px;
   min-width: 220px;

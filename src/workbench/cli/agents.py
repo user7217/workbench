@@ -43,7 +43,7 @@ def cmd_hook_check(
         False, "--mark-seen", help="Record current repo HEAD as seen without prompting"
     ),
 ) -> None:
-    """Agent Stop hook entry point (§9.3)."""
+    """Agent Stop hook entry point."""
     if mark_seen:
         mark_repo_seen(Path.cwd())
         return

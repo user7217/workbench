@@ -7,7 +7,7 @@ import { EditableField } from "./Editing";
 import { StatusMenu } from "./StatusMenu";
 import { KindBadge, StatusNodeGlyph } from "./status";
 
-// Learning Path Header — status badges removed per §1
+// Learning Path Header (no status badge)
 export function LearningHeader({ learningPath: activeLp }: { learningPath: LearningPath }) {
   const wb = useWorkbench();
   const { isPending, selectProject, selectLearningPath, activeTopic } = wb;

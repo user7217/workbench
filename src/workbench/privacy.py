@@ -1,4 +1,4 @@
-"""Deterministic privacy scanning and isolated LLM privacy reviewer (§7)."""
+"""Deterministic privacy scanning and isolated LLM privacy reviewer."""
 
 from __future__ import annotations
 
@@ -215,7 +215,7 @@ def run_llm_privacy_reviewer(
     timeout_seconds: float = 60.0,
     env: dict[str, str] | None = None,
 ) -> ReviewerResult:
-    """Run the external LLM privacy reviewer in an isolated empty temporary directory (§7.2)."""
+    """Run the external LLM privacy reviewer in an isolated empty temporary directory."""
     if mode == "off" or not diff_text.strip():
         return ReviewerResult(verdict="skipped")
 

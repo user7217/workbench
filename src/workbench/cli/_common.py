@@ -137,7 +137,7 @@ def _push_worktree(
             typer.echo("Workbench: no changes to push (worktree removed).")
         return None
 
-    # 1. Check allowed paths (§4.2, §6.1)
+    # 1. Check allowed paths
     path_res = validate_changed_paths(changed_files)
     if not path_res.ok:
         for err in path_res.errors:
@@ -182,7 +182,7 @@ def _push_worktree(
                 all_errors.append(f"{rel_path}: YAML root must be a mapping")
                 continue
 
-            # Check if agent edited `updated` or `origin` (§6.3)
+            # Check if agent edited `updated` or `origin`
             expected_prev_updated = (
                 old_plain.get("updated") if old_plain is not None else baseline_info.get("updated")
             )
@@ -276,7 +276,7 @@ def _push_worktree(
             typer.echo(f"Validation error: {err}", err=True)
         raise typer.Exit(code=1)
 
-    # 3. LLM privacy reviewer on free-text changes (§7.2)
+    # 3. LLM privacy reviewer on free-text changes
     full_ft_diff = "\n".join(combined_free_text_diffs)
     if llm_review and full_ft_diff.strip():
         rev_res = run_llm_privacy_reviewer(

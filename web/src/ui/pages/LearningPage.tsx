@@ -12,7 +12,7 @@ import { PanelResizer } from "../components/PanelResizer";
 import { MAX_CONTENTS_WIDTH, MIN_CONTENTS_WIDTH } from "../layoutPrefs";
 import { useLook } from "../lookState";
 
-// Learning Workspace — Three Coordinated Resizable Panels + Adjustable Context Panel (§1–§5)
+// Learning Workspace — Three Coordinated Resizable Panels + Adjustable Context Panel
 export function LearningPage() {
   const { activeLearningPath: activeLp, activeLearningItem } = useWorkbench();
   const { panelWidths, mobilePanel } = useLook();

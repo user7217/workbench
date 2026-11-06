@@ -30,7 +30,7 @@ function InspectorSection({
   );
 }
 
-// Selected Item Detail Card (shown on demand when an item is explicitly opened per §3)
+// Selected Item Detail Card (shown on demand when an item is explicitly opened)
 export function ComponentInspector({ project: activeProject }: { project: Project }) {
   const wb = useWorkbench();
   const { isPending, selectProject, clearComponentSelection } = wb;

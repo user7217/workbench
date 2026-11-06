@@ -1,4 +1,4 @@
-"""FastAPI application serving the Workbench JSON API, background sync loop, and static UI (§10.2)."""
+"""FastAPI application serving the Workbench JSON API, background sync loop, and static UI."""
 
 from __future__ import annotations
 
@@ -54,7 +54,7 @@ def _default_web_dist() -> Path:
 
 
 def _require_write_headers(request: Request) -> None:
-    """Enforce X-Workbench: 1 and Content-Type: application/json on write endpoints (§10.2)."""
+    """Enforce X-Workbench: 1 and Content-Type: application/json on write endpoints."""
     if request.headers.get("x-workbench") != "1":
         raise HTTPException(status_code=403, detail="Missing or invalid X-Workbench header")
     ct = request.headers.get("content-type", "")
@@ -158,7 +158,7 @@ def create_app(
 
     @contextlib.asynccontextmanager
     async def lifespan(app_instance: FastAPI):
-        # Step 6 (§10.1): On startup, load snapshot.json if present, then sync immediately
+        # On startup, load snapshot.json if present, then sync immediately
         state.load_snapshot_from_disk()
         if state.remote_url:
             await asyncio.to_thread(state.sync_once)
@@ -212,7 +212,7 @@ def create_app(
                 with contextlib.suppress(asyncio.CancelledError):
                     await bg_task
 
-    # Note: No CORSMiddleware is added (§10.2: "no CORS is enabled")
+    # No CORSMiddleware: the API is same-origin only
     app = FastAPI(title="Workbench Server", lifespan=lifespan)
     app.state.workbench = state
 

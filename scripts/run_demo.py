@@ -1,4 +1,4 @@
-"""Start a local Workbench server backed by isolated artificial demo data (§11, §15)."""
+"""Start a local Workbench server backed by isolated artificial demo data."""
 
 from __future__ import annotations
 

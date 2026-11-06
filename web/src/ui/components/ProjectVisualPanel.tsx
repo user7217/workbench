@@ -17,7 +17,7 @@ import { ItemStatusMenu } from "./ItemStatusMenu";
 import { PanelResizer } from "./PanelResizer";
 import { VisualGraph } from "./VisualGraph";
 
-// PANEL C: Visual Project Overview + Adjustable Contextual Panel Beneath It (§2, §3, §4)
+// PANEL C: Visual Project Overview + Adjustable Contextual Panel Beneath It
 export function ProjectVisualPanel() {
   const { selection, childIndex, selectProject, openProjectAt, activeProject, activePhase } =
     useWorkbench();
@@ -99,14 +99,14 @@ export function ProjectVisualPanel() {
 
             {activePhase && (
               <>
-                {/* Draggable Horizontal Divider Between Visual Overview and Context Section (§2) */}
+                {/* Draggable Horizontal Divider Between Visual Overview and Context Section */}
                 <PanelResizer
                   which="horizontal"
                   label="Resize visual overview and contextual section"
                   title="Drag to resize visual overview and contextual section (double-click to reset)"
                 />
 
-                {/* Independently Scrollable Contextual Panel Beneath Visual Overview (§2, §3, §13) */}
+                {/* Independently Scrollable Contextual Panel Beneath Visual Overview */}
                 <div className="visual-context-panel" data-testid="visual-context-panel">
                   <div
                     data-testid="panel-c-scroll"
@@ -140,7 +140,7 @@ export function ProjectVisualPanel() {
                       )}
                     </div>
 
-                    {/* Concise Subtopics (name + 1-2 line description; items shown on demand per §3) */}
+                    {/* Concise Subtopics (name + 1-2 line description; items shown on demand) */}
                     <div className="visual-context-subtopics">
                       <ChildProjectRows
                         parentId={activeProject.id}

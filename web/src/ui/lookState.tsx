@@ -75,7 +75,7 @@ function maxDiagramHeightFor(divider: HTMLElement): number {
 export function useLookState(): LookState {
   const [viewMode, setViewMode] = useState<"list" | "visual">(readStoredViewMode);
 
-  // Resizable 3-panel widths & visual/context height with localStorage persistence (§2, §5)
+  // Resizable 3-panel widths & visual/context height with localStorage persistence
   const [panelWidths, setPanelWidths] = useState<PanelWidths>(readStoredPanelWidths);
   const [activeResizer, setActiveResizer] = useState<Resizer | null>(null);
   const dragStartRef = useRef<{
@@ -94,7 +94,7 @@ export function useLookState(): LookState {
   const [expandedSubtopicItems, setExpandedSubtopicItems] = useState<Disclosure>({});
   const [expandedContextSubtopics, setExpandedContextSubtopics] = useState<Disclosure>({});
 
-  // Responsive active panel for narrower viewports (§9)
+  // Responsive active panel for narrower viewports
   const [mobilePanel, setMobilePanel] = useState<MobilePanel>("contents");
 
   const toggleProjectViewMode = () => {
@@ -103,7 +103,7 @@ export function useLookState(): LookState {
     writeStoredViewMode(next);
   };
 
-  // Handle draggable vertical & horizontal divider mouse events (§2, §5)
+  // Handle draggable vertical & horizontal divider mouse events
   useEffect(() => {
     if (!activeResizer) return;
 

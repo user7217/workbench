@@ -25,7 +25,7 @@ def cmd_install(
         False, "--launchd", help="Install macOS launchd local discovery job"
     ),
 ) -> None:
-    """Install agent skill, hooks, and launchd job into the specified home directory (§8)."""
+    """Install agent skill, hooks, and launchd job into the specified home directory."""
     target_home = home.resolve()
     installed = run_install(
         home_dir=target_home,
@@ -43,7 +43,7 @@ def cmd_setup(
         None, "--home", help="Target home directory (defaults to current HOME)"
     ),
 ) -> None:
-    """Interactive go-live wizard (§12)."""
+    """Interactive go-live wizard."""
     target_home = (
         home.resolve() if home else Path(os.environ.get("HOME", str(Path.home()))).resolve()
     )

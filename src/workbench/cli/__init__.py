@@ -1,4 +1,4 @@
-"""Typer CLI application for Workbench (§8).
+"""Typer CLI application for Workbench.
 
 Each module holds the commands of one area on its own Typer app; `app` merges them in the
 order below, which is also the order `workbench --help` lists them in.

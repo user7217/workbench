@@ -81,7 +81,7 @@ def cmd_history(
 def cmd_undo(
     commit: str = typer.Argument(..., help="Commit SHA in workbench-data to revert"),
 ) -> None:
-    """Revert a commit in workbench-data and push to origin/main (§8)."""
+    """Revert a commit in workbench-data and push to origin/main."""
     wb_dir = get_workbench_dir()
     data_dir = _get_data_repo_dir()
     cfg = load_local_config()

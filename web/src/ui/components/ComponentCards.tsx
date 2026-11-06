@@ -147,7 +147,7 @@ export function CentreComp({
         </div>
       </div>
 
-      {/* LEVEL 3: Individual Items shown only when explicitly requested (§3) */}
+      {/* LEVEL 3: Individual Items shown only when explicitly requested */}
       {isItemsOpen && childItems.length > 0 && (
         <ComponentItems projectId={projectId} items={childItems} withLinks={true} />
       )}

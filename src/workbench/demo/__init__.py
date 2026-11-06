@@ -1,4 +1,4 @@
-"""Artificial environment and demo data generator (§11).
+"""Artificial environment and demo data generator.
 
 The demo content (fake code repos, the seeded workbench-data entries and the fake GitHub
 fixtures) lives as YAML and Markdown under data/; this package turns it into a working

@@ -1,4 +1,4 @@
-/* THREE-PANEL COORDINATED RESIZABLE WORKSPACE (§4–§13) */
+/* THREE-PANEL COORDINATED RESIZABLE WORKSPACE */
 .three-panel-workspace {
   display: flex;
   flex: 1;
@@ -37,7 +37,7 @@
   background: var(--bg-app);
 }
 
-/* Draggable Vertical Resizer Dividers (§5) */
+/* Draggable Vertical Resizer Dividers */
 .panel-resizer {
   width: 6px;
   margin: 0 -2px;
@@ -67,7 +67,7 @@
   background: var(--accent);
 }
 
-/* Draggable Horizontal Divider Between Visual Overview and Context Section (§2) */
+/* Draggable Horizontal Divider Between Visual Overview and Context Section */
 .panel-resizer-horizontal {
   height: 10px;
   width: 100%;
@@ -135,7 +135,7 @@
   text-overflow: ellipsis;
 }
 
-/* Independent Scroll Containers (§6, §13) */
+/* Independent Scroll Containers */
 .panel-independent-scroll {
   flex: 1;
   height: 100%;

@@ -1,4 +1,4 @@
-"""Server background sync, full-repo validation, and atomic snapshot swap (§10.1)."""
+"""Server background sync, full-repo validation, and atomic snapshot swap."""
 
 from __future__ import annotations
 
@@ -82,7 +82,7 @@ class ServerState:
             clone_repo(self.remote_url, self.repo_dir, branch=self.branch, env=self.env)
 
     def load_snapshot_from_disk(self) -> bool:
-        """Restore snapshot from snapshot.json on startup if present (§10.1 step 6)."""
+        """Restore snapshot from snapshot.json on startup if present."""
         if not self.snapshot_path.exists():
             return False
         try:
@@ -97,7 +97,7 @@ class ServerState:
         return False
 
     def sync_once(self, force: bool = False) -> bool:
-        """Fetch origin/<branch>, validate in a staging worktree, and atomically swap snapshot (§10.1).
+        """Fetch origin/<branch>, validate in a staging worktree, and atomically swap snapshot.
 
         Never raises: any failure is recorded in last_error and the previous snapshot is kept.
         """

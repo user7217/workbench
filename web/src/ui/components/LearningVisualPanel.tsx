@@ -10,7 +10,7 @@ import { PanelResizer } from "./PanelResizer";
 import { StatusNodeGlyph } from "./status";
 import { VisualGraph } from "./VisualGraph";
 
-// PANEL C: Curriculum Map + Adjustable Contextual Panel Beneath It (§2, §3, §13)
+// PANEL C: Curriculum Map + Adjustable Contextual Panel Beneath It
 export function LearningVisualPanel() {
   const wb = useWorkbench();
   const { selection, selectLearningPath, activeLearningPath: activeLp, activeTopic } = wb;

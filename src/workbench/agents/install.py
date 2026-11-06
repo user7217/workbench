@@ -1,4 +1,4 @@
-"""Installer for Claude skill/hook, Gemini CLI rules/command/hook, and macOS launchd job (§8, §9)."""
+"""Installer for Claude skill/hook, Gemini CLI rules/command/hook, and macOS launchd job."""
 
 from __future__ import annotations
 
@@ -195,7 +195,7 @@ def install_gemini_integration(home_dir: Path, workbench_bin: str = "workbench")
 
 
 def install_launchd_job(home_dir: Path, workbench_bin: str | None = None) -> Path:
-    """Write macOS LaunchAgent plist to <home_dir>/Library/LaunchAgents/com.workbench.discover.plist (§9.4)."""
+    """Write macOS LaunchAgent plist to <home_dir>/Library/LaunchAgents/com.workbench.discover.plist."""
     exe = workbench_bin or shutil.which("workbench") or "workbench"
     logs_dir = home_dir / ".workbench" / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)

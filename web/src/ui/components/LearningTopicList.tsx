@@ -4,7 +4,7 @@ import { useLook } from "../lookState";
 import { LearningItemStatusMenu } from "./ItemStatusMenu";
 import { StatusNodeGlyph } from "./status";
 
-// Concise Topics & Subtopics List (§3)
+// Concise Topics & Subtopics List
 export function LearningTopicList({ learningPath: activeLp }: { learningPath: LearningPath }) {
   const wb = useWorkbench();
   const { selection, selectLearningPath, activeTopic } = wb;

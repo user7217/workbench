@@ -13,7 +13,7 @@ import {
 import { useLook } from "../lookState";
 import { KindBadge, StatusNodeGlyph } from "./status";
 
-// Unified Project Card for Home (§1: status badges removed except New on unpopulated discovered repos)
+// Project card for Home (no status badge, except New on unpopulated discovered repos)
 export function UnifiedProjectCard({ project: p }: { project: Project }) {
   const { selectProject } = useWorkbench();
   const { expandedCardDescs, setExpandedCardDescs } = useLook();
@@ -103,7 +103,7 @@ export function UnifiedProjectCard({ project: p }: { project: Project }) {
   );
 }
 
-// Unified Learning Card for Home (§1: status badges removed)
+// Learning card for Home (no status badge)
 export function UnifiedLearningCard({ learningPath: lp }: { learningPath: LearningPath }) {
   const { selectLearningPath } = useWorkbench();
   const { expandedCardDescs, setExpandedCardDescs } = useLook();

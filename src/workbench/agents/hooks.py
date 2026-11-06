@@ -1,4 +1,4 @@
-"""Agent hook logic for Claude Code Stop hook and Gemini CLI AfterAgent hook (§9.3).
+"""Agent hook logic for Claude Code Stop hook and Gemini CLI AfterAgent hook.
 
 State lives in ~/.workbench/state.json:
 
@@ -169,7 +169,7 @@ def mark_repo_seen(
     home_dir: Path | None = None,
     env: dict[str, str] | None = None,
 ) -> bool:
-    """Record HEAD and the working-state fingerprint as seen for the git repo at cwd (§9.3)."""
+    """Record HEAD and the working-state fingerprint as seen for the git repo at cwd."""
     try:
         ids = _repo_ids(cwd, env)
         if ids is None:
@@ -309,7 +309,7 @@ def evaluate_hook_input(
     """Evaluate hook JSON input and return stdout JSON string (to block) or None (to allow).
 
     launcher starts the headless update (default: updater.launch_update_job; tests pass a fake).
-    Never raises: any internal error returns None (allow) per §9.3.
+    Never raises: any internal error returns None (allow).
     """
     try:
         if not stdin_text or not stdin_text.strip():
@@ -384,5 +384,5 @@ def evaluate_hook_input(
             _save_state(state_path, state, now=ts)
         return json.dumps({"decision": "block", "reason": reason})
     except Exception:
-        # Never block when anything fails (§9.3)
+        # Never block when anything fails
         return None

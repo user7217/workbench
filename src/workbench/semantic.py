@@ -1,4 +1,4 @@
-"""Semantic diff checks against previous metadata version (§6.3)."""
+"""Semantic diff checks against previous metadata version."""
 
 from __future__ import annotations
 
@@ -73,7 +73,7 @@ def check_semantic_diff(
     old_markdowns: dict[str, str] | None = None,
     new_markdowns: dict[str, str] | None = None,
 ) -> SemanticCheckResult:
-    """Compare new metadata dict against previous version at origin/main (§6.3)."""
+    """Compare new metadata dict against previous version at origin/main."""
     res = SemanticCheckResult()
     if old_data is None:
         return res

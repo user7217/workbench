@@ -1,4 +1,4 @@
-"""Repository identity resolution via root commit SHA (§5.4)."""
+"""Repository identity resolution via root commit SHA."""
 
 from __future__ import annotations
 
@@ -59,7 +59,7 @@ def find_project_for_repo(
     root_commit: str,
     github_slug: str | None = None,
 ) -> Project | None:
-    """Find the project matching root_commit, disambiguating forks by github_slug (§5.4)."""
+    """Find the project matching root_commit, disambiguating forks by github_slug."""
     matches: list[Project] = []
     for proj in projects:
         for repo_entry in proj.repos:

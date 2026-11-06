@@ -5,7 +5,7 @@
 import { useState } from "react";
 import { useWorkbench, getProjectGroups } from "@workbench-core";
 
-// Left Sidebar — Compact, Collapsible, Home / Learning / Building only (§3)
+// Left Sidebar — Compact, Collapsible, Home / Learning / Building only
 export function Sidebar() {
   const {
     route,
