@@ -48,7 +48,12 @@ docker compose pull --quiet workbench || {
     log "pulling ${image} failed; will retry next run"
     exit 1
 }
-git fetch --quiet --tags origin
+# --force: GitHub is the authority on release tags, so a tag that was moved before its release
+# was published (docs/releasing.md) replaces the clone's stale copy instead of failing the fetch
+git fetch --quiet --force --tags origin || {
+    log "git fetch from origin failed; the server was not changed"
+    exit 1
+}
 git -c advice.detachedHead=false checkout --quiet "$tag" || {
     log "could not check out ${tag} (local edits to tracked files?); the server was not changed"
     exit 1

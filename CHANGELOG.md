@@ -6,6 +6,10 @@ Each release on [GitHub Releases](https://github.com/user7217/workbench/releases
 
 ## [Unreleased]
 
+### Fixed
+
+- `packaging/docker/update.sh` no longer fails, without a message, when the server's clone holds an outdated copy of a release tag; it takes GitHub's copy and logs any fetch error.
+
 ## [0.1.1] - 2026-11-07
 
 ### Added
