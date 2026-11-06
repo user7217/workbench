@@ -2,6 +2,8 @@
 
 This guide walks through setting up Workbench in production: creating the private `workbench-data` repository on GitHub, deploying the dashboard server on an always-on server (via **Docker Compose + Tailscale** or standalone **`workbench serve`**), and connecting the laptop's CLI and coding agents.
 
+> **Running the dashboard on the laptop instead?** On macOS, the desktop app runs the same server from login, reachable from that laptop only. It needs Step 1 of this guide, then [desktop.md](desktop.md) replaces Steps 2, 3 and the CLI install in Step 4.
+
 > **How data flows in production:** Source code never leaves the laptop. The laptop CLI and coding agents push small, validated `.yaml` and `.md` metadata files to the private `workbench-data` repository on GitHub. The server polls `workbench-data` to serve the dashboard over Tailscale and pushes back any edits made in the web UI.
 
 ---
@@ -198,11 +200,14 @@ If the dashboard page returns `404` and the server log says `Web UI not found`, 
 
 On the Mac or Linux machine where code is written:
 
-1. **Install the `workbench` CLI globally:**
-   ```bash
-   cd /path/to/workbench
-   uv tool install --force .
-   ```
+1. **Install the `workbench` CLI globally,** in one of three ways:
+   - From a clone of this repository:
+     ```bash
+     cd /path/to/workbench
+     uv tool install --force .
+     ```
+   - From a release, without a clone: `uv tool install <URL of workbench-<version>-py3-none-any.whl>`, copied from the [latest release](https://github.com/user7217/workbench/releases/latest).
+   - With the macOS desktop app: **Install Command Line Tool…** in its menu links `~/.local/bin/workbench` to the copy inside the app ([desktop.md §5](desktop.md#5-the-command-line-tool)).
 2. **Run the interactive setup wizard:**
    ```bash
    workbench setup
@@ -230,7 +235,7 @@ On the Mac or Linux machine where code is written:
    - The coding session is never interrupted, and automatic reviews after commits stop: run `/workbench-review` manually at milestones.
    - Ideas the assistant offered but the user did not agree to land in the project's **Inbox** on the dashboard (Keep / Dismiss) instead of the tree.
    - Results go to `~/.workbench/logs/updater.log` and `workbench history --kind update`. To preview what it would record, run `workbench auto-update --transcript <session.jsonl> --dry-run` inside the project's repo.
-   - After an upgrade from an older version, reinstall the CLI (`uv tool install --force .`) so the hook runs the new code.
+   - After an upgrade from an older version, reinstall the CLI (`uv tool install --force .`) so the hook runs the new code. A CLI linked from the desktop app updates with the app.
 
 ---
 

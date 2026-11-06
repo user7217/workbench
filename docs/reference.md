@@ -241,6 +241,7 @@ Every command runs on the laptop (where `~/.workbench/config.toml` and the `~/.w
 
 | Command | Arguments & options |
 | :--- | :--- |
+| `workbench --version` | Print the version (the same for the CLI, server, web UI and desktop app). |
 | `workbench setup` | `--home <dir>`. Interactive wizard: writes `config.toml`, clones `workbench-data`, installs the agent skills, hooks and the macOS discovery job after the user types `yes`. |
 | `workbench install` | `--home <dir>` (required), `--claude`, `--gemini`, `--launchd`. Install or refresh the skills and hooks for each agent, and the macOS `launchd` job. |
 | `workbench show` | `--id <project>`, `--item <item-id>`, `--brief`. Without `--id`, the project registered for the current repo. |
@@ -262,5 +263,5 @@ Every command runs on the laptop (where `~/.workbench/config.toml` and the `~/.w
 | `workbench undo <commit>` | Revert one `workbench-data` commit and push the revert. |
 | `workbench hook-check` | `--mark-seen`. Read by the agent hooks from stdin; `--mark-seen` records the current changes as needing no update. |
 | `workbench auto-update` | `--job <file>` (written by the hook) or `--transcript <file.jsonl>`, plus `--dry-run`. Run by hand inside the project repo. |
-| `workbench serve` | `--host` (default `127.0.0.1`), `--port` (default `8420`). Run the dashboard server without Docker. |
+| `workbench serve` | `--host` (default `127.0.0.1`), `--port` (default `8420`). Run the dashboard server without Docker. On `127.0.0.1` or `localhost` it answers only to those host names (`WORKBENCH_ALLOWED_HOSTS`). The macOS desktop app runs this command from login ([desktop.md](desktop.md)). |
 | `workbench demo init <dir>` | Create a throwaway demo environment (bare remote, fake HOME and repos) in `<dir>`; used by `make demo` and the tests. |

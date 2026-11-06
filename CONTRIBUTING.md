@@ -9,8 +9,9 @@ Contributions to Workbench are welcome. This guide covers setting up a developme
 ### Prerequisites
 
 - **Python 3.12+** managed with [uv](https://docs.astral.sh/uv/)
-- **Node.js 20+** and `npm`
+- **Node.js 20+** and `npm` (22+ for the desktop app)
 - **Git**
+- **Rust** (`brew install rust` or [rustup](https://rustup.rs)), only for the macOS desktop app
 
 ### Install Dependencies
 
@@ -46,6 +47,18 @@ WORKBENCH_PORT=8441 uv run python scripts/run_demo.py
 cd web
 WORKBENCH_API=http://127.0.0.1:8441 npm run dev
 ```
+
+### Desktop App (macOS)
+
+The menu-bar app lives in `desktop/` (Tauri 2, Rust) and runs a PyInstaller-frozen copy of the CLI and server. [docs/desktop.md](docs/desktop.md) §8 lists the parts.
+
+```bash
+make desktop-binary                            # frozen CLI + server only, in desktop/build/workbench/
+make desktop                                   # the whole app: .app and .dmg under desktop/src-tauri/target/release/bundle/
+(cd desktop/src-tauri && cargo clippy)         # Rust lint; keep it at zero warnings
+```
+
+A change to the Python side reaches the app only after `make desktop-binary` (or `make desktop`) runs again. Quit any running Workbench app before testing a new build, since a second copy only opens the dashboard of the first.
 
 ---
 
@@ -107,6 +120,8 @@ Biome reports the accessibility rules as warnings for now (clickable elements wi
 - **Web UI and generated files:** regenerates `schema/` and `web/src/types/` and fails if they differ from what is committed, then type-checks both looks and builds the UI.
 - **Package (Linux, macOS, Windows):** builds the wheel, checks that it contains the UI and the agent files, installs it in a clean environment and smoke-tests `workbench --help` and `workbench install`; on Linux it also starts `workbench serve` against a demo and loads the dashboard.
 - **Docker image:** builds the image without pushing it.
+
+CI does not build the desktop app; the release workflow does, for every version tag.
 
 The test suites are not published, so CI does not run them; run them locally before opening a pull request.
 

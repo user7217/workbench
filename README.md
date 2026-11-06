@@ -83,6 +83,8 @@ Click any status icon to update it, click the pencil (`✎`) on any title, summa
                                                                            Browser (User)
 ```
 
+In desktop mode the server box runs on the laptop itself, inside the macOS menu-bar app, and only that laptop's browser can reach it ([docs/desktop.md](docs/desktop.md)).
+
 1. **Two-Repository Separation (`workbench` vs. `workbench-data`):**
    - `workbench` (this repository) contains the Python CLI, validation/privacy engine, FastAPI server, and React/TypeScript frontend.
    - `workbench-data` is the private data repository containing only `workbench.yaml`, `projects/<id>/project.yaml`, and `learning/<id>/path.yaml` (+ optional `topics/<item-id>.md` notes). The server never needs access to the source code repositories.
@@ -162,6 +164,14 @@ Server mode in brief:
    ```
 
 See **[docs/setup.md](docs/setup.md)** for full step-by-step instructions, including non-Docker (`workbench serve`) deployment and headless background agent updates.
+
+Desktop mode in brief:
+
+1. **Create the private `workbench-data` repo** as above.
+2. **Install the app:** download `Workbench_<version>_aarch64.dmg` from the [latest release](https://github.com/user7217/workbench/releases/latest), drag it to `Applications` and open it (it is unsigned, so allow it once under System Settings → Privacy & Security).
+3. **Configure the laptop** with the CLI inside the app: menu → **Install Command Line Tool…**, then `workbench setup`, `workbench discover --local`, and menu → **Restart Server**.
+
+See **[docs/desktop.md](docs/desktop.md)** for the details, the menu and troubleshooting.
 
 ---
 
@@ -257,7 +267,7 @@ Workbench's documentation follows the [Diátaxis](https://diataxis.fr/) structur
 | :--- | :--- | :--- |
 | **[README.md](README.md)** | **Overview & Tutorial** | Project overview, screenshots, 60-second `make demo` quickstart, and CLI cheat sheet. |
 | **[docs/setup.md](docs/setup.md)** | **Deployment How-To** | Step-by-step setup for `workbench-data`, SSH deploy keys, Docker Compose + Tailscale, `workbench serve`, and laptop hooks. |
-| **[docs/desktop.md](docs/desktop.md)** | **Desktop How-To** | Building and using the macOS menu-bar app that runs the dashboard on the laptop. |
+| **[docs/desktop.md](docs/desktop.md)** | **Desktop How-To** | Installing, setting up, using and building the macOS menu-bar app that runs the dashboard on the laptop. |
 | **[docs/releasing.md](docs/releasing.md)** | **Maintainer How-To** | Versions, the changelog, and cutting a release with the release workflow. |
 | **[CHANGELOG.md](CHANGELOG.md)** | **Release Notes** | What changed in each version. |
 | **[docs/reference.md](docs/reference.md)** | **Technical Reference** | Annotated YAML schemas (`project.yaml`, `path.yaml`), `config.toml`, environment variables, HTTP API endpoints, and every CLI command with its options. |
