@@ -1,5 +1,6 @@
 # Builds and publishes a release when a version tag (v1.2.3) is pushed:
 #   - Workbench_<version>_aarch64.dmg   macOS desktop app (unsigned, Apple silicon)
+#   - Workbench_<version>_aarch64.app.tar.gz (+ .sig) and latest.json: what installed apps update from
 #   - workbench-<version>-py3-none-any.whl and workbench-<version>.tar.gz
 #   - ghcr.io/<owner>/workbench:<version> (and :<major>.<minor>, :latest) for linux/amd64 + arm64
 # The release notes are the version's section of CHANGELOG.md. See docs/releasing.md.
@@ -74,18 +75,55 @@ jobs:
           cache-dependency-path: |
             web/package-lock.json
             desktop/package-lock.json
-      - name: Build the app (UI, frozen workbench binary, Tauri bundle)
+      - name: Build the app (UI, frozen workbench binary, Tauri bundle, signed update archive)
+        env:
+          # Signs the update archive; installed apps reject updates without a valid signature
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "::error::The TAURI_SIGNING_PRIVATE_KEY secret is not set (see docs/releasing.md)"
+            exit 1
+          fi
           (cd web && npm ci)
-          make desktop
+          make desktop-release
       - name: The bundled binary reports the release version
         run: |
           app=desktop/src-tauri/target/release/bundle/macos/Workbench.app
           test "$("$app/Contents/Resources/workbench/workbench" --version)" = "workbench ${{ needs.check.outputs.version }}"
+      # latest.json is what installed apps read (releases/latest/download/latest.json) to find and
+      # verify the new version
+      - name: Name the update archive by version and write latest.json
+        env:
+          VERSION: ${{ needs.check.outputs.version }}
+          BASE_URL: https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}
+        run: |
+          bundle=desktop/src-tauri/target/release/bundle
+          mkdir -p out
+          cp "$bundle"/dmg/*.dmg out/
+          cp "$bundle/macos/Workbench.app.tar.gz" "out/Workbench_${VERSION}_aarch64.app.tar.gz"
+          cp "$bundle/macos/Workbench.app.tar.gz.sig" "out/Workbench_${VERSION}_aarch64.app.tar.gz.sig"
+          python3 - <<'EOF'
+          import json, os, pathlib, datetime
+          version = os.environ["VERSION"]
+          archive = f"Workbench_{version}_aarch64.app.tar.gz"
+          manifest = {
+              "version": version,
+              "notes": f"Workbench {version}: see CHANGELOG.md",
+              "pub_date": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "platforms": {
+                  "darwin-aarch64": {
+                      "signature": pathlib.Path(f"out/{archive}.sig").read_text().strip(),
+                      "url": f"{os.environ['BASE_URL']}/{archive}",
+                  }
+              },
+          }
+          pathlib.Path("out/latest.json").write_text(json.dumps(manifest, indent=2) + "\n")
+          EOF
       - uses: actions/upload-artifact@v7
         with:
           name: macos
-          path: desktop/src-tauri/target/release/bundle/dmg/*.dmg
+          path: out/*
           if-no-files-found: error
 
   docker:
@@ -146,7 +184,7 @@ jobs:
           ---
           **Docker:** \`docker pull ghcr.io/${{ github.repository }}:${{ needs.check.outputs.version }}\`
 
-          **macOS app:** unsigned; on first open, allow it under System Settings → Privacy & Security → Open Anyway. See [docs/desktop.md](https://github.com/${{ github.repository }}/blob/$GITHUB_REF_NAME/docs/desktop.md).
+          **macOS app:** unsigned; on first open, allow it under System Settings → Privacy & Security → Open Anyway. Installed apps from 0.1.2 on update themselves. See [docs/desktop.md](https://github.com/${{ github.repository }}/blob/$GITHUB_REF_NAME/docs/desktop.md).
           EOF
       - name: Create the release
         env:

@@ -65,6 +65,8 @@ As detailed in **[docs/setup.md](docs/setup.md)**:
 
 Release files are built by the [release workflow](.github/workflows/release.yml) on GitHub-hosted runners from the tagged commit, and each release lists their SHA-256 checksums in `SHA256SUMS`. The macOS app is **not signed or notarized** yet, so macOS cannot vouch for it: download it only from this repository's Releases page and compare it with `SHA256SUMS` (`shasum -a 256 Workbench_*.dmg`) before opening it.
 
+Once installed, the app updates itself over HTTPS from this repository's latest release, and installs an update only if its archive carries a valid signature from the updater key (an Ed25519 minisign key whose public half is built into the app). The private key exists only on the maintainer's machine and as an encrypted GitHub Actions secret; see [docs/releasing.md](docs/releasing.md#5-updater-signing-key).
+
 ---
 
 ## 7. Reporting a Vulnerability

@@ -5,6 +5,7 @@ A release is a Git tag such as `v0.2.0`. Pushing the tag runs [`.github/workflow
 | Artifact | For | Built on |
 | :--- | :--- | :--- |
 | `Workbench_<version>_aarch64.dmg` | Desktop mode on macOS (Apple silicon, unsigned) | macOS runner |
+| `Workbench_<version>_aarch64.app.tar.gz`, `.sig`, `latest.json` | Self-update of installed apps: the signed app archive and the manifest apps read from `releases/latest/download/latest.json` | macOS runner |
 | `ghcr.io/user7217/workbench:<version>`, `:<major>.<minor>`, `:latest` | Server mode (`linux/amd64`, `linux/arm64`) | Linux runner |
 | `workbench-<version>-py3-none-any.whl`, `workbench-<version>.tar.gz` | `uv tool install` from the release | Linux runner |
 | `SHA256SUMS` | Checking downloads | — |
@@ -68,10 +69,33 @@ On an up-to-date `main` with a clean working tree:
 
 The first published image creates the `workbench` package on GHCR. The workflow links it to this repository, so it takes the repository's visibility: public here, so servers pull it without logging in. A package that shows as private can be made public under its page → Package settings → Change visibility.
 
-## 5. Not Yet Automated
+## 5. Updater Signing Key
+
+Installed apps only accept an update whose archive is signed with the updater key; its public half is in `desktop/src-tauri/tauri.conf.json` (`plugins.updater.pubkey`). The private key and its password are two repository secrets, used by the release workflow's macOS job:
+
+| Secret | Value |
+| :--- | :--- |
+| `TAURI_SIGNING_PRIVATE_KEY` | The contents of the private key file (`~/.tauri/workbench-updater.key` on the maintainer's Mac) |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | Its password (`~/.tauri/workbench-updater.key.password`) |
+
+They are set under the repository's **Settings → Secrets and variables → Actions → New repository secret**. Without them the macOS job stops with an error before building.
+
+**Keep a backup of both files outside the laptop** (a password manager works). A lost key cannot be recovered: a new key means a new public key in the app, so every installed copy would have to be replaced by hand once. A leaked key lets anyone who can also publish a release on this repository push code to installed apps; if that happens, make a new key, ship it in a release and treat older installs as needing a manual update.
+
+To make a new key pair (for a fork, say):
+
+```bash
+cd desktop && npx tauri signer generate -w ~/.tauri/workbench-updater.key
+```
+
+then put the new `.pub` contents in `tauri.conf.json` and update both secrets.
+
+`make desktop` builds without the key and without update archives; `make desktop-release` (used by the workflow) needs both environment variables set.
+
+## 6. Not Yet Automated
 
 These need accounts outside GitHub and are planned for later:
 
 - **PyPI:** the name `workbench` is taken there, so publishing needs another distribution name; the command would stay `workbench`.
-- **Signing and notarization** of the macOS app (an Apple Developer account), which removes the Gatekeeper prompt.
+- **Apple signing and notarization** of the macOS app (an Apple Developer account), which removes the Gatekeeper prompt on first install. (Updates installed by the app itself do not show the prompt, since the app downloads them directly.)
 - **Windows and Linux** builds of the desktop app.

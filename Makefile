@@ -1,7 +1,7 @@
 export PATH := $(CURDIR)/.venv/bin:/opt/homebrew/bin:/usr/local/bin:$(PATH)
 UV := $(shell PATH="/opt/homebrew/bin:/usr/local/bin:$$PATH" command -v uv 2>/dev/null || echo uv)
 
-.PHONY: schema build test demo dev lint format desktop-binary desktop
+.PHONY: schema build test demo dev lint format desktop-binary desktop desktop-release
 
 schema:
 	$(UV) run python -c "from pathlib import Path; from workbench.models import write_json_schemas; write_json_schemas(Path('schema'))"
@@ -37,3 +37,8 @@ desktop-binary: build
 
 desktop: desktop-binary
 	cd desktop && npm ci && npx tauri build
+
+# As `desktop`, plus the signed update archive (Workbench.app.tar.gz + .sig) that installed apps
+# download. Needs TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD (docs/releasing.md).
+desktop-release: desktop-binary
+	cd desktop && npm ci && npx tauri build --config src-tauri/tauri.updater.conf.json

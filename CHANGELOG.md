@@ -6,6 +6,10 @@ Each release on [GitHub Releases](https://github.com/user7217/workbench/releases
 
 ## [Unreleased]
 
+### Added
+
+- **The macOS app updates itself:** it checks GitHub Releases at launch and every 6 hours, installs a signed new version in place, and offers **Restart to Update** in the menu. **Check for Updates…** checks on demand. Apps before this version need one manual update to get it.
+
 ### Fixed
 
 - `packaging/docker/update.sh` no longer fails, without a message, when the server's clone holds an outdated copy of a release tag; it takes GitHub's copy and logs any fetch error.

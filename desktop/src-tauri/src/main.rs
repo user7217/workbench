@@ -8,6 +8,7 @@
 mod cli_link;
 mod environment;
 mod server;
+mod updater;
 
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -22,6 +23,7 @@ use tauri_plugin_opener::OpenerExt;
 
 use cli_link::LinkState;
 use server::{Status, Supervisor};
+use updater::Updates;
 
 /// Passed by the login item, so a start at login does not open the browser
 const AUTOSTART_ARG: &str = "--autostart";
@@ -31,6 +33,7 @@ struct AppState {
     binary: PathBuf,
     home: PathBuf,
     login_item: CheckMenuItem<Wry>,
+    updates: Arc<Updates>,
 }
 
 fn main() {
@@ -45,6 +48,7 @@ fn main() {
         ))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| Ok(setup(app)?))
         .build(tauri::generate_context!())
         .expect("failed to build the Workbench app");
@@ -88,6 +92,13 @@ fn setup(app: &mut tauri::App) -> tauri::Result<()> {
         CheckMenuItem::with_id(app, "login", "Start at Login", true, at_login, None::<&str>)?;
     let cli_item = MenuItem::with_id(app, "cli", "Install Command Line Tool…", true, None::<&str>)?;
     let log_item = MenuItem::with_id(app, "log", "Show Server Log", true, None::<&str>)?;
+    let update_item = MenuItem::with_id(
+        app,
+        "update",
+        Updates::menu_item_label(),
+        true,
+        None::<&str>,
+    )?;
     let quit_item = MenuItem::with_id(app, "quit", "Quit Workbench", true, None::<&str>)?;
     let menu = Menu::with_items(
         app,
@@ -101,6 +112,7 @@ fn setup(app: &mut tauri::App) -> tauri::Result<()> {
             &cli_item,
             &log_item,
             &PredefinedMenuItem::separator(app)?,
+            &update_item,
             &quit_item,
         ],
     )?;
@@ -115,11 +127,15 @@ fn setup(app: &mut tauri::App) -> tauri::Result<()> {
         .on_menu_event(|app, event| handle_menu(app, event.id.as_ref()))
         .build(app)?;
 
+    let updates = Updates::new(update_item, updater::log_path(&handle));
+    updates.start_background_checks(&handle);
+
     app.manage(AppState {
         supervisor: Arc::clone(&supervisor),
         binary,
         home,
         login_item,
+        updates,
     });
 
     // Opened by hand: show the dashboard once it is up. Started at login: stay in the menu bar.
@@ -156,6 +172,9 @@ fn handle_menu(app: &AppHandle, id: &str) {
                 .set_checked(launcher.is_enabled().unwrap_or(enable));
         }
         "cli" => install_cli(app),
+        "update" => state
+            .updates
+            .on_menu_click(app, Arc::clone(&state.supervisor)),
         "log" => {
             let log = environment::server_log(&state.home);
             if !log.exists() {

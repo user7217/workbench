@@ -36,7 +36,7 @@ If macOS instead says the app "is damaged and can't be opened", the download's q
 xattr -dr com.apple.quarantine /Applications/Workbench.app
 ```
 
-To update, quit Workbench from its menu, replace the app in `Applications` with the new one and open it. The login item keeps working because the path stays the same.
+From 0.1.2 on, the app updates itself (§4.1). Versions before 0.1.2 are updated by hand once: quit Workbench from its menu, replace the app in `Applications` with the new one and open it. The login item keeps working because the path stays the same.
 
 ### From Source
 
@@ -81,11 +81,20 @@ At later logins the app starts quietly in the menu bar. Opening the app again wh
 | **Start at Login** | Adds or removes the login item (`~/Library/LaunchAgents/Workbench.plist`) |
 | **Install Command Line Tool…** | Links `~/.local/bin/workbench` to the binary inside the app (see §5) |
 | **Show Server Log** | Opens `~/.workbench/logs/desktop-server.log` |
+| **Check for Updates…** | Checks for a new release now and installs it; becomes **Restart to Update to x.y.z** once one is installed (§4.1) |
 | **Quit Workbench** | Stops the server and quits |
 
 A server that crashes is restarted after 2 seconds. One that fails three times within 30 seconds of starting stays stopped, with its last error in the status line, until **Restart Server** is chosen. If the app itself is force-quit or crashes, the server notices and stops within a few seconds, so it never holds the port on its own.
 
 If another Workbench server already answers on port 8420 (for example `workbench serve` in a terminal), the app shows it as running and opens it, without starting a second one. Any other program on that port shows `Port 8420 is used by another program`.
+
+### 4.1 Updates
+
+The app checks for a new release a minute after it starts and every 6 hours after that. It reads `latest.json` from the latest release on GitHub (pre-releases are never offered), downloads the new `Workbench.app`, checks its signature against the public key built into the app, and installs it in place of the old one. A download that is not signed with the release key is rejected.
+
+The running app and its server stay on the old version until a restart: **Restart to Update to x.y.z** in the menu stops the server and relaunches the app (the dashboard is down for a few seconds), and otherwise the next login starts the new version. The command line tool links into the app, so it switches to the new version as soon as the update is installed.
+
+Each check is logged to `~/.workbench/logs/desktop-updater.log`. The app has to be able to write to its own folder; in `/Applications` that is the case for an administrator account. Apps built from source (`make desktop`) check the same releases and update to them too; `tauri dev` builds never update.
 
 ## 5. The Command Line Tool
 
@@ -104,6 +113,7 @@ The server listens on `127.0.0.1` only, so no other machine can connect to it. I
 | `Stopped: no data repo: …` | Follow §3: install the command line tool, run `workbench setup`, then **Restart Server**. |
 | `Stopped: …` with a Git or SSH error | Check that `git fetch` works in `~/.workbench/server/repo` from a terminal. The server uses the same SSH keys and agent as the terminal. |
 | `Port 8420 is used by another program` | Stop that program (`lsof -nP -iTCP:8420 -sTCP:LISTEN` shows which one); the app starts the server once the port is free. |
+| An update never arrives | `~/.workbench/logs/desktop-updater.log` has the reason. **Check for Updates…** shows it in a dialog. Apps before 0.1.2 cannot update themselves; install the latest `.dmg` once. |
 | The privacy review cannot find `claude` | The app gives the server the login shell's `PATH`; make sure the tool is on the `PATH` in `~/.zprofile` (not only `~/.zshrc`). |
 
 ## 8. How It Is Built
@@ -114,4 +124,4 @@ The server listens on `127.0.0.1` only, so no other machine can connect to it. I
 | Frozen CLI + server | `packaging/pyinstaller/workbench.spec`: a folder rather than one file, so `workbench hook-check` starts in a fraction of a second |
 | Build | `make desktop-binary` (frozen binary only) and `make desktop` (the app) |
 
-The release workflow (`.github/workflows/release.yml`) runs `make desktop` on a macOS runner for every version tag; see [releasing.md](releasing.md). Windows and Linux builds, signing, notarization and auto-update are not done yet.
+The release workflow (`.github/workflows/release.yml`) runs `make desktop-release` on a macOS runner for every version tag; see [releasing.md](releasing.md). Updates use [tauri-plugin-updater](https://v2.tauri.app/plugin/updater/) (`src/updater.rs`); the release workflow signs the update archive, as described in [releasing.md](releasing.md#5-updater-signing-key). Windows and Linux builds, Apple signing and notarization are not done yet.

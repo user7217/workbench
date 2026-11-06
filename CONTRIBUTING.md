@@ -55,6 +55,7 @@ The menu-bar app lives in `desktop/` (Tauri 2, Rust) and runs a PyInstaller-froz
 ```bash
 make desktop-binary                            # frozen CLI + server only, in desktop/build/workbench/
 make desktop                                   # the whole app: .app and .dmg under desktop/src-tauri/target/release/bundle/
+make desktop-release                           # plus the signed update archive (needs the updater key; docs/releasing.md)
 (cd desktop/src-tauri && cargo clippy)         # Rust lint; keep it at zero warnings
 ```
 
