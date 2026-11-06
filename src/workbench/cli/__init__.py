@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import typer
 
+from workbench import __version__
 from workbench.cli import (
     agents,
     demo,
@@ -24,6 +25,23 @@ from workbench.cli import (
 app = typer.Typer(
     help="Workbench CLI — personal inventory of software projects and learning paths."
 )
+
+
+def _print_version(value: bool) -> None:
+    if value:
+        typer.echo(f"workbench {__version__}")
+        raise typer.Exit()
+
+
+@app.callback()
+def _main(
+    version: bool = typer.Option(
+        False, "--version", callback=_print_version, is_eager=True, help="Show the version and exit"
+    ),
+) -> None:
+    """Workbench CLI — personal inventory of software projects and learning paths."""
+
+
 for _commands in (projects, hierarchy, items, discover, history, agents, server, setup):
     app.add_typer(_commands.app)
 app.add_typer(learning.learning_app, name="learning")

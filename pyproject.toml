@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "workbench"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Personal dashboard for tracking software projects and learning paths"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -30,6 +30,10 @@ dev = [
     "respx>=0.21.1",
     "ruff>=0.17.3",
 ]
+
+# The one place the version is written; scripts/version.py sets it and the app and UI versions
+[tool.hatch.version]
+path = "src/workbench/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/workbench"]

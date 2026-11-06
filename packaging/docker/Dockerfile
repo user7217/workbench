@@ -1,4 +1,5 @@
-FROM node:22-slim AS web-builder
+# The UI build is the same on every platform, so it runs natively even in multi-platform builds
+FROM --platform=$BUILDPLATFORM node:22-slim AS web-builder
 WORKDIR /build/web
 COPY web/package.json web/package-lock.json* ./
 RUN npm install

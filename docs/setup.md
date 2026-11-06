@@ -127,6 +127,14 @@ To update the server after pulling new code changes in the future:
 cd ~/workbench && git pull && docker compose up -d --build
 ```
 
+**Released images instead of building:** each [release](https://github.com/user7217/workbench/releases) publishes the image `ghcr.io/user7217/workbench` for `linux/amd64` and `linux/arm64`, which `docker-compose.yml` names. Set `WORKBENCH_VERSION` in `.env` to pin one (`WORKBENCH_VERSION=0.1.0`; without it, `latest`), then update with:
+
+```bash
+cd ~/workbench && git pull && docker compose pull && docker compose up -d
+```
+
+`git pull` keeps `docker-compose.yml` in step with the image. A newly published GHCR package is private until its visibility is set to public (GitHub → Packages → `workbench` → Package settings); until then the server needs `docker login ghcr.io` with a token that can read packages. `docker compose up -d --build` still builds from the checkout and tags the result with the same name.
+
 The `workbench` command exists only inside the container, and the container has no laptop config, so run CLI commands (`workbench archive-empty`, `workbench set`, ...) on the laptop. The server picks up their commits on its next sync, or straight away when sync is pressed in the dashboard.
 
 **After a reboot:** Docker can start before Tailscale has assigned the server its `100.x.y.z` address. Binding to that address then fails with `cannot assign requested address` and the container does not come up. Reboot once to check. If it happens, make Docker wait for Tailscale with `sudo systemctl edit docker` and add:

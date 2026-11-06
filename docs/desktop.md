@@ -10,7 +10,7 @@ Workbench runs its dashboard in one of two ways:
 
 Both run the same `workbench serve`. The desktop app is a menu-bar icon that starts the bundled server in the background, keeps it running, and opens the dashboard in the default browser. It has no window of its own and no Dock icon.
 
-The app is macOS-only for now. It is built from source and is not signed, so it is not yet a download on the Releases page.
+The app is macOS-only for now, for Apple silicon. Each [release](https://github.com/user7217/workbench/releases) includes it as `Workbench_<version>_aarch64.dmg`. It is not signed with an Apple Developer ID yet, so macOS asks for confirmation on first open (§2).
 
 ---
 
@@ -20,9 +20,25 @@ The app is macOS-only for now. It is built from source and is not signed, so it 
 - Git (the Xcode command-line tools: `xcode-select --install`), and a Git login that can push to `workbench-data`, the same one the CLI uses.
 - A configured `~/.workbench/config.toml` with `data_repo_url` (from `workbench setup`, see [setup.md §3](setup.md)). The server clones the data repo into `~/.workbench/server`, apart from the CLI's clone.
 
-To build it: [uv](https://docs.astral.sh/uv/), Node.js 22+, and Rust (`brew install rust` or [rustup](https://rustup.rs)).
+To build it from source: [uv](https://docs.astral.sh/uv/), Node.js 22+, and Rust (`brew install rust` or [rustup](https://rustup.rs)).
 
-## 2. Build and Install
+## 2. Install
+
+### From a Release
+
+1. Download `Workbench_<version>_aarch64.dmg` from the [Releases page](https://github.com/user7217/workbench/releases) (`SHA256SUMS` beside it has its checksum).
+2. Open the `.dmg` and drag `Workbench.app` onto `Applications`.
+3. Open Workbench from `Applications`. macOS refuses the first time because the app is unsigned: open **System Settings → Privacy & Security**, scroll to the message about Workbench, choose **Open Anyway** and confirm.
+
+If macOS instead says the app "is damaged and can't be opened", the download's quarantine flag is the cause, not the file; clear it and open the app again:
+
+```bash
+xattr -dr com.apple.quarantine /Applications/Workbench.app
+```
+
+To update, quit Workbench from its menu, replace the app in `Applications` with the new one and open it. The login item keeps working because the path stays the same.
+
+### From Source
 
 ```bash
 make desktop
@@ -33,7 +49,7 @@ This builds the web UI, freezes the CLI and server into one folder with PyInstal
 - `desktop/src-tauri/target/release/bundle/macos/Workbench.app`
 - `desktop/src-tauri/target/release/bundle/dmg/Workbench_<version>_aarch64.dmg`
 
-Drag `Workbench.app` into `/Applications` (directly or from the `.dmg`) and open it. Because the app is unsigned, a copy downloaded from another machine is blocked by Gatekeeper: allow it under **System Settings → Privacy & Security → Open Anyway**. A copy built on the same Mac opens normally.
+Copy `Workbench.app` into `/Applications` and open it from there (the first launch points the login item at wherever the app runs from). A copy built on the same Mac opens without the Gatekeeper prompt.
 
 ## 3. Using the App
 
@@ -80,4 +96,4 @@ The server listens on `127.0.0.1` only, so no other machine can connect to it. I
 | Frozen CLI + server | `packaging/pyinstaller/workbench.spec`: a folder rather than one file, so `workbench hook-check` starts in a fraction of a second |
 | Build | `make desktop-binary` (frozen binary only) and `make desktop` (the app) |
 
-Windows and Linux builds, signing, notarization and auto-update are not done yet.
+The release workflow (`.github/workflows/release.yml`) runs `make desktop` on a macOS runner for every version tag; see [releasing.md](releasing.md). Windows and Linux builds, signing, notarization and auto-update are not done yet.

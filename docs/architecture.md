@@ -69,9 +69,11 @@ packaging/
 ├── pyinstaller/       # Spec that freezes the CLI + server + UI into desktop/build/workbench/ for the app
 └── docker/            # Dockerfile and GitHub's SSH host keys for the server image
 docker-compose.yml     # Server deployment (stays at the root: it reads .env and secrets/ next to it)
-scripts/               # run_demo.py (the `make demo` server) and screenshots.py (README screenshots)
-docs/                  # setup.md, desktop.md, reference.md, architecture.md (this file)
-.github/workflows/     # CI: lint, generated files, UI build, wheel smoke test on three OSes, Docker build
+scripts/               # run_demo.py (the `make demo` server), screenshots.py (README screenshots), version.py (versions + changelog)
+docs/                  # setup.md, desktop.md, releasing.md, reference.md, architecture.md (this file)
+.github/workflows/     # ci.yml: lint, generated files, UI build, wheel smoke test on three OSes, Docker build;
+                       # release.yml: on a v* tag, the .dmg, wheel + sdist, GHCR image and the GitHub Release
+CHANGELOG.md           # Release notes, one section per version (docs/releasing.md)
 ```
 
 ---

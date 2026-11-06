@@ -821,7 +821,6 @@ wheels = [
 
 [[package]]
 name = "workbench"
-version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "detect-secrets" },

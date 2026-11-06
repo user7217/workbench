@@ -27,6 +27,8 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: uv sync --locked
+      # Every copy of the version agrees and CHANGELOG.md keeps an Unreleased section
+      - run: python3 scripts/version.py check
       - run: uv run ruff check .
       - run: uv run ruff format --check .
       - run: npm ci

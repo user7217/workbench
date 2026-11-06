@@ -15,6 +15,7 @@ Workbench keeps a live visual inventory of software/hardware projects and self-d
 - [Key Features](#key-features)
 - [How It Works (Architecture)](#how-it-works-architecture)
 - [Quick Start (60-Second Local Demo)](#quick-start-60-second-local-demo)
+- [Install a Release](#install-a-release)
 - [Production & Server Setup](#production--server-setup)
 - [Daily Workflows](#daily-workflows)
 - [CLI Reference](#cli-reference)
@@ -118,6 +119,20 @@ Open **http://127.0.0.1:8420** in a browser (or set `WORKBENCH_PORT` to use a di
 - `make demo` builds the frontend and spins up a temporary, sandboxed `workbench-data` repository seeded with sample hardware/software projects and learning paths. It never touches `~/.workbench`, `~/.claude`, or `~/.gemini`.
 - Press `/` on the Home screen to filter projects and learning paths.
 - Click any project card to open the three-panel workspace, drag the vertical or horizontal dividers to resize panels, and click status icons or text fields to edit them live.
+
+---
+
+## Install a Release
+
+Each [GitHub Release](https://github.com/user7217/workbench/releases) provides:
+
+| Download | Use | Guide |
+| :--- | :--- | :--- |
+| `Workbench_<version>_aarch64.dmg` | Desktop mode: menu-bar app on macOS (Apple silicon, unsigned) | [docs/desktop.md](docs/desktop.md) |
+| `ghcr.io/user7217/workbench:<version>` | Server mode: Docker image for `linux/amd64` and `linux/arm64` | [docs/setup.md](docs/setup.md) |
+| `workbench-<version>-py3-none-any.whl` | The CLI (and `workbench serve`) on the laptop: `uv tool install <wheel URL>` | [docs/setup.md](docs/setup.md) |
+
+What changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 
 ---
 
@@ -243,6 +258,8 @@ Workbench's documentation follows the [Diátaxis](https://diataxis.fr/) structur
 | **[README.md](README.md)** | **Overview & Tutorial** | Project overview, screenshots, 60-second `make demo` quickstart, and CLI cheat sheet. |
 | **[docs/setup.md](docs/setup.md)** | **Deployment How-To** | Step-by-step setup for `workbench-data`, SSH deploy keys, Docker Compose + Tailscale, `workbench serve`, and laptop hooks. |
 | **[docs/desktop.md](docs/desktop.md)** | **Desktop How-To** | Building and using the macOS menu-bar app that runs the dashboard on the laptop. |
+| **[docs/releasing.md](docs/releasing.md)** | **Maintainer How-To** | Versions, the changelog, and cutting a release with the release workflow. |
+| **[CHANGELOG.md](CHANGELOG.md)** | **Release Notes** | What changed in each version. |
 | **[docs/reference.md](docs/reference.md)** | **Technical Reference** | Annotated YAML schemas (`project.yaml`, `path.yaml`), `config.toml`, environment variables, HTTP API endpoints, and every CLI command with its options. |
 | **[docs/architecture.md](docs/architecture.md)** | **Backend Architecture** | Python package internals, root-commit identity resolution, discovery scanners, worktree concurrency, and 3-stage validation. |
 | **[web/README.md](web/README.md)** | **Frontend & Theming Guide** | How the `web/src/core/` store and `web/src/ui/` look layer are separated, and how to build a custom UI look. |

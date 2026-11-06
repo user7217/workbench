@@ -1,5 +1,8 @@
 services:
   workbench:
+    # `docker compose pull` fetches this released image (WORKBENCH_VERSION in .env picks one, e.g.
+    # 0.1.0); `docker compose up -d --build` builds it from this checkout instead
+    image: ghcr.io/user7217/workbench:${WORKBENCH_VERSION:-latest}
     build:
       context: .
       dockerfile: packaging/docker/Dockerfile

@@ -1,0 +1,155 @@
+# Builds and publishes a release when a version tag (v1.2.3) is pushed:
+#   - Workbench_<version>_aarch64.dmg   macOS desktop app (unsigned, Apple silicon)
+#   - workbench-<version>-py3-none-any.whl and workbench-<version>.tar.gz
+#   - ghcr.io/<owner>/workbench:<version> (and :<major>.<minor>, :latest) for linux/amd64 + arm64
+# The release notes are the version's section of CHANGELOG.md. See docs/releasing.md.
+name: Release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: Version and changelog
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      # Every version copy matches the tag and CHANGELOG.md has a non-empty section for it
+      - run: python3 scripts/version.py check --tag "$GITHUB_REF_NAME"
+      - id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+  python:
+    name: Wheel and sdist
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      # The wheel is built from the checkout, not from the sdist (plain `uv build` does that), because
+      # the sdist leaves out the gitignored web/dist and a wheel built from it would have no UI
+      - name: Build the UI, then the wheel (which ships it) and the sdist
+        run: |
+          (cd web && npm ci && npm run build)
+          uv build --wheel -o dist
+          uv build --sdist -o dist
+      - name: The installed wheel reports the release version and serves the UI files
+        run: |
+          uv venv --python 3.13 ../clean
+          VIRTUAL_ENV=../clean uv pip install dist/*.whl
+          test "$(../clean/bin/workbench --version)" = "workbench ${{ needs.check.outputs.version }}"
+          ../clean/bin/python -c "import pathlib, workbench; assert (pathlib.Path(workbench.__file__).parent / 'web_dist/index.html').is_file()"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: python
+          path: dist/*
+          if-no-files-found: error
+
+  macos:
+    name: macOS app
+    needs: check
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            web/package-lock.json
+            desktop/package-lock.json
+      - name: Build the app (UI, frozen workbench binary, Tauri bundle)
+        run: |
+          (cd web && npm ci)
+          make desktop
+      - name: The bundled binary reports the release version
+        run: |
+          app=desktop/src-tauri/target/release/bundle/macos/Workbench.app
+          test "$("$app/Contents/Resources/workbench/workbench" --version)" = "workbench ${{ needs.check.outputs.version }}"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: macos
+          path: desktop/src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+
+  docker:
+    name: Docker image
+    needs: check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository }}
+          # 1.2.3 and 1.2 always; latest only for releases without a -suffix
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: packaging/docker/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  release:
+    name: GitHub Release
+    needs: [check, python, macos, docker]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums and notes
+        run: |
+          (cd dist && sha256sum * > SHA256SUMS)
+          python3 scripts/version.py notes "$GITHUB_REF_NAME" > notes.md
+          cat >> notes.md <<EOF
+
+          ---
+          **Docker:** \`docker pull ghcr.io/${{ github.repository }}:${{ needs.check.outputs.version }}\`
+
+          **macOS app:** unsigned; on first open, allow it under System Settings → Privacy & Security → Open Anyway. See [docs/desktop.md](https://github.com/${{ github.repository }}/blob/$GITHUB_REF_NAME/docs/desktop.md).
+          EOF
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${{ needs.check.outputs.version }}"
+          prerelease=""
+          case "$version" in *-*) prerelease="--prerelease" ;; esac
+          gh release create "$GITHUB_REF_NAME" dist/* --verify-tag $prerelease \
+            --title "Workbench $version" --notes-file notes.md

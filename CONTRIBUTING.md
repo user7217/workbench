@@ -103,12 +103,16 @@ Biome reports the accessibility rules as warnings for now (clickable elements wi
 
 `.github/workflows/ci.yml` runs on every push to `main` and every pull request:
 
-- **Lint and format:** `make lint` must pass.
+- **Lint and format:** `make lint` must pass, and `scripts/version.py check` (every copy of the version agrees, `CHANGELOG.md` has an Unreleased section).
 - **Web UI and generated files:** regenerates `schema/` and `web/src/types/` and fails if they differ from what is committed, then type-checks both looks and builds the UI.
 - **Package (Linux, macOS, Windows):** builds the wheel, checks that it contains the UI and the agent files, installs it in a clean environment and smoke-tests `workbench --help` and `workbench install`; on Linux it also starts `workbench serve` against a demo and loads the dashboard.
 - **Docker image:** builds the image without pushing it.
 
 The test suites are not published, so CI does not run them; run them locally before opening a pull request.
+
+### Changelog and Releases
+
+A change that users would notice gets a line under `## [Unreleased]` in [CHANGELOG.md](CHANGELOG.md). Releases are cut by tagging a version; [docs/releasing.md](docs/releasing.md) has the steps and what the release workflow publishes.
 
 ### Safety & Isolation Guarantees in Tests
 
