@@ -113,6 +113,10 @@ jobs:
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
       - uses: docker/build-push-action@v7
+        env:
+          # Otherwise the action uploads a .dockerbuild record as a workflow artifact, and the
+          # release job (which downloads every artifact) attaches it to the GitHub Release
+          DOCKER_BUILD_RECORD_UPLOAD: false
         with:
           context: .
           file: packaging/docker/Dockerfile
