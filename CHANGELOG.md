@@ -6,6 +6,8 @@ Each release on [GitHub Releases](https://github.com/user7217/workbench/releases
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-07
+
 The first release. Everything below is new.
 
 ### Added
@@ -20,4 +22,5 @@ The first release. Everything below is new.
 - **Security:** write endpoints require `X-Workbench: 1` and JSON; a server listening on localhost rejects other `Host` names, blocking DNS rebinding.
 - **Releases:** one version number for the Python package, web UI and desktop app (`scripts/version.py`), this changelog, and a release workflow that builds the `.dmg`, the wheel and sdist, and the Docker image for each `v*` tag.
 
-[Unreleased]: https://github.com/user7217/workbench/commits/main
+[Unreleased]: https://github.com/user7217/workbench/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/user7217/workbench/releases/tag/v0.1.0
