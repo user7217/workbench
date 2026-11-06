@@ -20,7 +20,9 @@ class SemanticCheckResult:
 
 
 def _collect_string_length(obj: Any, ignore_keys: set[str] | None = None) -> int:
-    # suggestions are an inbox, not content: dismissing them must never trip the mass-deletion guard
+    # suggestions are an inbox, not content: dismissing them must never trip the mass-deletion guard.
+    # parent/under/depends_on/related_projects are ids pointing at other entries, not written text:
+    # detaching a child or dropping a link would otherwise count as deleting most of a small file.
     ignore = ignore_keys or {
         "id",
         "schema_version",
@@ -31,6 +33,10 @@ def _collect_string_length(obj: Any, ignore_keys: set[str] | None = None) -> int
         "refs",
         "uses_phases",
         "suggestions",
+        "parent",
+        "under",
+        "depends_on",
+        "related_projects",
     }
     total = 0
     if isinstance(obj, dict):
