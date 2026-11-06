@@ -182,12 +182,14 @@ packaging/docker/update.sh
 Then install the hourly timer. It runs the script as the current user, who must be able to run `docker` (member of the `docker` group):
 
 ```bash
-for unit in workbench-update.service workbench-update.timer; do
-  sed -e "s#@USER@#$USER#" -e "s#@DIR@#$PWD#" packaging/docker/$unit | sudo tee /etc/systemd/system/$unit >/dev/null
-done
-sudo systemctl daemon-reload
-sudo systemctl enable --now workbench-update.timer
+cd ~/workbench &&
+  sed -e "s#@USER@#$USER#" -e "s#@DIR@#$PWD#" packaging/docker/workbench-update.service > /tmp/workbench-update.service &&
+  sudo install -m 644 /tmp/workbench-update.service packaging/docker/workbench-update.timer /etc/systemd/system/ &&
+  sudo systemctl daemon-reload &&
+  sudo systemctl enable --now workbench-update.timer
 ```
+
+Each step runs only if the one before it worked. (Writing an empty unit file, for example with `tee` from a failed `sed`, makes systemd report the unit as masked; `sudo rm` the file and `sudo systemctl daemon-reload` to clear it.)
 
 Check it with:
 
