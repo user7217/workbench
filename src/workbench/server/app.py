@@ -13,6 +13,7 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from workbench.discovery.github import run_github_discovery
 from workbench.server.sync import ServerState
@@ -51,6 +52,12 @@ def _default_web_dist() -> Path:
     if (PACKAGED_WEB_DIST / "index.html").is_file():
         return PACKAGED_WEB_DIST
     return DEFAULT_WEB_DIST
+
+
+def _allowed_hosts() -> list[str]:
+    """Host names the server answers to, from WORKBENCH_ALLOWED_HOSTS (comma-separated); empty = any."""
+    raw = os.environ.get("WORKBENCH_ALLOWED_HOSTS", "")
+    return [h.strip() for h in raw.split(",") if h.strip()]
 
 
 def _require_write_headers(request: Request) -> None:
@@ -215,6 +222,11 @@ def create_app(
     # No CORSMiddleware: the API is same-origin only
     app = FastAPI(title="Workbench Server", lifespan=lifespan)
     app.state.workbench = state
+    allowed_hosts = _allowed_hosts()
+    if allowed_hosts:
+        # Rejects requests whose Host is not on the list, so a web page that rebinds its own
+        # domain to 127.0.0.1 (DNS rebinding) cannot read or edit a localhost dashboard
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=allowed_hosts)
 
     @app.get("/api/snapshot")
     async def get_snapshot() -> dict[str, Any]:

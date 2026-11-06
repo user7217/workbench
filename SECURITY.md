@@ -52,6 +52,7 @@ As detailed in **[docs/setup.md](docs/setup.md)**:
 
 - **Bind Only to Loopback or Tailscale:** The Workbench server does not implement user authentication of its own; it relies on network-level access control. Always bind `WORKBENCH_BIND` to `127.0.0.1` (local Mac) or the server's `100.x.y.z` [Tailscale](https://tailscale.com) IPv4 address—never expose port `8420` on a public `0.0.0.0` internet interface, and never publish it with Tailscale Funnel or a reverse proxy open to the internet. Tailscale Serve (tailnet only) is fine; see [docs/setup.md](docs/setup.md).
 - **CSRF Header Requirement:** Every mutating `POST /api/...` route on the server ([`src/workbench/server/app.py`](src/workbench/server/app.py)) requires `Content-Type: application/json` and the custom header `X-Workbench: 1`, preventing cross-site form submissions from untrusted browser tabs.
+- **Host Check on Localhost:** When the server listens on `127.0.0.1` or `localhost` (`workbench serve` and the desktop app), it rejects requests whose `Host` header is not `localhost` or `127.0.0.1`. A malicious page that points its own domain at `127.0.0.1` (DNS rebinding) would otherwise become same-origin with the dashboard and could read it and send the `X-Workbench` header. The allowed names come from `WORKBENCH_ALLOWED_HOSTS`.
 
 ---
 

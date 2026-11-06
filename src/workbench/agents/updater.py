@@ -467,6 +467,13 @@ def log_path(home_dir: Path | None = None, env: dict[str, str] | None = None) ->
     return get_workbench_dir(home_dir=home_dir, env=env) / "logs" / "updater.log"
 
 
+def _workbench_command() -> list[str]:
+    """How to run this same workbench: the binary itself when frozen (desktop app), else python -m."""
+    if getattr(sys, "frozen", False):
+        return [sys.executable]
+    return [sys.executable, "-m", "workbench"]
+
+
 def launch_update_job(
     job: dict[str, Any], home_dir: Path | None = None, env: dict[str, str] | None = None
 ) -> Path:
@@ -481,7 +488,7 @@ def launch_update_job(
     log.parent.mkdir(parents=True, exist_ok=True)
     with log.open("a", encoding="utf-8") as fh:
         subprocess.Popen(
-            [sys.executable, "-m", "workbench", "auto-update", "--job", str(path)],
+            [*_workbench_command(), "auto-update", "--job", str(path)],
             cwd=job.get("repo_top") or None,
             stdin=subprocess.DEVNULL,
             stdout=fh,

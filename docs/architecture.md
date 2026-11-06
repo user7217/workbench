@@ -62,13 +62,15 @@ The rest of the repository:
 
 ```text
 web/                   # React + TypeScript UI: src/core (fixed state layer), src/ui (replaceable look), docs/images
+desktop/               # macOS menu-bar app (Tauri): runs the frozen `workbench serve` at login (docs/desktop.md)
 schema/                # JSON Schemas generated from models.py (the contract between Python and the UI)
 packaging/
 ├── hatch_build.py     # Wheel build hook: ships the built web/dist inside the package as workbench/web_dist
+├── pyinstaller/       # Spec that freezes the CLI + server + UI into desktop/build/workbench/ for the app
 └── docker/            # Dockerfile and GitHub's SSH host keys for the server image
 docker-compose.yml     # Server deployment (stays at the root: it reads .env and secrets/ next to it)
 scripts/               # run_demo.py (the `make demo` server) and screenshots.py (README screenshots)
-docs/                  # setup.md, reference.md, architecture.md (this file)
+docs/                  # setup.md, desktop.md, reference.md, architecture.md (this file)
 .github/workflows/     # CI: lint, generated files, UI build, wheel smoke test on three OSes, Docker build
 ```
 
@@ -179,4 +181,5 @@ The background job (`cli.agents._run_auto_update`, one at a time under `~/.workb
 - **Sync (`sync.py`):** on startup the server loads its cached `snapshot.json`, then every `WORKBENCH_POLL_SECONDS` fetches `origin/main` into its own clone, validates the fetched commit in a staging worktree and, only if it is valid, swaps in a new snapshot (projects, learning paths, topic Markdown, and each entry's last change time from `git log`). An invalid commit keeps the last good snapshot and is reported in `/api/status`. A sync never raises, and one lock serializes all git work on the clone.
 - **Writes (`writes/`):** each dashboard edit opens a worktree, applies the change with `edits.py`, runs the same validation and semantic checks as the CLI, commits an `edit(...)` message, rebases and pushes with retries, then resyncs and returns the new snapshot.
 - **Discovery:** with `WORKBENCH_GITHUB_OWNERS` set, the server runs GitHub discovery once a day.
-- **UI (`app.py`):** the built UI is served from `WORKBENCH_WEB_DIST` if set, else the copy inside the installed package (`workbench/web_dist`, added to the wheel by `packaging/hatch_build.py` when `web/dist` is built), else the checkout's `web/dist`. The server runs in the Docker image or with `workbench serve`.
+- **UI (`app.py`):** the built UI is served from `WORKBENCH_WEB_DIST` if set, else the copy inside the installed package (`workbench/web_dist`, added to the wheel by `packaging/hatch_build.py` when `web/dist` is built), else the checkout's `web/dist`. The server runs in the Docker image, with `workbench serve`, or inside the desktop app.
+- **Host check (`app.py`):** with `WORKBENCH_ALLOWED_HOSTS` set, requests addressed to any other host name are rejected (`400`). `workbench serve` sets it to `127.0.0.1,localhost` when listening on loopback, which blocks DNS rebinding; the Docker server leaves it unset.

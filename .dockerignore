@@ -18,3 +18,5 @@ web/*.tsbuildinfo
 # Tests are not needed to build the image
 tests/
 web/src/core/__tests__/
+# The desktop app is built on the laptop, not in the server image (its Rust output is over 1 GB)
+desktop/

@@ -1,8 +1,8 @@
-# Workbench — Production & Home Server Deployment Guide
+# Workbench — Production & Server Deployment Guide
 
-This guide walks through setting up Workbench in production: creating the private `workbench-data` repository on GitHub, deploying the dashboard server on an always-on home server (via **Docker Compose + Tailscale** or standalone **`workbench serve`**), and connecting the laptop's CLI and coding agents.
+This guide walks through setting up Workbench in production: creating the private `workbench-data` repository on GitHub, deploying the dashboard server on an always-on server (via **Docker Compose + Tailscale** or standalone **`workbench serve`**), and connecting the laptop's CLI and coding agents.
 
-> **How data flows in production:** Source code never leaves the laptop. The laptop CLI and coding agents push small, validated `.yaml` and `.md` metadata files to the private `workbench-data` repository on GitHub. The home server polls `workbench-data` to serve the dashboard over Tailscale and pushes back any edits made in the web UI.
+> **How data flows in production:** Source code never leaves the laptop. The laptop CLI and coding agents push small, validated `.yaml` and `.md` metadata files to the private `workbench-data` repository on GitHub. The server polls `workbench-data` to serve the dashboard over Tailscale and pushes back any edits made in the web UI.
 
 ---
 
@@ -13,8 +13,8 @@ Workbench uses three narrowly scoped credentials so no machine has more access t
 | Machine | Credential | Scope & Purpose |
 | :--- | :--- | :--- |
 | **1. Laptop** | The laptop's normal Git SSH key (`~/.ssh/...`) or credential helper | Pulls and pushes metadata commits from the `workbench` CLI to `<github-user>/workbench-data`. |
-| **2. Home Server (Git Push/Pull)** | Dedicated SSH Deploy Key (`./secrets/deploy_key`) | Registered **only** on `<github-user>/workbench-data` with **Allow write access** enabled. Allows the server to fetch updates and commit inline web UI edits. |
-| **3. Home Server (Optional Discovery)** | Fine-grained GitHub Personal Access Token (`WORKBENCH_GITHUB_READ_TOKEN`) | **Read-only** access (`Metadata: Read-only` and `Contents: Read-only`) across the owner's repositories so the server's daily background job can discover new non-fork, non-archived GitHub repos. |
+| **2. Server (Git Push/Pull)** | Dedicated SSH Deploy Key (`./secrets/deploy_key`) | Registered **only** on `<github-user>/workbench-data` with **Allow write access** enabled. Allows the server to fetch updates and commit inline web UI edits. |
+| **3. Server (Optional Discovery)** | Fine-grained GitHub Personal Access Token (`WORKBENCH_GITHUB_READ_TOKEN`) | **Read-only** access (`Metadata: Read-only` and `Contents: Read-only`) across the owner's repositories so the server's daily background job can discover new non-fork, non-archived GitHub repos. |
 
 ---
 
@@ -41,7 +41,7 @@ cd ~ && rm -rf /tmp/init-workbench-data
 
 ## Step 2: Deploy the Server (Option A: Docker Compose + Tailscale — Recommended)
 
-Running the server in Docker on a home server, NAS, Raspberry Pi, or VPS keeps the dashboard reachable across the owner's devices over [Tailscale](https://tailscale.com) without exposing any ports to the public internet.
+Running the server in Docker on a dedicated machine, NAS, Raspberry Pi, or VPS keeps the dashboard reachable across the owner's devices over [Tailscale](https://tailscale.com) without exposing any ports to the public internet.
 
 ### 2.1 Find the Server's Tailscale IP
 

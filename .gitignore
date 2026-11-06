@@ -51,3 +51,9 @@ ros2-learn.md
 .vscode/
 *.swp
 DECISIONS.md
+
+# Desktop app build output (frozen server binary, Rust target, Tauri CLI)
+desktop/build/
+desktop/node_modules/
+desktop/src-tauri/target/
+desktop/src-tauri/gen/

@@ -15,7 +15,7 @@ Workbench keeps a live visual inventory of software/hardware projects and self-d
 - [Key Features](#key-features)
 - [How It Works (Architecture)](#how-it-works-architecture)
 - [Quick Start (60-Second Local Demo)](#quick-start-60-second-local-demo)
-- [Production & Home Server Setup](#production--home-server-setup)
+- [Production & Server Setup](#production--server-setup)
 - [Daily Workflows](#daily-workflows)
 - [CLI Reference](#cli-reference)
 - [Commit Convention in `workbench-data`](#commit-convention-in-workbench-data)
@@ -70,7 +70,7 @@ Click any status icon to update it, click the pencil (`✎`) on any title, summa
 ## How It Works (Architecture)
 
 ```text
- Laptop (CLI + Coding Agents)             GitHub                     Home Server (Docker / Tailscale)
+ Laptop (CLI + Coding Agents)             GitHub                     Server (Docker / Tailscale)
 ┌────────────────────────────┐      ┌────────────────────┐      ┌─────────────────────────────────┐
 │ Local project repositories │      │ workbench-data     │      │ Workbench FastAPI + React UI    │
 │  • Agent turn / commit     │      │ (private Git repo) │      │  • Polls origin/main (10 min)   │
@@ -121,9 +121,14 @@ Open **http://127.0.0.1:8420** in a browser (or set `WORKBENCH_PORT` to use a di
 
 ---
 
-## Production & Home Server Setup
+## Production & Server Setup
 
-To connect Workbench to real repositories and deploy the dashboard on a home server or local machine, follow **[docs/setup.md](docs/setup.md)**. In brief:
+The dashboard runs in one of two ways:
+
+- **Server mode:** Docker on an always-on machine, reachable from every device on the tailnet. See **[docs/setup.md](docs/setup.md)**.
+- **Desktop mode (macOS):** a menu-bar app that runs the server on the laptop from login, reachable from that laptop only. See **[docs/desktop.md](docs/desktop.md)**.
+
+Server mode in brief:
 
 1. **Create a private `workbench-data` repo on GitHub** seeded with `workbench.yaml` (`schema_version: 1`).
 2. **Deploy the server (Docker Compose + Tailscale):**
@@ -237,6 +242,7 @@ Workbench's documentation follows the [Diátaxis](https://diataxis.fr/) structur
 | :--- | :--- | :--- |
 | **[README.md](README.md)** | **Overview & Tutorial** | Project overview, screenshots, 60-second `make demo` quickstart, and CLI cheat sheet. |
 | **[docs/setup.md](docs/setup.md)** | **Deployment How-To** | Step-by-step setup for `workbench-data`, SSH deploy keys, Docker Compose + Tailscale, `workbench serve`, and laptop hooks. |
+| **[docs/desktop.md](docs/desktop.md)** | **Desktop How-To** | Building and using the macOS menu-bar app that runs the dashboard on the laptop. |
 | **[docs/reference.md](docs/reference.md)** | **Technical Reference** | Annotated YAML schemas (`project.yaml`, `path.yaml`), `config.toml`, environment variables, HTTP API endpoints, and every CLI command with its options. |
 | **[docs/architecture.md](docs/architecture.md)** | **Backend Architecture** | Python package internals, root-commit identity resolution, discovery scanners, worktree concurrency, and 3-stage validation. |
 | **[web/README.md](web/README.md)** | **Frontend & Theming Guide** | How the `web/src/core/` store and `web/src/ui/` look layer are separated, and how to build a custom UI look. |

@@ -201,6 +201,7 @@ Read by `create_app()` in [`src/workbench/server/app.py`](../src/workbench/serve
 | `WORKBENCH_GITHUB_READ_TOKEN` | `""` | Optional fine-grained read-only token. With it, discovery lists the token owner's private repos too; without it, public repos only. |
 | `WORKBENCH_GITHUB_API_BASE` | `https://api.github.com` | GitHub API base URL (for GitHub Enterprise or tests). |
 | `WORKBENCH_WEB_DIST` | see below | Folder holding the built UI (`index.html` + `assets/`). |
+| `WORKBENCH_ALLOWED_HOSTS` | `""` (any); `127.0.0.1,localhost` when `workbench serve` listens on `127.0.0.1` or `localhost` | Comma-separated host names the server answers to; requests with any other `Host` header get `400`. Blocks DNS rebinding against a localhost server. |
 | `WORKBENCH_BIND` | `127.0.0.1` | Host address `docker-compose.yml` publishes the port on (set it to the server's `100.x.y.z` Tailscale IP). Inside the container the server listens on `0.0.0.0`. |
 | `WORKBENCH_PORT` | `8420` | Port inside the container and for `make demo`. |
 
