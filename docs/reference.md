@@ -189,7 +189,7 @@ Both commands get their prompt on stdin, run in an empty temporary directory, an
 
 ## 4. Server Environment Variables
 
-Read by `create_app()` in [`src/workbench/server/app.py`](../src/workbench/server/app.py), except `WORKBENCH_BIND` and `WORKBENCH_PORT`, which only the Docker files ([`packaging/docker/Dockerfile`](../packaging/docker/Dockerfile), [`docker-compose.yml`](../docker-compose.yml)) and the demo use; `workbench serve` takes `--host` and `--port` instead.
+Read by `create_app()` in [`src/workbench/server/app.py`](../src/workbench/server/app.py), except `WORKBENCH_BIND`, `WORKBENCH_PORT` and `WORKBENCH_VERSION`, which only the Docker files ([`packaging/docker/Dockerfile`](../packaging/docker/Dockerfile), [`docker-compose.yml`](../docker-compose.yml)) and the demo use; `workbench serve` takes `--host` and `--port` instead.
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
@@ -204,6 +204,7 @@ Read by `create_app()` in [`src/workbench/server/app.py`](../src/workbench/serve
 | `WORKBENCH_ALLOWED_HOSTS` | `""` (any); `127.0.0.1,localhost` when `workbench serve` listens on `127.0.0.1` or `localhost` | Comma-separated host names the server answers to; requests with any other `Host` header get `400`. Blocks DNS rebinding against a localhost server. |
 | `WORKBENCH_BIND` | `127.0.0.1` | Host address `docker-compose.yml` publishes the port on (set it to the server's `100.x.y.z` Tailscale IP). Inside the container the server listens on `0.0.0.0`. |
 | `WORKBENCH_PORT` | `8420` | Port inside the container and for `make demo`. |
+| `WORKBENCH_VERSION` | `latest` | Image tag `docker-compose.yml` runs. Set in `.env`, it pins that release and stops [`packaging/docker/update.sh`](../packaging/docker/update.sh) from updating ([setup.md 2.8](setup.md#28-recommended-automatic-updates-from-releases)). |
 
 The built UI is looked up in this order: `WORKBENCH_WEB_DIST` if set; the copy shipped inside the installed package (`workbench/web_dist`, added to the wheel when `web/dist` was built before installing); the checkout's `web/dist` (editable installs and the demo). With none of them the server logs "Web UI not found" and serves only the API.
 

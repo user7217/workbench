@@ -323,7 +323,8 @@ def validate_data_repo(repo_root: Path) -> ValidationResult:
             rel = p.relative_to(repo_root).as_posix()
             if not is_allowed_repo_relative_path(rel):
                 res.errors.append(
-                    f"Disallowed path '{rel}': only workbench.yaml, projects/<id>/project.yaml, and learning/<id>/** are permitted"
+                    f"Disallowed path '{rel}': only workbench.yaml, projects/<id>/project.yaml, "
+                    "learning/<id>/path.yaml and learning/<id>/topics/<id>.md are permitted"
                 )
 
     seen_ids: set[str] = set()

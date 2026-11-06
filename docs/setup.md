@@ -123,19 +123,14 @@ Verify from a browser on the laptop (connected to the same Tailscale tailnet):
 - Open `http://100.101.102.103:8420` — confirm the Workbench UI loads. With MagicDNS on, `http://<server-name>:8420` works too.
 - Change one status in the dashboard and check that an `edit(<project-id>): ...` commit appears in `workbench-data` on GitHub (this proves the deploy key can push), then change it back.
 
-To update the server after pulling new code changes in the future:
+**Updating:** the server can follow releases on its own; see [2.8 Automatic Updates from Releases](#28-recommended-automatic-updates-from-releases). Each [release](https://github.com/user7217/workbench/releases) publishes the image `ghcr.io/user7217/workbench` (`linux/amd64` and `linux/arm64`), which `docker-compose.yml` names. To move to a release by hand instead:
 
 ```bash
-cd ~/workbench && git pull && docker compose up -d --build
+cd ~/workbench && git fetch --tags && git checkout v0.1.1
+WORKBENCH_VERSION=0.1.1 docker compose pull && WORKBENCH_VERSION=0.1.1 docker compose up -d --no-build
 ```
 
-**Released images instead of building:** each [release](https://github.com/user7217/workbench/releases) publishes the image `ghcr.io/user7217/workbench` for `linux/amd64` and `linux/arm64`, which `docker-compose.yml` names. Set `WORKBENCH_VERSION` in `.env` to pin one (`WORKBENCH_VERSION=0.1.0`; without it, `latest`), then update with:
-
-```bash
-cd ~/workbench && git pull && docker compose pull && docker compose up -d
-```
-
-`git pull` keeps `docker-compose.yml` in step with the image. The image is public (it takes the visibility of the public repository), so pulling needs no login; a fork's image may start private, in which case set it to public under the package's page → Package settings, or `docker login ghcr.io` on the server. `docker compose up -d --build` still builds from the checkout and tags the result with the same name.
+Checking out the tag keeps `docker-compose.yml` in step with the image. The image is public (it takes the visibility of the public repository), so pulling needs no login; a fork's image may start private, in which case set it to public under the package's page → Package settings, or `docker login ghcr.io` on the server. To run unreleased code from `main`, build it instead: `git checkout main && git pull && docker compose up -d --build`.
 
 The `workbench` command exists only inside the container, and the container has no laptop config, so run CLI commands (`workbench archive-empty`, `workbench set`, ...) on the laptop. The server picks up their commits on its next sync, or straight away when sync is pressed in the dashboard.
 
@@ -168,6 +163,46 @@ Or use Tailscale Serve (below), which binds the container to `127.0.0.1` and avo
 5. Open `https://<server-name>.<tailnet>.ts.net` (add `:8443` or `:10000` if one of those was used). Remove it later with `sudo tailscale serve --https=443 off`.
 
 Never put Workbench on **Funnel** (`tailscale funnel`): that publishes it on the internet, and the dashboard has no login of its own.
+
+### 2.8 (Recommended) Automatic Updates from Releases
+
+Workbench's data (`workbench-data`) already reaches the server by itself: the server fetches it every `WORKBENCH_POLL_SECONDS` (10 minutes). Workbench itself (the image) changes only when [`packaging/docker/update.sh`](../packaging/docker/update.sh) moves it to a new release. It deploys **releases only**, never commits on `main` or unfinished tags:
+
+1. It asks GitHub for the repository's latest release (published, not a pre-release). If the container already runs that version, it stops there.
+2. It pulls `ghcr.io/user7217/workbench:<version>`. If that fails (for example while the release workflow is still building), nothing changes and the next run tries again.
+3. It checks out the release tag in `~/workbench`, so `docker-compose.yml` matches the image, then recreates the container with the new image and removes older release images. The `workbench-data` volume (the server's clone and snapshot) is kept.
+
+Run it once by hand to switch the server to released images:
+
+```bash
+cd ~/workbench && git checkout main && git pull
+packaging/docker/update.sh
+```
+
+Then install the hourly timer. It runs the script as the current user, who must be able to run `docker` (member of the `docker` group):
+
+```bash
+for unit in workbench-update.service workbench-update.timer; do
+  sed -e "s#@USER@#$USER#" -e "s#@DIR@#$PWD#" packaging/docker/$unit | sudo tee /etc/systemd/system/$unit >/dev/null
+done
+sudo systemctl daemon-reload
+sudo systemctl enable --now workbench-update.timer
+```
+
+Check it with:
+
+```bash
+systemctl list-timers workbench-update.timer   # next run
+journalctl -u workbench-update -n 20           # what each run did
+```
+
+Notes:
+
+- **Pinning:** `WORKBENCH_VERSION=0.1.1` in `.env` keeps the server on that version; the script then does nothing until the line is removed.
+- **Local edits:** the clone sits on the release tag (a detached `HEAD`), so it is a deploy copy, not a working copy. A local edit to a tracked file stops updates (logged in the journal); `.env` and `secrets/` are untracked and safe.
+- **Breaking changes:** a release that needs action on the server (a new `.env` setting, say) says so under **Changed** in [CHANGELOG.md](../CHANGELOG.md). The timer still deploys it, so check the changelog when a release with such a note comes out, or pin the version first.
+- **Without systemd:** a cron line does the same: `0 * * * * $HOME/workbench/packaging/docker/update.sh >> $HOME/workbench-update.log 2>&1`.
+- **Stopping it:** `sudo systemctl disable --now workbench-update.timer`.
 
 ---
 

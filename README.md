@@ -162,6 +162,7 @@ Server mode in brief:
    workbench setup
    workbench discover --local
    ```
+4. **Keep the server on the latest release (recommended):** run `packaging/docker/update.sh` once, then install its hourly systemd timer. It deploys new releases only, never unreleased commits.
 
 See **[docs/setup.md](docs/setup.md)** for full step-by-step instructions, including non-Docker (`workbench serve`) deployment and headless background agent updates.
 
