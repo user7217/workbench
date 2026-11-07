@@ -6,6 +6,10 @@ Each release on [GitHub Releases](https://github.com/user7217/workbench/releases
 
 ## [Unreleased]
 
+### Added
+
+- **Homebrew:** `brew install --cask user7217/workbench/workbench-dashboard` installs the macOS app and links the `workbench` command. Each release updates the cask.
+
 ## [0.1.2] - 2026-11-07
 
 ### Added

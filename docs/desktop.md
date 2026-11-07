@@ -24,17 +24,24 @@ To build it from source: [uv](https://docs.astral.sh/uv/), Node.js 22+, and Rust
 
 ## 2. Install
 
+### With Homebrew
+
+```bash
+brew install --cask user7217/workbench/workbench-dashboard
+```
+
+This installs `Workbench.app` into `Applications`, clears the download's quarantine flag (so the first open needs no extra step) and links the `workbench` command to the copy inside the app, so **Install Command Line Tool…** is not needed. The app then updates itself (§4.1); `brew upgrade` leaves it alone unless run with `--greedy`. `brew uninstall --cask workbench-dashboard` also removes the login item; `--zap` additionally removes the app's settings, but never `~/.workbench`.
+
 ### From a Release
 
 1. Download `Workbench_<version>_aarch64.dmg` from the [latest release](https://github.com/user7217/workbench/releases/latest) (`SHA256SUMS` beside it has its checksum).
 2. Open the `.dmg` and drag `Workbench.app` onto `Applications`.
-3. Open Workbench from `Applications`. macOS refuses the first time because the app is unsigned: open **System Settings → Privacy & Security**, scroll to the message about Workbench, choose **Open Anyway** and confirm.
+3. Clear the download's quarantine flag, then open Workbench from `Applications`:
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/Workbench.app
+   ```
 
-If macOS instead says the app "is damaged and can't be opened", the download's quarantine flag is the cause, not the file; clear it and open the app again:
-
-```bash
-xattr -dr com.apple.quarantine /Applications/Workbench.app
-```
+The app is not signed by Apple yet, so with the flag still set macOS refuses to open it, usually with "Workbench.app is damaged and can't be opened. You should move it to the Trash." The file is not damaged: choose **Cancel** (not Move to Trash) and run the command above. On some macOS versions the message instead offers **System Settings → Privacy & Security → Open Anyway**, which works too. This is needed once; updates the app installs itself (§4.1) are not quarantined.
 
 From 0.1.2 on, the app updates itself (§4.1). Versions before 0.1.2 are updated by hand once: quit Workbench from its menu, replace the app in `Applications` with the new one and open it. The login item keeps working because the path stays the same.
 

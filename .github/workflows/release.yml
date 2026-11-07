@@ -184,7 +184,7 @@ jobs:
           ---
           **Docker:** \`docker pull ghcr.io/${{ github.repository }}:${{ needs.check.outputs.version }}\`
 
-          **macOS app:** unsigned; on first open, allow it under System Settings → Privacy & Security → Open Anyway. Installed apps from 0.1.2 on update themselves. See [docs/desktop.md](https://github.com/${{ github.repository }}/blob/$GITHUB_REF_NAME/docs/desktop.md).
+          **macOS app:** not signed by Apple yet, so macOS calls the download "damaged". After dragging it to Applications, run \`xattr -dr com.apple.quarantine /Applications/Workbench.app\` once, then open it. Installed apps from 0.1.2 on update themselves. See [docs/desktop.md](https://github.com/${{ github.repository }}/blob/$GITHUB_REF_NAME/docs/desktop.md).
           EOF
       - name: Create the release
         env:
@@ -195,3 +195,56 @@ jobs:
           case "$version" in *-*) prerelease="--prerelease" ;; esac
           gh release create "$GITHUB_REF_NAME" dist/* --verify-tag $prerelease \
             --title "Workbench $version" --notes-file notes.md
+
+  # Points the Homebrew cask (tap user7217/homebrew-workbench) at the new dmg. Needs the
+  # HOMEBREW_TAP_TOKEN secret: a fine-grained token with Contents read/write on the tap repo only.
+  # Pre-releases are skipped, like the app's own updates.
+  homebrew:
+    name: Homebrew cask
+    needs: [check, release]
+    if: ${{ !contains(needs.check.outputs.version, '-') }}
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.check.outputs.version }}
+      TAP: ${{ github.repository_owner }}/homebrew-workbench
+    steps:
+      - id: token
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+        run: |
+          if [ -z "$HOMEBREW_TAP_TOKEN" ]; then
+            echo "::warning::HOMEBREW_TAP_TOKEN is not set, so the Homebrew cask was not updated (see docs/releasing.md)"
+            echo "set=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "set=true" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.token.outputs.set == 'true'
+        uses: actions/checkout@v7
+      - if: steps.token.outputs.set == 'true'
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ env.TAP }}
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+      - if: steps.token.outputs.set == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: macos
+          path: dist
+      - name: Write the cask for this version and push it to the tap
+        if: steps.token.outputs.set == 'true'
+        run: |
+          sha=$(sha256sum "dist/Workbench_${VERSION}_aarch64.dmg" | cut -d' ' -f1)
+          mkdir -p tap/Casks
+          sed -e "s/@VERSION@/${VERSION}/" -e "s/@SHA256@/${sha}/" \
+            packaging/homebrew/workbench-dashboard.rb > tap/Casks/workbench-dashboard.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/workbench-dashboard.rb
+          if git diff --cached --quiet; then
+            echo "The cask is already at ${VERSION}"
+            exit 0
+          fi
+          git commit -m "workbench-dashboard ${VERSION}"
+          git push

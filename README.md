@@ -130,7 +130,7 @@ Each [GitHub Release](https://github.com/user7217/workbench/releases) provides:
 
 | Download | Use | Guide |
 | :--- | :--- | :--- |
-| `Workbench_<version>_aarch64.dmg` | Desktop mode: menu-bar app on macOS (Apple silicon, unsigned) | [docs/desktop.md](docs/desktop.md) |
+| `Workbench_<version>_aarch64.dmg` | Desktop mode: menu-bar app on macOS (Apple silicon, unsigned); also `brew install --cask user7217/workbench/workbench-dashboard` | [docs/desktop.md](docs/desktop.md) |
 | `ghcr.io/user7217/workbench:<version>` | Server mode: Docker image for `linux/amd64` and `linux/arm64` | [docs/setup.md](docs/setup.md) |
 | `workbench-<version>-py3-none-any.whl` | The CLI (and `workbench serve`) on the laptop: `uv tool install <wheel URL>` | [docs/setup.md](docs/setup.md) |
 
@@ -169,7 +169,7 @@ See **[docs/setup.md](docs/setup.md)** for full step-by-step instructions, inclu
 Desktop mode in brief:
 
 1. **Create the private `workbench-data` repo** as above.
-2. **Install the app:** download `Workbench_<version>_aarch64.dmg` from the [latest release](https://github.com/user7217/workbench/releases/latest), drag it to `Applications` and open it (it is unsigned, so allow it once under System Settings → Privacy & Security).
+2. **Install the app:** `brew install --cask user7217/workbench/workbench-dashboard`, or download `Workbench_<version>_aarch64.dmg` from the [latest release](https://github.com/user7217/workbench/releases/latest), drag it to `Applications`, run `xattr -dr com.apple.quarantine /Applications/Workbench.app` once (it is not signed by Apple yet, so macOS otherwise calls it "damaged"), and open it.
 3. **Configure the laptop** with the CLI inside the app: menu → **Install Command Line Tool…**, then `workbench setup`, `workbench discover --local`, and menu → **Restart Server**.
 
 See **[docs/desktop.md](docs/desktop.md)** for the details, the menu and troubleshooting.

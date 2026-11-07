@@ -9,6 +9,7 @@ A release is a Git tag such as `v0.2.0`. Pushing the tag runs [`.github/workflow
 | `ghcr.io/user7217/workbench:<version>`, `:<major>.<minor>`, `:latest` | Server mode (`linux/amd64`, `linux/arm64`) | Linux runner |
 | `workbench-<version>-py3-none-any.whl`, `workbench-<version>.tar.gz` | `uv tool install` from the release | Linux runner |
 | `SHA256SUMS` | Checking downloads | — |
+| Cask `workbench-dashboard` in [user7217/homebrew-workbench](https://github.com/user7217/homebrew-workbench) | `brew install --cask user7217/workbench/workbench-dashboard` | Linux runner, after the release |
 
 The release notes are the version's section of [CHANGELOG.md](../CHANGELOG.md), followed by the Docker pull command and a note on opening the unsigned app.
 
@@ -92,10 +93,22 @@ then put the new `.pub` contents in `tauri.conf.json` and update both secrets.
 
 `make desktop` builds without the key and without update archives; `make desktop-release` (used by the workflow) needs both environment variables set.
 
-## 6. Not Yet Automated
+## 6. Homebrew Tap
+
+The cask's source is [`packaging/homebrew/workbench-dashboard.rb`](../packaging/homebrew/workbench-dashboard.rb), with `@VERSION@` and `@SHA256@` placeholders. After each release (not pre-releases) the workflow's `Homebrew cask` job fills them in for the new dmg and pushes the result to the tap repository as `Casks/workbench-dashboard.rb`. Changes to the cask are made in this repository and reach the tap with the next release.
+
+The job needs the `HOMEBREW_TAP_TOKEN` secret: a fine-grained personal access token limited to the `homebrew-workbench` repository, with **Contents: Read and write**. Without it the job only logs a warning. Fine-grained tokens expire (a year at most), so renew it before then; an expired token fails the job, and installs keep getting the previous version until it is renewed.
+
+To check the cask locally:
+
+```bash
+brew tap user7217/workbench && brew audit --cask --strict --online user7217/workbench/workbench-dashboard
+```
+
+## 7. Not Yet Automated
 
 These need accounts outside GitHub and are planned for later:
 
-- **PyPI:** the name `workbench` is taken there, so publishing needs another distribution name; the command would stay `workbench`.
+- **PyPI:** to be published as `workbench-dashboard` (the name `workbench` is taken there); the command stays `workbench`.
 - **Apple signing and notarization** of the macOS app (an Apple Developer account), which removes the Gatekeeper prompt on first install. (Updates installed by the app itself do not show the prompt, since the app downloads them directly.)
 - **Windows and Linux** builds of the desktop app.
