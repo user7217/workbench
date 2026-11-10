@@ -6,6 +6,7 @@
  */
 import type { Project } from "../types/project";
 import type { LearningPath } from "../types/learning";
+import type { TodayData, TodayEntry } from "./today";
 
 export interface SnapshotData {
   projects: Project[];
@@ -14,6 +15,10 @@ export interface SnapshotData {
   topic_markdowns: Record<string, string>;
   /** When each project / learning path last changed in git (ISO 8601), keyed by id. Older servers omit it. */
   updated_at?: { projects?: Record<string, string>; learning?: Record<string, string> };
+  /** Today's Work: the chosen roots and the day they were confirmed for. Older servers omit it. */
+  today?: TodayData;
+  /** Optional parts of the dashboard this server has turned on. Older servers omit it. */
+  features?: { today?: boolean };
   commit: string | null;
   synced_at: string | null;
 }
@@ -144,6 +149,19 @@ export const suggestionUrls = {
   dismiss: (projectId: string, suggestionId: string) =>
     `/api/projects/${enc(projectId)}/suggestions/${enc(suggestionId)}/dismiss`,
 };
+
+/** Today's Work: one endpoint that replaces the stored list. */
+export const todayUrl = "/api/today";
+
+/** Body of POST /api/today: the day the list is for and the roots, in order. */
+export function todayBody(day: string, entries: TodayEntry[]) {
+  return {
+    day,
+    entries: entries.map((e) =>
+      e.item ? { kind: e.kind, id: e.id, item: e.item } : { kind: e.kind, id: e.id },
+    ),
+  };
+}
 
 export function postStatus(url: string, status: string): Promise<WriteResult> {
   return postJson(url, { status });

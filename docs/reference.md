@@ -181,6 +181,12 @@ updater_command = 'claude -p --model haiku --tools "" --strict-mcp-config --no-s
 #   "required" refuse to push when the review fails or cannot run
 privacy_review = "off"
 reviewer_command = 'claude -p --model haiku --tools "" --strict-mcp-config --no-session-persistence'
+
+# Today's Work, the dashboard's Today tab (docs/today.md):
+#   "on"   (default) the tab and its buttons are shown; an unknown value also means "on"
+#   "off"  the server started by `workbench serve` leaves the feature out; today.yaml is kept
+# Changed with `workbench today on|off` or the desktop app's menu; the server reads it when it starts.
+today = "on"
 ```
 
 Both commands get their prompt on stdin, run in an empty temporary directory, and must print JSON. Any agent CLI that does that can be used; only Claude Code has been tested.
@@ -202,6 +208,7 @@ Read by `create_app()` in [`src/workbench/server/app.py`](../src/workbench/serve
 | `WORKBENCH_GITHUB_API_BASE` | `https://api.github.com` | GitHub API base URL (for GitHub Enterprise or tests). |
 | `WORKBENCH_WEB_DIST` | see below | Folder holding the built UI (`index.html` + `assets/`). |
 | `WORKBENCH_ALLOWED_HOSTS` | `""` (any); `127.0.0.1,localhost` when `workbench serve` listens on `127.0.0.1` or `localhost` | Comma-separated host names the server answers to; requests with any other `Host` header get `400`. Blocks DNS rebinding against a localhost server. |
+| `WORKBENCH_TODAY` | `on` (`workbench serve`: `today` from `config.toml`) | Today's Work on this server: `on` or `off` (`1`/`0`, `true`/`false`, `yes`/`no` also work, in any letter case). Unset or any other value means `on`. Off: snapshots report `"features": {"today": false}` with an empty `today`, and `POST /api/today` answers `403`. Read once at startup, so a change needs a restart. |
 | `WORKBENCH_BIND` | `127.0.0.1` | Host address `docker-compose.yml` publishes the port on (set it to the server's `100.x.y.z` Tailscale IP). Inside the container the server listens on `0.0.0.0`. |
 | `WORKBENCH_PORT` | `8420` | Port inside the container and for `make demo`. |
 | `WORKBENCH_VERSION` | `latest` | Image tag `docker-compose.yml` runs. Set in `.env`, it pins that release and stops [`packaging/docker/update.sh`](../packaging/docker/update.sh) from updating ([setup.md 2.8](setup.md#28-recommended-automatic-updates-from-releases)). |
@@ -214,9 +221,11 @@ The built UI is looked up in this order: `WORKBENCH_WEB_DIST` if set; the copy s
 
 Every `POST` endpoint requires `Content-Type: application/json` and the custom header `X-Workbench: 1` (CSRF protection); requests without them get `415` or `403`. Bodies are JSON objects, and unknown keys are rejected with `400`. Every write except `/api/sync` validates the change, commits it to `workbench-data` (an `edit(...)` commit), pushes it, and answers `{"ok": true, "snapshot": ..., "status": ...}` with the fresh snapshot. Errors use `400` (bad input), `404` (unknown project or item), `409` (push conflict after retries) or `422` (the change would fail validation).
 
+Every snapshot the server hands out, from `GET /api/snapshot` and inside every write response, also carries `"features": {"today": true|false}`: whether Today's Work is on for this running server (`WORKBENCH_TODAY`, [section 4](#4-server-environment-variables)). It describes the server, not the data, so it is not part of the cached `snapshot.json`. A server from before the switch existed sends no `features` key, which means on.
+
 | Method & Route | Request Body | Description |
 | :--- | :--- | :--- |
-| `GET /api/snapshot` | — | Return the current validated snapshot (`projects`, `learning`, `topic_markdowns`, `updated_at` with each project's and path's last change time from git, `commit`, `synced_at`). |
+| `GET /api/snapshot` | — | Return the current validated snapshot (`projects`, `learning`, `topic_markdowns`, `today` with the Today's Work list, `updated_at` with each project's and path's last change time from git, `commit`, `synced_at`). `today` is always present: `{"day": "YYYY-MM-DD"\|null, "entries": [{"kind", "id", "item"?, "added"}]}`, and `{"day": null, "entries": []}` when the repository has no `today.yaml` or Today's Work is off on this server ([section 7](#7-todays-work-list-todayyaml)). `features` is described above. |
 | `GET /api/status` | — | Return sync health (`last_good_commit`, `last_checked_at`, `last_error`). |
 | `POST /api/sync` | `{}` | Trigger an immediate `git fetch` + validation sync against `origin/main` (commits nothing). |
 | `POST /api/projects/{id}/status` | `{"status": "..."}` | Update a project's top-level status (`planned`, `active`, `paused`, `done`, `archived`). |
@@ -229,6 +238,7 @@ Every `POST` endpoint requires `Content-Type: application/json` and the custom h
 | `POST /api/projects/{id}/items/{item_id}/delete` | `{"confirm": true}` | Delete a phase, topic, or component and everything under it. Refused while another component still lists a removed id in `depends_on`, or a child project sits under a removed item. |
 | `POST /api/projects/{id}/suggestions/{sug_id}/keep` | `{}` | Move a suggestion from the inbox into the tree as a `not_started` item under its `under` (a new phase/topic when it has none). `422` if that item no longer exists. Returns `item_id`. |
 | `POST /api/projects/{id}/suggestions/{sug_id}/dismiss` | `{}` | Dismiss and remove a suggestion from the inbox. |
+| `POST /api/today` | `{"day": "YYYY-MM-DD", "entries": [{"kind": "project"\|"learning", "id": "<id>", "item"?: "<id>"\|null}]}` | Replace the Today's Work list in `today.yaml` (created when missing) with `entries`, in the order given. Both keys are required; `added` is not accepted. An entry already in the list keeps its `added` date and a new one gets `day`. An empty list keeps the file with `entries: []`. Entries are not looked up, so one may name a project or item that does not exist. `400` for a bad date, kind or id, a duplicate entry, or more than 60 entries. Removing entries is never refused by the semantic diff guard. With Today's Work off on this server the answer is `403` with `{"detail": "Today's Work is turned off on this server"}`, after the header checks and before the body is read; nothing is changed. |
 | `POST /api/learning/{id}/status` | `{"status": "..."}` | Update a learning path's top-level status. |
 | `POST /api/learning/{id}/fields` | `{"name"?, "description"?}` | Update a learning path's name and/or description. |
 | `POST /api/learning/{id}/items/{item_id}/status` | `{"status": "..."}` | Update a learning topic or subtopic status (`not_started`, `in_progress`, `done`). |
@@ -243,7 +253,7 @@ Every command runs on the laptop (where `~/.workbench/config.toml` and the `~/.w
 | Command | Arguments & options |
 | :--- | :--- |
 | `workbench --version` | Print the version (the same for the CLI, server, web UI and desktop app). |
-| `workbench setup` | `--home <dir>`. Interactive wizard: writes `config.toml`, clones `workbench-data`, installs the agent skills, hooks and the macOS discovery job after the user types `yes`. |
+| `workbench setup` | `--home <dir>`. Interactive wizard: asks for the data repository, GitHub owners, author emails, scan roots, the optional LLM privacy review and whether to turn on Today's Work; writes `config.toml`, clones `workbench-data`, installs the agent skills, hooks and the macOS discovery job after the user types `yes`. |
 | `workbench install` | `--home <dir>` (required), `--claude`, `--gemini`, `--launchd`. Install or refresh the skills and hooks for each agent, and the macOS `launchd` job. |
 | `workbench show` | `--id <project>`, `--item <item-id>`, `--brief`. Without `--id`, the project registered for the current repo. |
 | `workbench focus` | `--set <project>[/<item>]`, `--clear`. Without options, print the current repo's focus. |
@@ -265,4 +275,43 @@ Every command runs on the laptop (where `~/.workbench/config.toml` and the `~/.w
 | `workbench hook-check` | `--mark-seen`. Read by the agent hooks from stdin; `--mark-seen` records the current changes as needing no update. |
 | `workbench auto-update` | `--job <file>` (written by the hook) or `--transcript <file.jsonl>`, plus `--dry-run`. Run by hand inside the project repo. |
 | `workbench serve` | `--host` (default `127.0.0.1`), `--port` (default `8420`). Run the dashboard server without Docker. On `127.0.0.1` or `localhost` it answers only to those host names (`WORKBENCH_ALLOWED_HOSTS`). The macOS desktop app runs this command from login ([desktop.md](desktop.md)). |
+| `workbench today [on\|off]` | Without an argument, print `on` or `off`: whether Today's Work is on in `config.toml`. `on` or `off` stores the setting and keeps every other key; the dashboard server has to be restarted for it to take effect (the desktop app's menu item does both). Any other argument is a usage error (exit code 2). |
 | `workbench demo init <dir>` | Create a throwaway demo environment (bare remote, fake HOME and repos) in `<dir>`; used by `make demo` and the tests. |
+
+---
+
+## 7. Today's Work List (`today.yaml`)
+
+Defined by `Today` in [`src/workbench/models.py`](../src/workbench/models.py) and exported to [`schema/today.schema.json`](../schema/today.schema.json). The file sits at the root of `workbench-data`, next to `workbench.yaml`, and is optional: a repository without it is valid and its snapshot reports an empty list.
+
+It stores only the roots chosen for the day. The dashboard expands each root into its children and prerequisites and works out the order; none of that is stored.
+
+```yaml
+schema_version: 1
+day: 2026-11-10               # the local calendar day the list was last confirmed for; null or absent if never set
+entries:
+  - kind: project             # project | learning
+    id: robot-arm             # project id, or learning path id when kind is learning
+    item: kinematics          # optional: a phase, topic or component (or a learning topic or subtopic)
+    added: 2026-11-09         # the day the entry was first added
+  - kind: learning
+    id: signal-processing     # no item: the whole learning path
+    added: 2026-11-10
+```
+
+| Field | Type / Pattern | Constraint |
+| :--- | :--- | :--- |
+| `schema_version` | integer | Must be `1` |
+| `day` | `DateStr` or null | `YYYY-MM-DD`; optional |
+| `entries` | list | At most 60 entries; optional, empty by default |
+| `entries[].kind` | `TodayKind` | `project` or `learning` |
+| `entries[].id`, `entries[].item` | `SlugId` | `^[a-z0-9]+(-[a-z0-9]+)*$`, 1–48 chars; `item` is optional |
+| `entries[].added` | `DateStr` | `YYYY-MM-DD` |
+
+- No two entries may share the same `kind`, `id` and `item`. The same `id` may appear as a whole project and again with an `item`.
+- Unknown keys are rejected, as in the other files.
+- Entries are not checked against the projects and learning paths in the repository. An entry that names a project, path or item that no longer exists is valid and the dashboard ignores it, so removing an item from a project never makes the repository invalid.
+- The semantic diff guard and the removed-file check of `workbench push` do not apply to this file: entries leaving the list, or the file being deleted, is never refused.
+- The dashboard writes the file through `POST /api/today` ([section 5](#5-server-http-api-reference)); its commits are `edit(today): add <entry>`, `edit(today): remove <entry>`, `edit(today): set <n> entries for <day>` or `edit(today): clear`, where `<entry>` is `<project>[/<item>]` or `learning/<path>[/<item>]`. There is no CLI command for it.
+- A Workbench version from before this file existed rejects it as a disallowed path, so every install (server, desktop app, CLI) must be updated before the list is used.
+- A server with Today's Work turned off (`WORKBENCH_TODAY=off`, or `today = "off"` in `config.toml` for `workbench serve`) still validates the file and leaves it alone; it only stops showing and writing it ([today.md](today.md#5-turning-it-off)).

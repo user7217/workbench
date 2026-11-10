@@ -80,9 +80,9 @@ re-renders on every store change. Outside React, `createWorkbench(options)` retu
 
 | Field | Type | Meaning |
 |---|---|---|
-| `snapshot` | `{projects, learning, topic_markdowns, commit, synced_at}` | Everything the server knows. |
+| `snapshot` | `{projects, learning, topic_markdowns, today, features, commit, synced_at}` | Everything the server knows. `today` is `{day, entries}` and `features` is `{today: boolean}` (older servers omit both). |
 | `syncStatus` | `{last_good_commit, last_checked_at, last_error}` | Last sync of the data repo; `last_error` = a bad commit that was skipped. |
-| `route` | `{page: "home" \| "building" \| "learning"}` or `{page: "project" \| "learning-path", id}` | Current page. |
+| `route` | `{page: "home" \| "today" \| "building" \| "learning"}` or `{page: "project" \| "learning-path", id}` | Current page. |
 | `selection` | `{phaseId, componentId, topicId, subtopicId}` | What is selected on the project / learning page. |
 | `expanded` | `Record<ExpandKind, Record<id, boolean>>` | Open/closed sets: `projects`, `phases`, `nestedComponents`, `childProjects`, `learningPaths`, `topics`. |
 | `filterText`, `showArchived` | `string`, `boolean` | Search box text; whether archived projects are shown. |
@@ -116,6 +116,10 @@ re-renders on every store change. Outside React, `createWorkbench(options)` retu
 | `topicMarkdown(pathId, itemId)` | Markdown notes of a topic/subtopic. |
 | `relatedLearning(project)`, `relatedProjects(lp)` | Cross references. |
 | `projectTree(project)`, `learningTree(lp)` | Trees for maps/diagrams (include child projects). |
+| `today` | Today's Work as stored: `{day, entries: [{kind, id, item?, added}]}`. Only the chosen roots are stored. |
+| `todayEnabled` | Whether this server has Today's Work turned on. When false, a look shows no Today page and no add buttons (the default look does this). |
+| `todayPlan(keepDone?)` | The roots expanded into `{groups, missing}`: one group per project or learning path, in the order they were first added and not ranked against each other. A group is `{key, kind, id, name, status, entries, whole, steps, now, next, total, done}`; each step has a `state` of `done`, `now`, `next`, `later`, `blocked` or `parked`. `todayHasWork(plan)` says whether any group has a step to do. The ordering rules are in [`../docs/today.md`](../docs/today.md). |
+| `isInToday(entry)` | Whether that exact root is on the list. |
 
 Pure functions are exported too: `getProjectGroups`, `getGroupChildren`, `projectUsesPhases`,
 `locateProjectItem`, `locateItemPlacement` (parent, index and siblings — for move up/down),
@@ -174,13 +178,15 @@ server refuses):
 |---|---|
 | `keepSuggestion(projectId, suggestionId)` → `Promise<string \| null>` | Adds the suggestion to the tree as a `not_started` item under its `under` (a new phase/topic when it has none) and resolves to the new item's id. Refused (422) when the `under` item no longer exists. |
 | `dismissSuggestion(projectId, suggestionId)` → `Promise<boolean>` | Removes it from the inbox. |
+| `addToToday(entry)`, `removeFromToday(entry)` → `Promise<boolean>` | Put a root on Today's Work or take it off. `entry` is `{kind: "project" \| "learning", id, item?}`; without `item` it is the whole project or path. Optimistic; quick successive calls are sent as one list. |
+| `setTodayEntries(entries, confirmDay = true)` → `Promise<boolean>` | Replace the list. By default it also confirms the list for the viewer's current day (the new-day review and "clear" use this). |
 
 ### Pending keys
 
 `pendingKeys.project(id)`, `.projectItem(id, itemId)`, `.learning(id)`, `.learningItem(id, itemId)`
 (status writes); `.projectFields(id)`, `.itemFields(id, itemId)`, `.learningFields(id)`,
 `.learningItemFields(id, itemId)` (text edits); `.structure(projectId)` (any structure edit of that
-project — one at a time); `.suggestion(projectId, suggestionId)` (Keep / Dismiss). A second write with a key that is already pending is ignored.
+project — one at a time); `.suggestion(projectId, suggestionId)` (Keep / Dismiss); `.today` (a save of Today's Work). A second write with a key that is already pending is ignored, except Today's Work, where the newest list is sent after the running save.
 
 ### The `optimisticWrite` pattern
 
@@ -223,12 +229,15 @@ calls `dismissError()`.
 
 A new look is not needed for that: the default look takes every colour, radius and easing from the
 CSS variables in `src/ui/styles/tokens.css` (`--bg-*`, `--text-*`, `--border*`, `--accent*`,
-`--status-*`, `--danger`, `--radius-*`). Edit them and rebuild.
+`--status-*`, `--danger`, `--radius-*`, `--font-*`, `--shadow-*`, and `--today-now` / `--today-next` in
+`styles/today.css`). Edit them and rebuild. The look ships the Inter typeface
+(`@fontsource-variable/inter`, SIL Open Font License), so text looks the same on every system.
 
 ## 5. Data contract
 
-- Schemas: [`../schema/project.schema.json`](../schema/project.schema.json) and
-  [`../schema/learning.schema.json`](../schema/learning.schema.json) (TypeScript types in
+- Schemas: [`../schema/project.schema.json`](../schema/project.schema.json),
+  [`../schema/learning.schema.json`](../schema/learning.schema.json) and
+  [`../schema/today.schema.json`](../schema/today.schema.json) (TypeScript types in
   `src/types/` are generated from them with `npm run generate-types`).
 - Server endpoints. Writes are `POST` with headers `X-Workbench: 1` and
   `Content-Type: application/json`. Success: `{"ok": true, "snapshot": …, "status": …}` (plus
@@ -252,6 +261,7 @@ CSS variables in `src/ui/styles/tokens.css` (`--bg-*`, `--text-*`, `--border*`, 
 | POST | `/api/projects/{id}/items/{item}/move` | `{"parent_id"?, "position"}` |
 | POST | `/api/projects/{id}/items/{item}/delete` | `{"confirm": true}` |
 | POST | `/api/projects/{id}/parent` | `{"parent", "under"}` (both null = detach) |
+| POST | `/api/today` | `{"day": "YYYY-MM-DD", "entries": [{"kind", "id", "item"?}]}` (replaces the list) |
 | POST | `/api/projects/{id}/suggestions/{suggestion}/keep` | `{}` (returns `"item_id"`) |
 | POST | `/api/projects/{id}/suggestions/{suggestion}/dismiss` | `{}` |
 

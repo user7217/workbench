@@ -6,6 +6,23 @@ Each release on [GitHub Releases](https://github.com/user7217/workbench/releases
 
 ## [Unreleased]
 
+### Added
+
+- **Today's Work:** a new **Today** tab holds what was chosen for the day. A sun button beside every phase, topic, component and subtopic (and a **Today** button on every project and learning path) adds the item with everything nested under it and the unfinished items it depends on. The tab has one card per project or learning path, like Home, with no project ranked above another. Each card shows its own step to do **Now** and the one **Next** in two colours, with **Done**, **Start** and **Do first**; finishing a step moves that card's next one into place. On a new day it asks which unfinished topics stay. See docs/today.md.
+- **Today's Work can be turned on or off:** in `workbench setup`, with `workbench today on|off`, from the desktop app's menu (**Today's Work**), and with `WORKBENCH_TODAY` on a Docker server. Off removes the tab and its buttons; the stored list is kept.
+- **Phone layout:** on screens up to 720px wide the sidebar is a tab bar at the bottom, pages use the full width and controls are large enough to tap. The learning page now has the Navigation / Contents / Visual Map tabs the project page had.
+
+### Changed
+
+- The data repository may now contain `today.yaml`, the Today's Work list. Every Workbench install (server, desktop app, CLI) has to be on this version or newer before Today's Work is used: older versions reject the file as a disallowed path and stop syncing until they are updated.
+- **Dependency map layout:** the project is on top and each phase is a column with its parts listed under it. The columns wrap to the width of the panel, so the map uses the space it has before it grows downwards, and fits a phone in one column.
+- **Look:** calmer borders and surfaces, the Inter typeface bundled with the UI (the same text on every system), thinner scrollbars, and roomier Home cards.
+
+### Fixed
+
+- After an update, browsers kept showing the previous UI until a hard reload; the page is now always checked with the server.
+- The dependency map logged errors while its panel was hidden on narrow screens.
+
 ## [0.1.3] - 2026-11-10
 
 ### Added

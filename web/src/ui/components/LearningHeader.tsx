@@ -5,6 +5,7 @@
 import { useWorkbench, ENTITY_STATUSES, pendingKeys, type LearningPath } from "@workbench-core";
 import { EditableField } from "./Editing";
 import { StatusMenu } from "./StatusMenu";
+import { TodayToggle } from "./TodayToggle";
 import { KindBadge, StatusNodeGlyph } from "./status";
 
 // Learning Path Header (no status badge)
@@ -32,6 +33,11 @@ export function LearningHeader({ learningPath: activeLp }: { learningPath: Learn
           </EditableField>
         </div>
         <div className="header-status-control">
+          <TodayToggle
+            variant="pill"
+            entry={{ kind: "learning", id: activeLp.id }}
+            subject={activeLp.name}
+          />
           <StatusMenu
             variant="pill"
             status={activeLp.status}

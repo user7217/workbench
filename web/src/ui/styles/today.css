@@ -1,0 +1,660 @@
+/*
+ * Today's Work. Two colours carry the working-memory cue and are used for nothing else on the
+ * page: --today-now (orange) for the step being done and --today-next (sky) for the one after it.
+ * The pair stays distinguishable with the common forms of colour blindness, and each state also
+ * has its own label, so colour is never the only signal.
+ */
+:root {
+  --today-now: #fb923c;
+  --today-next: #38bdf8;
+}
+
+/* The toggle beside a status glyph, and its labelled form in page headers */
+.today-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-shrink: 0;
+  color: var(--text-quiet);
+  background: transparent;
+  border: 1px solid transparent;
+  transition:
+    color 140ms var(--ease-out),
+    background-color 140ms var(--ease-out),
+    opacity 140ms var(--ease-out);
+}
+
+.today-toggle-icon {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 6px;
+  opacity: 0.4;
+}
+
+/* Quiet until the row is pointed at, so a long list is not a column of suns */
+:is(.tier-1-kicker-row, .tier-2-subtopic-header, .tier-2-header-left, .tier-1-phase-block):hover
+  .today-toggle-icon,
+.today-toggle-icon:focus-visible,
+.today-toggle-icon.is-on {
+  opacity: 1;
+}
+
+.today-toggle:hover {
+  color: var(--today-now);
+  background: color-mix(in srgb, var(--today-now) 12%, transparent);
+  border-color: transparent;
+}
+
+.today-toggle.is-on {
+  color: var(--today-now);
+}
+
+.today-toggle-pill {
+  height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  border-color: var(--border);
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.today-toggle-pill.is-on {
+  border-color: color-mix(in srgb, var(--today-now) 45%, transparent);
+  background: color-mix(in srgb, var(--today-now) 12%, transparent);
+}
+
+@media (hover: none) {
+  .today-toggle-icon {
+    opacity: 0.75;
+  }
+}
+
+.header-status-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* A status glyph and its Today toggle travel as one unit */
+.status-with-today {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  flex-shrink: 0;
+}
+
+/* Sidebar: a dot (never a count) when there is a step to do */
+.nav-dot {
+  width: 6px;
+  height: 6px;
+  margin-left: auto;
+  border-radius: 50%;
+  background: var(--today-now);
+  flex-shrink: 0;
+}
+
+/* Page: a header and a grid of equal cards, one per project or learning path (like Home) */
+.today-page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.today-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.today-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.today-title svg {
+  color: var(--today-now);
+}
+
+.today-date {
+  margin: 2px 0 0;
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+
+.today-header-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.today-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+/* One project or learning path */
+.today-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+}
+
+.today-group.is-done {
+  border-color: color-mix(in srgb, var(--status-done) 30%, var(--border));
+}
+
+.today-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.today-group-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  text-align: left;
+}
+
+.today-group-title:hover {
+  background: none;
+}
+
+.today-group-title:hover .today-group-name {
+  text-decoration: underline;
+}
+
+.today-group-name {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.006em;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* One mark per step of the card, in order */
+.today-dots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.today-dot {
+  width: 16px;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--border-strong);
+}
+
+.today-dot-done {
+  background: var(--status-done);
+}
+
+.today-dot-now {
+  background: var(--today-now);
+}
+
+.today-dot-next {
+  background: var(--today-next);
+}
+
+/* Now and next, inside a card */
+.today-block {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+  padding: 14px 16px;
+  border-radius: 11px;
+  border: 1px solid var(--border);
+  animation: today-arrive 260ms var(--ease-out);
+}
+
+@keyframes today-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+}
+
+.today-block-now {
+  border-color: color-mix(in srgb, var(--today-now) 55%, transparent);
+  background: color-mix(in srgb, var(--today-now) 9%, var(--bg-card));
+  box-shadow: inset 4px 0 0 var(--today-now);
+}
+
+.today-block-next {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 12px 9px 16px;
+  border-color: color-mix(in srgb, var(--today-next) 35%, transparent);
+  background: color-mix(in srgb, var(--today-next) 5%, var(--bg-card));
+  box-shadow: inset 4px 0 0 color-mix(in srgb, var(--today-next) 70%, transparent);
+}
+
+.today-block-done {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  border-color: color-mix(in srgb, var(--status-done) 35%, transparent);
+  background: color-mix(in srgb, var(--status-done) 7%, var(--bg-card));
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.today-block-idle {
+  align-items: flex-start;
+}
+
+.today-block-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 2px;
+}
+
+.today-chip {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+}
+
+.today-chip-now {
+  color: #1a1206;
+  background: var(--today-now);
+}
+
+.today-chip-next {
+  color: #04121c;
+  background: var(--today-next);
+}
+
+.today-elapsed {
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.today-block-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 650;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+.today-block-context {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.today-block-summary {
+  margin: 3px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-secondary);
+}
+
+.today-block-note {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.today-block-actions,
+.today-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 10px;
+}
+
+.today-block-actions button,
+.today-card-actions button {
+  min-height: 32px;
+  padding: 0 14px;
+  font-size: 12.5px;
+  font-weight: 500;
+  border-radius: 8px;
+}
+
+button.today-done-btn {
+  min-width: 88px;
+  font-weight: 650;
+  color: #1a1206;
+  background: var(--today-now);
+  border-color: var(--today-now);
+}
+
+button.today-done-btn:hover {
+  color: #1a1206;
+  background: color-mix(in srgb, var(--today-now) 85%, white);
+  border-color: color-mix(in srgb, var(--today-now) 85%, white);
+}
+
+.today-next-text {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.today-next-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.today-block-next button {
+  flex-shrink: 0;
+  min-height: 28px;
+  font-size: 11.5px;
+}
+
+.today-all-toggle {
+  align-self: flex-start;
+  padding: 2px 0;
+  background: transparent;
+  border-color: transparent;
+  font-size: 11.5px;
+  color: var(--text-muted);
+}
+
+.today-all-toggle:hover {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-primary);
+  text-decoration: underline;
+}
+
+/* The run: every step in order */
+.today-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg-panel);
+  overflow: hidden;
+}
+
+.today-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 6px 12px 6px 14px;
+  border-bottom: 1px solid var(--border-subtle);
+  box-shadow: inset 3px 0 0 transparent;
+}
+
+.today-step:last-child {
+  border-bottom: none;
+}
+
+.today-step-now {
+  background: color-mix(in srgb, var(--today-now) 8%, transparent);
+  box-shadow: inset 3px 0 0 var(--today-now);
+}
+
+.today-step-next {
+  background: color-mix(in srgb, var(--today-next) 5%, transparent);
+  box-shadow: inset 3px 0 0 var(--today-next);
+}
+
+.today-step-blocked .today-step-name,
+.today-step-parked .today-step-name,
+.today-step-done .today-step-name {
+  color: var(--text-muted);
+}
+
+.today-step-done .today-step-name {
+  text-decoration: line-through;
+  text-decoration-color: var(--border-strong);
+}
+
+.today-step-glyph {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.today-step-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 2px 0;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 4px;
+}
+
+.today-step-main:hover {
+  background: none;
+}
+
+.today-step-main:hover .today-step-name {
+  text-decoration: underline;
+}
+
+.today-step-name {
+  max-width: 100%;
+  font-size: 13.5px;
+  font-weight: 550;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.today-step-context {
+  max-width: 100%;
+  font-size: 11.5px;
+  color: var(--text-quiet);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.today-step-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.today-step-actions button {
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 11.5px;
+}
+
+/* With a mouse, a row shows its state label until it is pointed at, then its buttons instead.
+   Touch screens show both (phone.css). */
+@media (hover: hover) {
+  .today-step:not(:hover):not(:focus-within) .today-step-actions,
+  .today-step:is(:hover, :focus-within) .today-step-actions:not(:empty) ~ .today-chip,
+  .today-step:is(:hover, :focus-within) .today-chip:has(~ .today-step-actions:not(:empty)) {
+    display: none;
+  }
+}
+
+/* Roots on the list */
+.today-source-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.today-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  padding: 3px 4px 3px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-card);
+  font-size: 12px;
+}
+
+.today-source-name {
+  font-weight: 550;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.today-source-owner {
+  color: var(--text-quiet);
+  white-space: nowrap;
+}
+
+.today-source-remove {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border-radius: 50%;
+  border-color: transparent;
+  background: transparent;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--text-quiet);
+}
+
+.today-missing {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.today-link-btn {
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--accent-bright);
+  text-decoration: underline;
+}
+
+/* Empty list, finished list, new-day review */
+.today-empty,
+.today-review {
+  max-width: 720px;
+  padding: 22px 24px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-card);
+}
+
+.today-empty h2,
+.today-review h2 h2 {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.today-empty p,
+.today-review p p {
+  margin: 0;
+  max-width: 62ch;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+}
+
+.today-inline-icon {
+  display: inline-flex;
+  vertical-align: -2px;
+  color: var(--today-now);
+}
+
+.today-all-done-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #052e1c;
+  background: var(--status-done);
+}
+
+.today-review-list {
+  list-style: none;
+  margin: 14px 0 4px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.today-review-list label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 0 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.today-review-list label:hover {
+  background: var(--bg-card-hover);
+}
+
+.today-review-list input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--today-now);
+}

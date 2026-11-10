@@ -149,7 +149,7 @@
 
 .tree-branch-tick {
   color: var(--text-quiet);
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: 10px;
 }
 

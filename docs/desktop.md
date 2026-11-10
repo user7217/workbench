@@ -86,6 +86,7 @@ At later logins the app starts quietly in the menu bar. Opening the app again wh
 | **Open Dashboard** | Opens `http://localhost:8420` in the default browser |
 | **Restart Server** | Stops and starts the bundled server (also retries after a failure) |
 | **Start at Login** | Adds or removes the login item (`~/Library/LaunchAgents/Workbench.plist`) |
+| **Today's Work** | Turns the Today tab on or off (ticked when on): stores the choice in `~/.workbench/config.toml` with the bundled `workbench today on\|off`, then restarts the server. Greyed out for a moment at launch while the stored setting is read ([today.md](today.md#5-turning-it-off)) |
 | **Install Command Line Tool…** | Links `~/.local/bin/workbench` to the binary inside the app (see §5) |
 | **Show Server Log** | Opens `~/.workbench/logs/desktop-server.log` |
 | **Check for Updates…** | Checks for a new release now and installs it; becomes **Restart to Update to x.y.z** once one is installed (§4.1) |
@@ -93,7 +94,7 @@ At later logins the app starts quietly in the menu bar. Opening the app again wh
 
 A server that crashes is restarted after 2 seconds. One that fails three times within 30 seconds of starting stays stopped, with its last error in the status line, until **Restart Server** is chosen. If the app itself is force-quit or crashes, the server notices and stops within a few seconds, so it never holds the port on its own.
 
-If another Workbench server already answers on port 8420 (for example `workbench serve` in a terminal), the app shows it as running and opens it, without starting a second one. Any other program on that port shows `Port 8420 is used by another program`.
+If another Workbench server already answers on port 8420 (for example `workbench serve` in a terminal), the app shows it as running and opens it, without starting a second one. Any other program on that port shows `Port 8420 is used by another program`. The app cannot restart a server it did not start, so a change made with **Today's Work** reaches such a server only when it is restarted by hand.
 
 ### 4.1 Updates
 
@@ -127,7 +128,7 @@ The server listens on `127.0.0.1` only, so no other machine can connect to it. I
 
 | Part | Location |
 | :--- | :--- |
-| Menu-bar app (Tauri 2, Rust) | `desktop/src-tauri/` (`src/main.rs` menu, `src/server.rs` server supervision, `src/cli_link.rs`, `src/environment.rs`) |
+| Menu-bar app (Tauri 2, Rust) | `desktop/src-tauri/` (`src/main.rs` menu, `src/server.rs` server supervision, `src/cli_link.rs`, `src/today.rs`, `src/environment.rs`) |
 | Frozen CLI + server | `packaging/pyinstaller/workbench.spec`: a folder rather than one file, so `workbench hook-check` starts in a fraction of a second |
 | Build | `make desktop-binary` (frozen binary only) and `make desktop` (the app) |
 

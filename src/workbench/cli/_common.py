@@ -31,11 +31,13 @@ from workbench.gitops import (
 from workbench.privacy import build_free_text_diff, run_llm_privacy_reviewer
 from workbench.semantic import check_semantic_diff
 from workbench.validate import (
+    TODAY_FILE,
     validate_any_file,
     validate_changed_paths,
     validate_data_repo,
     validate_learning_file,
     validate_project_file,
+    validate_today_file,
 )
 from workbench.yamlio import (
     dump_yaml_roundtrip,
@@ -154,6 +156,12 @@ def _push_worktree(
     # 2. Process each changed YAML file: overwrite updated/origin, structural & semantic & privacy checks
     for rel_path in changed_files:
         abs_path = wt_dir / rel_path
+        if rel_path == TODAY_FILE:
+            # The Today's Work list is not project content: entries (or the whole file) going
+            # away is normal, so the removal and semantic guards below do not apply to it.
+            if abs_path.exists():
+                all_errors.extend(validate_today_file(abs_path)[0].errors)
+            continue
         old_yaml_str = show_file_at_ref(wt_dir, base_ref, rel_path)
         old_plain: dict | None = None
         if old_yaml_str is not None:

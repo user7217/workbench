@@ -184,7 +184,7 @@
 
 .tier-3-branch-line {
   color: var(--text-quiet);
-  font-family: monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
   flex-shrink: 0;
 }
@@ -213,5 +213,5 @@
 .card-repos {
   font-size: 11px;
   color: var(--text-quiet);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-family: var(--font-mono);
 }

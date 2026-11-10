@@ -10,11 +10,13 @@ from typing import Any
 from pydantic import ValidationError
 from ruamel.yaml.error import YAMLError
 
-from workbench.models import SLUG_PATTERN, LearningPath, Project, WorkbenchRepoRoot
+from workbench.models import SLUG_PATTERN, LearningPath, Project, Today, WorkbenchRepoRoot
 from workbench.privacy import scan_data_structure, scan_text_value
 from workbench.yamlio import load_yaml_roundtrip, to_plain_python
 
 MAX_TOPIC_MD_BYTES = 20 * 1024
+# The Today's Work list at the root of workbench-data; optional
+TODAY_FILE = "today.yaml"
 SLUG_RE = re.compile(SLUG_PATTERN)
 
 
@@ -47,7 +49,7 @@ def is_allowed_repo_relative_path(rel_path: str) -> bool:
     parts = Path(rel_path).parts
     if not parts:
         return False
-    if rel_path == "workbench.yaml":
+    if rel_path in ("workbench.yaml", TODAY_FILE):
         return True
     if len(parts) == 3 and parts[0] == "projects" and parts[2] == "project.yaml":
         return bool(SLUG_RE.fullmatch(parts[1])) and len(parts[1]) <= 48
@@ -76,7 +78,7 @@ def validate_changed_paths(rel_paths: list[str]) -> ValidationResult:
         norm = rel.strip("/")
         if not is_allowed_repo_relative_path(norm):
             res.errors.append(
-                f"Disallowed path '{norm}': pushes may only touch workbench.yaml, projects/<id>/project.yaml, and learning/<id>/**"
+                f"Disallowed path '{norm}': pushes may only touch workbench.yaml, today.yaml, projects/<id>/project.yaml, and learning/<id>/**"
             )
     return res
 
@@ -205,10 +207,41 @@ def validate_workbench_root_file(path: Path) -> ValidationResult:
     return res
 
 
+def validate_today_file(path: Path) -> tuple[ValidationResult, Today | None]:
+    """Validate today.yaml structurally and for deterministic privacy.
+
+    Entries are not looked up: one that names a project or item that no longer exists is valid.
+    """
+    res = ValidationResult()
+    try:
+        raw = load_yaml_roundtrip(path)
+    except (YAMLError, OSError) as exc:
+        res.errors.append(f"{path}: YAML load error: {exc}")
+        return res, None
+
+    plain = to_plain_python(raw)
+    if not isinstance(plain, dict):
+        res.errors.append(f"{path}: Root of {TODAY_FILE} must be a mapping")
+        return res, None
+
+    for issue in scan_data_structure(plain):
+        res.errors.append(issue.format_error())
+
+    try:
+        today = Today.model_validate(plain)
+    except ValidationError as exc:
+        res.errors.extend(_format_pydantic_error(exc, TODAY_FILE))
+        return res, None
+    return res, today
+
+
 def validate_any_file(path: Path) -> ValidationResult:
     """Validate a single file based on its filename or content."""
     if path.name == "workbench.yaml":
         return validate_workbench_root_file(path)
+    if path.name == TODAY_FILE:
+        res, _ = validate_today_file(path)
+        return res
     if path.name == "project.yaml":
         res, _, _ = validate_project_file(path)
         return res
@@ -315,6 +348,11 @@ def validate_data_repo(repo_root: Path) -> ValidationResult:
     wb_yaml = repo_root / "workbench.yaml"
     res.merge(validate_workbench_root_file(wb_yaml))
 
+    today_yaml = repo_root / TODAY_FILE
+    if today_yaml.is_file():
+        t_res, _ = validate_today_file(today_yaml)
+        res.merge(t_res)
+
     # Check all files in repo_root (excluding .git) for disallowed paths
     for p in sorted(repo_root.rglob("*")):
         if ".git" in p.parts:
@@ -323,8 +361,9 @@ def validate_data_repo(repo_root: Path) -> ValidationResult:
             rel = p.relative_to(repo_root).as_posix()
             if not is_allowed_repo_relative_path(rel):
                 res.errors.append(
-                    f"Disallowed path '{rel}': only workbench.yaml, projects/<id>/project.yaml, "
-                    "learning/<id>/path.yaml and learning/<id>/topics/<id>.md are permitted"
+                    f"Disallowed path '{rel}': only workbench.yaml, today.yaml, "
+                    "projects/<id>/project.yaml, learning/<id>/path.yaml and "
+                    "learning/<id>/topics/<id>.md are permitted"
                 )
 
     seen_ids: set[str] = set()

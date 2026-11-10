@@ -11,6 +11,7 @@ import {
 import { AddItemInline } from "../components/Editing";
 import { ComponentInspector } from "../components/Inspector";
 import { PanelResizer } from "../components/PanelResizer";
+import { PanelTabs } from "../components/PanelTabs";
 import { PhaseList } from "../components/PhaseList";
 import { ProjectHeader } from "../components/ProjectHeader";
 import { ProjectNavPanel } from "../components/ProjectNavPanel";
@@ -22,7 +23,7 @@ import { useLook } from "../lookState";
 export function ProjectPage() {
   const wb = useWorkbench();
   const { isPending, selectProject, activeProject, activePhase } = wb;
-  const { panelWidths, mobilePanel, setMobilePanel } = useLook();
+  const { panelWidths, mobilePanel } = useLook();
   const usesPhases = activeProject ? projectUsesPhases(activeProject) : true;
   const isEmptyDiscovered = activeProject ? isNewDiscoveredProject(activeProject) : false;
   const activeComponentEntry = wb.activeComponent;
@@ -30,30 +31,7 @@ export function ProjectPage() {
 
   return (
     <div className="three-panel-workspace" data-testid="building-three-panel-workspace">
-      {/* Responsive Panel Switcher for narrower viewports */}
-      <div className="responsive-panel-switcher">
-        <button
-          type="button"
-          className={`resp-tab-btn ${mobilePanel === "nav" ? "active" : ""}`}
-          onClick={() => setMobilePanel("nav")}
-        >
-          Navigation
-        </button>
-        <button
-          type="button"
-          className={`resp-tab-btn ${mobilePanel === "contents" ? "active" : ""}`}
-          onClick={() => setMobilePanel("contents")}
-        >
-          Contents
-        </button>
-        <button
-          type="button"
-          className={`resp-tab-btn ${mobilePanel === "visual" ? "active" : ""}`}
-          onClick={() => setMobilePanel("visual")}
-        >
-          Visual Map
-        </button>
-      </div>
+      <PanelTabs />
 
       <ProjectNavPanel />
 

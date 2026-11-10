@@ -9,6 +9,7 @@ import { LearningNavPanel } from "../components/LearningNavPanel";
 import { LearningTopicList } from "../components/LearningTopicList";
 import { LearningVisualPanel } from "../components/LearningVisualPanel";
 import { PanelResizer } from "../components/PanelResizer";
+import { PanelTabs } from "../components/PanelTabs";
 import { MAX_CONTENTS_WIDTH, MIN_CONTENTS_WIDTH } from "../layoutPrefs";
 import { useLook } from "../lookState";
 
@@ -19,6 +20,8 @@ export function LearningPage() {
 
   return (
     <div className="three-panel-workspace" data-testid="learning-three-panel-workspace">
+      <PanelTabs />
+
       <LearningNavPanel />
 
       {/* Draggable Divider 1 */}

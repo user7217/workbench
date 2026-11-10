@@ -1,9 +1,11 @@
 /**
- * The left sidebar of the default look: wordmark, collapse toggle, Home / Learning / Building
- * navigation and shortcut lists of projects (with their phases) and learning paths.
+ * The left sidebar of the default look: wordmark, collapse toggle, Home / Today / Learning /
+ * Building navigation and shortcut lists of projects (with their phases) and learning paths.
+ * On a phone it becomes a tab bar along the bottom (styles/responsive.css).
  */
 import { useState } from "react";
-import { useWorkbench, getProjectGroups } from "@workbench-core";
+import { useWorkbench, getProjectGroups, todayHasWork } from "@workbench-core";
+import { TodayIcon } from "./TodayToggle";
 
 // Left Sidebar — Compact, Collapsible, Home / Learning / Building only
 export function Sidebar() {
@@ -15,7 +17,12 @@ export function Sidebar() {
     selectProject,
     selectLearningPath,
     navigate,
+    today,
+    todayEnabled,
+    todayPlan,
   } = useWorkbench();
+  // A dot, not a count: the tab says there is something to do without keeping score
+  const hasWorkToday = today.entries.length > 0 && todayHasWork(todayPlan());
   const selectedPhaseId = selection.phaseId;
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -84,6 +91,20 @@ export function Sidebar() {
           </svg>
           {!sidebarCollapsed && <span>Home</span>}
         </button>
+
+        {todayEnabled && (
+          <button
+            type="button"
+            data-testid="nav-today"
+            className={route.page === "today" ? "nav-item active" : "nav-item"}
+            onClick={() => navigate({ page: "today" })}
+            title={hasWorkToday ? "Today's Work: there are steps to do" : "Today's Work"}
+          >
+            <TodayIcon size={14} />
+            {!sidebarCollapsed && <span>Today</span>}
+            {hasWorkToday && <span className="nav-dot" aria-hidden="true" />}
+          </button>
+        )}
 
         <button
           type="button"

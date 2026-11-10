@@ -19,8 +19,14 @@ from workbench.gitops import (
     remove_worktree,
     run_git,
 )
-from workbench.validate import validate_data_repo
+from workbench.models import Today
+from workbench.validate import TODAY_FILE, validate_data_repo
 from workbench.yamlio import load_yaml_roundtrip, to_plain_python
+
+
+def empty_today() -> dict[str, Any]:
+    """The snapshot's `today` value when the repository has no today.yaml."""
+    return {"day": None, "entries": []}
 
 
 @dataclass
@@ -46,12 +52,16 @@ class ServerState:
     github_owners: list[str] = field(default_factory=list)
     github_read_token: str | None = None
     github_api_base: str = "https://api.github.com"
+    # Today's Work on this server (WORKBENCH_TODAY). Off: snapshots carry an empty `today` and
+    # POST /api/today is refused; today.yaml in the data repo is still validated and kept
+    today_enabled: bool = True
 
     snapshot: dict[str, Any] = field(
         default_factory=lambda: {
             "projects": [],
             "learning": [],
             "topic_markdowns": {},
+            "today": empty_today(),
             "commit": None,
             "synced_at": None,
         }
@@ -88,6 +98,8 @@ class ServerState:
         try:
             data = json.loads(self.snapshot_path.read_text(encoding="utf-8"))
             if isinstance(data, dict) and "projects" in data and "learning" in data:
+                # A snapshot written before Today's Work existed has no `today` key
+                data.setdefault("today", empty_today())
                 with self._lock:
                     self.snapshot = data
                     self.last_good_commit = data.get("commit")
@@ -169,6 +181,7 @@ class ServerState:
                 "projects": projects_list,
                 "learning": learning_list,
                 "topic_markdowns": topic_mds,
+                "today": _read_today(staging_wt),
                 "updated_at": _last_changed(staging_wt, self.env),
                 "commit": fetched_commit,
                 "synced_at": now_iso,
@@ -201,8 +214,17 @@ class ServerState:
             }
 
     def get_snapshot_dict(self) -> dict[str, Any]:
+        """The snapshot as handed to a client: the cached data plus this server's `features`.
+
+        `features` says what this running server has turned on, so it is added here and never
+        stored in snapshot.json. With Today's Work off the stored list is not handed out.
+        """
         with self._lock:
-            return self.snapshot
+            served = dict(self.snapshot)
+        if not self.today_enabled:
+            served["today"] = empty_today()
+        served["features"] = {"today": self.today_enabled}
+        return served
 
 
 def _last_changed(repo_root: Path, env: dict[str, str] | None = None) -> dict[str, dict[str, str]]:
@@ -226,6 +248,21 @@ def _last_changed(repo_root: Path, env: dict[str, str] | None = None) -> dict[st
             # git log lists newest commits first, so the first time seen is the latest change
             out[parts[0]].setdefault(parts[1], when)
     return out
+
+
+def _read_today(repo_root: Path) -> dict[str, Any]:
+    """The stored Today's Work list (roots only, never expanded); empty without today.yaml.
+
+    An entry for a whole project or learning path carries no `item` key.
+    """
+    path = repo_root / TODAY_FILE
+    if not path.is_file():
+        return empty_today()
+    today = Today.model_validate(to_plain_python(load_yaml_roundtrip(path)))
+    return {
+        "day": today.day,
+        "entries": [entry.model_dump(exclude_none=True) for entry in today.entries],
+    }
 
 
 def _read_all_projects(repo_root: Path) -> list[dict[str, Any]]:

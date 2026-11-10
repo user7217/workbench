@@ -8,6 +8,7 @@
 mod cli_link;
 mod environment;
 mod server;
+mod today;
 mod updater;
 
 use std::path::PathBuf;
@@ -33,6 +34,9 @@ struct AppState {
     binary: PathBuf,
     home: PathBuf,
     login_item: CheckMenuItem<Wry>,
+    today_item: CheckMenuItem<Wry>,
+    /// Today's Work as the bundled CLI last reported it
+    today_on: AtomicBool,
     updates: Arc<Updates>,
 }
 
@@ -90,6 +94,9 @@ fn setup(app: &mut tauri::App) -> tauri::Result<()> {
     let restart_item = MenuItem::with_id(app, "restart", "Restart Server", true, None::<&str>)?;
     let login_item =
         CheckMenuItem::with_id(app, "login", "Start at Login", true, at_login, None::<&str>)?;
+    // Checked and greyed out until the bundled CLI has said what config.toml holds
+    let today_item =
+        CheckMenuItem::with_id(app, "today", "Today's Work", false, true, None::<&str>)?;
     let cli_item = MenuItem::with_id(app, "cli", "Install Command Line Tool…", true, None::<&str>)?;
     let log_item = MenuItem::with_id(app, "log", "Show Server Log", true, None::<&str>)?;
     let update_item = MenuItem::with_id(
@@ -109,6 +116,7 @@ fn setup(app: &mut tauri::App) -> tauri::Result<()> {
             &restart_item,
             &PredefinedMenuItem::separator(app)?,
             &login_item,
+            &today_item,
             &cli_item,
             &log_item,
             &PredefinedMenuItem::separator(app)?,
@@ -135,8 +143,11 @@ fn setup(app: &mut tauri::App) -> tauri::Result<()> {
         binary,
         home,
         login_item,
+        today_item,
+        today_on: AtomicBool::new(true),
         updates,
     });
+    load_today(&handle);
 
     // Opened by hand: show the dashboard once it is up. Started at login: stay in the menu bar.
     let opened = AtomicBool::new(std::env::args().any(|a| a == AUTOSTART_ARG));
@@ -171,6 +182,7 @@ fn handle_menu(app: &AppHandle, id: &str) {
                 .login_item
                 .set_checked(launcher.is_enabled().unwrap_or(enable));
         }
+        "today" => toggle_today(app),
         "cli" => install_cli(app),
         "update" => state
             .updates
@@ -190,6 +202,55 @@ fn handle_menu(app: &AppHandle, id: &str) {
 
 fn open_dashboard(app: &AppHandle) {
     let _ = app.opener().open_url(server::dashboard_url(), None::<&str>);
+}
+
+/// Show the stored Today's Work setting on its menu item, then let it be clicked.
+fn load_today(app: &AppHandle) {
+    let handle = app.clone();
+    // Starting the bundled CLI takes a moment, so do it off the main thread
+    std::thread::spawn(move || {
+        let state = handle.state::<AppState>();
+        // Without an answer the item stays checked: a server with nothing set has it on
+        if let Ok(on) = today::is_on(&state.binary) {
+            show_today(&state, on);
+        }
+        let _ = state.today_item.set_enabled(true);
+    });
+}
+
+/// Turn Today's Work on or off, restart the server so it takes effect, and show the result.
+fn toggle_today(app: &AppHandle) {
+    let state = app.state::<AppState>();
+    let before = state.today_on.load(Ordering::SeqCst);
+    let _ = state.today_item.set_enabled(false);
+    let handle = app.clone();
+    // Runs the CLI and waits for the server to stop, so keep it off the main thread
+    std::thread::spawn(move || {
+        let state = handle.state::<AppState>();
+        match today::set(&state.binary, !before) {
+            Ok(()) => {
+                state.supervisor.restart();
+                show_today(&state, today::is_on(&state.binary).unwrap_or(!before));
+            }
+            Err(err) => {
+                // The click already flipped the check mark; put it back
+                show_today(&state, before);
+                let switch = if before { "off" } else { "on" };
+                handle
+                    .dialog()
+                    .message(format!("Could not turn Today's Work {switch}: {err}"))
+                    .title("Workbench")
+                    .kind(MessageDialogKind::Error)
+                    .show(|_| {});
+            }
+        }
+        let _ = state.today_item.set_enabled(true);
+    });
+}
+
+fn show_today(state: &AppState, on: bool) {
+    state.today_on.store(on, Ordering::SeqCst);
+    let _ = state.today_item.set_checked(on);
 }
 
 fn install_cli(app: &AppHandle) {

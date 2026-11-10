@@ -22,6 +22,8 @@ import {
   statusUrls,
   structureUrls,
   suggestionUrls,
+  todayBody,
+  todayUrl,
   type SnapshotData,
   type SyncStatus,
   type WorkbenchApi,
@@ -65,6 +67,19 @@ import {
   type TreeGroup,
 } from "./derive";
 import type { EntityStatus, ItemStatus, LearningItemStatus } from "./statuses";
+import {
+  buildTodayPlan,
+  hasEntry,
+  localDay,
+  MAX_TODAY_ENTRIES,
+  todayEnabled,
+  todayOf,
+  withEntry,
+  withoutEntry,
+  type TodayData,
+  type TodayEntry,
+  type TodayPlan,
+} from "./today";
 import type { Component, Phase } from "../types/project";
 
 // ---------------------------------------------------------------------------------------------
@@ -73,6 +88,7 @@ import type { Component, Phase } from "../types/project";
 
 export type Route =
   | { page: "home" }
+  | { page: "today" }
   | { page: "building" }
   | { page: "learning" }
   | { page: "project"; id: string }
@@ -145,6 +161,8 @@ export const pendingKeys = {
   /** Keep or dismiss of one inbox suggestion. */
   suggestion: (projectId: string, suggestionId: string) =>
     `suggestion:${projectId}:${suggestionId}`,
+  /** A save of Today's Work is in flight. */
+  today: "today",
 };
 
 // Text-field shapes accepted by the fields endpoints. "" removes an optional field; name can't be "".
@@ -321,6 +339,18 @@ export interface WorkbenchView extends ProjectIndexes {
   projectTree: (project: Project) => TreeGroup[];
   /** Map tree of a learning path. */
   learningTree: (lp: LearningPath) => TreeGroup[];
+  /** Whether this server has Today's Work turned on; when false, hide the tab and its buttons. */
+  todayEnabled: boolean;
+  /** Today's Work as stored: the chosen roots and the day they were confirmed for. */
+  today: TodayData;
+  /**
+   * Today's roots expanded into ordered steps, one group per project or learning path, each
+   * with its own step to do now and the one after it. `keepDone` names finished prerequisites
+   * that should stay listed (see `buildTodayPlan`).
+   */
+  todayPlan: (keepDone?: ReadonlySet<string>) => TodayPlan;
+  /** Whether this exact root is on Today's Work. */
+  isInToday: (entry: TodayEntry) => boolean;
 }
 
 const viewCache = new WeakMap<WorkbenchState, WorkbenchView>();
@@ -331,6 +361,7 @@ export function selectView(state: WorkbenchState): WorkbenchView {
   if (cached) return cached;
 
   const { snapshot, route, selection } = state;
+  const today = todayOf(snapshot);
   const indexes = indexProjects(snapshot.projects);
   const { projectsById, childIndex, parentOf } = indexes;
   const query = normalizeQuery(state.filterText);
@@ -416,6 +447,10 @@ export function selectView(state: WorkbenchState): WorkbenchView {
     relatedProjects: (lp) => getRelatedProjects(lp, projectsById),
     projectTree: (project) => projectTree(project, childIndex.get(project.id)),
     learningTree,
+    todayEnabled: todayEnabled(snapshot),
+    today,
+    todayPlan: (keepDone) => buildTodayPlan(snapshot, childIndex, keepDone),
+    isInToday: (entry) => hasEntry(today, entry),
   };
   viewCache.set(state, view);
   return view;
@@ -502,6 +537,20 @@ export interface WorkbenchActions {
   keepSuggestion: (projectId: string, suggestionId: string) => Promise<string | null>;
   /** Drop an inbox suggestion (optimistic). */
   dismissSuggestion: (projectId: string, suggestionId: string) => Promise<boolean>;
+  /**
+   * Add a root to Today's Work (optimistic): a whole project or learning path, or one item of it
+   * with everything nested under it. No-op when it is already there.
+   */
+  addToToday: (entry: TodayEntry) => Promise<boolean>;
+  /** Take a root off Today's Work (optimistic). */
+  removeFromToday: (entry: TodayEntry) => Promise<boolean>;
+  /**
+   * Replace Today's Work with these roots (optimistic). By default this also confirms the list
+   * for the viewer's current day, which is what the morning review and "clear" do. With
+   * `confirmDay` false the stored day is left alone, so a list last confirmed on an earlier day
+   * still gets its review.
+   */
+  setTodayEntries: (entries: TodayEntry[], confirmDay?: boolean) => Promise<boolean>;
   /** The shared "apply locally, POST, adopt server result, revert on failure" pattern. */
   optimisticWrite: (write: OptimisticWrite) => Promise<boolean>;
 }
@@ -1008,6 +1057,66 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
       "Could not dismiss suggestion — it is back in the inbox.",
     )) !== null;
 
+  // Today's Work changes come in bursts (several topics added one after another), and each save
+  // is a commit on the server. So the list on screen changes at once, only one request runs at a
+  // time, and a request that finishes while a newer list is waiting is followed by that list.
+  let todayWanted: { day: string; entries: TodayEntry[] } | null = null;
+  let todaySaving = false;
+
+  const setTodayEntries: WorkbenchActions["setTodayEntries"] = async (
+    entries,
+    confirmDay = true,
+  ) => {
+    const day = confirmDay ? localDay() : (todayOf(state.snapshot).day ?? localDay());
+    const confirmed = todaySaving ? null : todayOf(state.snapshot);
+    setState((s) => ({
+      ...s,
+      snapshot: {
+        ...s.snapshot,
+        today: { day, entries: entries.map((e) => ({ added: day, ...e })) },
+      },
+    }));
+    todayWanted = { day, entries };
+    if (todaySaving || !confirmed) return true; // the running save sends this list next
+
+    todaySaving = true;
+    setPending(pendingKeys.today, true);
+    let lastSaved = confirmed;
+    try {
+      while (todayWanted) {
+        const wanted: { day: string; entries: TodayEntry[] } = todayWanted;
+        todayWanted = null;
+        const result = await api.postJson(todayUrl, todayBody(wanted.day, wanted.entries));
+        lastSaved = result.snapshot?.today ?? lastSaved;
+        if (!todayWanted) adopt(result);
+      }
+      return true;
+    } catch (err) {
+      todayWanted = null;
+      const reverted = lastSaved;
+      setState((s) => ({ ...s, snapshot: { ...s.snapshot, today: reverted } }));
+      const detail = errorDetail(err);
+      setError(`Could not save Today's Work — reverted.${detail ? ` ${detail}` : ""}`, detail);
+      return false;
+    } finally {
+      todaySaving = false;
+      setPending(pendingKeys.today, false);
+    }
+  };
+
+  const addToToday: WorkbenchActions["addToToday"] = async (entry) => {
+    const today = todayOf(state.snapshot);
+    if (hasEntry(today, entry)) return true;
+    if (today.entries.length >= MAX_TODAY_ENTRIES) {
+      setError(`Today's Work holds at most ${MAX_TODAY_ENTRIES} entries.`);
+      return false;
+    }
+    return setTodayEntries(withEntry(today, entry), false);
+  };
+
+  const removeFromToday: WorkbenchActions["removeFromToday"] = (entry) =>
+    setTodayEntries(withoutEntry(todayOf(state.snapshot), entry), false);
+
   const refresh = async () => {
     const { snapshot, status } = await api.fetchAll();
     setState((s) => ({
@@ -1051,6 +1160,9 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
     setParent,
     keepSuggestion,
     dismissSuggestion,
+    addToToday,
+    removeFromToday,
+    setTodayEntries,
     dismissError: () => setState((s) => (s.lastError ? { ...s, lastError: null } : s)),
     optimisticWrite,
   };

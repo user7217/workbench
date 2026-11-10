@@ -25,6 +25,7 @@ from workbench.server.writes import (
     keep_suggestion,
     move_project_item,
     set_project_parent,
+    set_today,
     update_learning_fields,
     update_learning_item_fields,
     update_learning_item_status,
@@ -58,6 +59,16 @@ def _allowed_hosts() -> list[str]:
     """Host names the server answers to, from WORKBENCH_ALLOWED_HOSTS (comma-separated); empty = any."""
     raw = os.environ.get("WORKBENCH_ALLOWED_HOSTS", "")
     return [h.strip() for h in raw.split(",") if h.strip()]
+
+
+# WORKBENCH_TODAY values that turn Today's Work off; unset or anything else leaves it on
+_OFF_VALUES = frozenset({"off", "0", "false", "no"})
+TODAY_OFF_DETAIL = "Today's Work is turned off on this server"
+
+
+def _today_enabled() -> bool:
+    """Whether Today's Work is on, from WORKBENCH_TODAY (on unless set to off, 0, false or no)."""
+    return os.environ.get("WORKBENCH_TODAY", "").strip().lower() not in _OFF_VALUES
 
 
 def _require_write_headers(request: Request) -> None:
@@ -154,6 +165,7 @@ def create_app(
             github_owners=owners,
             github_read_token=gh_token,
             github_api_base=gh_base,
+            today_enabled=_today_enabled(),
         )
 
     interval = (
@@ -326,6 +338,14 @@ def create_app(
     ) -> JSONResponse:
         return await _run_body_write(request, state, dismiss_suggestion, project_id, suggestion_id)
 
+    # Today's Work: replaces the stored list of chosen roots (today.yaml)
+    @app.post("/api/today")
+    async def post_today(request: Request) -> JSONResponse:
+        _require_write_headers(request)
+        if not state.today_enabled:
+            raise HTTPException(status_code=403, detail=TODAY_OFF_DETAIL)
+        return await _run_body_write(request, state, set_today)
+
     # Serve built UI static files if web/dist exists
     if dist_dir.exists() and (dist_dir / "index.html").exists():
         assets_dir = dist_dir / "assets"
@@ -337,7 +357,11 @@ def create_app(
             candidate = (dist_dir / full_path).resolve()
             if full_path and candidate.is_file() and dist_dir.resolve() in candidate.parents:
                 return FileResponse(str(candidate))
-            return FileResponse(str(dist_dir / "index.html"))
+            # The page names its scripts and styles by content hash. If a browser kept an old
+            # copy of the page it would keep loading the old UI after an update, so the page
+            # itself is always checked with the server (the hashed files under /assets may be
+            # cached freely).
+            return FileResponse(str(dist_dir / "index.html"), headers={"Cache-Control": "no-cache"})
     else:
         logger.warning(
             "Web UI not found at %s (no index.html); serving the API only. "

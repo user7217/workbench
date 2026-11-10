@@ -2,6 +2,7 @@
 
 Format: ``<kind>(<scope>): <summary>``, or ``<kind>: <summary>`` when there is no single scope.
 A scope is a project id, ``<project>/<item>``, ``learning/<id>`` or ``learning/<id>/<item>``.
+Dashboard edits of the Today's Work list (today.yaml) use the fixed scope ``today``.
 
 Kinds (who writes them):
     create   workbench new
