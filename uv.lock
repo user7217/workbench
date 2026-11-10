@@ -820,7 +820,7 @@ wheels = [
 ]
 
 [[package]]
-name = "workbench"
+name = "workbench-dashboard"
 source = { editable = "." }
 dependencies = [
     { name = "detect-secrets" },

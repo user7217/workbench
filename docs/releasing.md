@@ -7,7 +7,7 @@ A release is a Git tag such as `v0.2.0`. Pushing the tag runs [`.github/workflow
 | `Workbench_<version>_aarch64.dmg` | Desktop mode on macOS (Apple silicon, unsigned) | macOS runner |
 | `Workbench_<version>_aarch64.app.tar.gz`, `.sig`, `latest.json` | Self-update of installed apps: the signed app archive and the manifest apps read from `releases/latest/download/latest.json` | macOS runner |
 | `ghcr.io/user7217/workbench:<version>`, `:<major>.<minor>`, `:latest` | Server mode (`linux/amd64`, `linux/arm64`) | Linux runner |
-| `workbench-<version>-py3-none-any.whl`, `workbench-<version>.tar.gz` | `uv tool install` from the release | Linux runner |
+| `workbench_dashboard-<version>-py3-none-any.whl`, `workbench_dashboard-<version>.tar.gz` | `uv tool install`; the same files are published as [`workbench-dashboard`](https://pypi.org/project/workbench-dashboard/) on PyPI | Linux runner |
 | `SHA256SUMS` | Checking downloads | — |
 | Cask `workbench-dashboard` in [user7217/homebrew-workbench](https://github.com/user7217/homebrew-workbench) | `brew install --cask user7217/workbench/workbench-dashboard` | Linux runner, after the release |
 
@@ -93,7 +93,23 @@ then put the new `.pub` contents in `tauri.conf.json` and update both secrets.
 
 `make desktop` builds without the key and without update archives; `make desktop-release` (used by the workflow) needs both environment variables set.
 
-## 6. Homebrew Tap
+## 6. PyPI
+
+The `PyPI` job uploads the wheel and sdist after the GitHub Release exists, using [trusted publishing](https://docs.pypi.org/trusted-publishers/): PyPI accepts the workflow's short-lived OIDC token, so no API token is stored anywhere. PyPI's project page shows `README.md`, with its relative links and images rewritten to absolute GitHub URLs at build time (`tool.hatch.metadata.hooks.fancy-pypi-readme` in `pyproject.toml`).
+
+The trusted publisher is set up once, on the PyPI account that owns the project (account settings → **Publishing** → add a **pending publisher** before the first upload, or the project's **Manage → Publishing** after it):
+
+| Field | Value |
+| :--- | :--- |
+| PyPI project name | `workbench-dashboard` |
+| Owner | `user7217` |
+| Repository name | `workbench` |
+| Workflow name | `release.yml` |
+| Environment name | `pypi` |
+
+A version on PyPI can never be uploaded again, even after deleting it. If the job fails (for example before the publisher was set up), fix the cause and use **Re-run failed jobs** on the same run; do not retag. Pre-releases (`0.3.0-rc.1`) are uploaded too; pip and uv skip them unless asked for one.
+
+## 7. Homebrew Tap
 
 The cask's source is [`packaging/homebrew/workbench-dashboard.rb`](../packaging/homebrew/workbench-dashboard.rb), with `@VERSION@` and `@SHA256@` placeholders. After each release (not pre-releases) the workflow's `Homebrew cask` job fills them in for the new dmg and pushes the result to the tap repository as `Casks/workbench-dashboard.rb`. Changes to the cask are made in this repository and reach the tap with the next release.
 
@@ -105,10 +121,9 @@ To check the cask locally:
 brew tap user7217/workbench && brew audit --cask --strict --online user7217/workbench/workbench-dashboard
 ```
 
-## 7. Not Yet Automated
+## 8. Not Yet Automated
 
 These need accounts outside GitHub and are planned for later:
 
-- **PyPI:** to be published as `workbench-dashboard` (the name `workbench` is taken there); the command stays `workbench`.
 - **Apple signing and notarization** of the macOS app (an Apple Developer account), which removes the Gatekeeper prompt on first install. (Updates installed by the app itself do not show the prompt, since the app downloads them directly.)
 - **Windows and Linux** builds of the desktop app.

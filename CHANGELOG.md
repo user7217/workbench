@@ -9,6 +9,11 @@ Each release on [GitHub Releases](https://github.com/user7217/workbench/releases
 ### Added
 
 - **Homebrew:** `brew install --cask user7217/workbench/workbench-dashboard` installs the macOS app and links the `workbench` command. Each release updates the cask.
+- **PyPI:** the CLI and server are published as `workbench-dashboard`: `uv tool install workbench-dashboard` or `pipx install workbench-dashboard`. The command is still `workbench`.
+
+### Changed
+
+- The Python package is now named `workbench-dashboard` (wheels are `workbench_dashboard-<version>-…`); the import package and the `workbench` command are unchanged. A CLI installed earlier with `uv tool install .` is registered as the tool `workbench`: run `uv tool uninstall workbench` once, then install `workbench-dashboard`. In a development checkout, run `uv sync --reinstall-package workbench-dashboard` once if `uv run workbench` stops finding the command.
 
 ## [0.1.2] - 2026-11-07
 

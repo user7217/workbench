@@ -107,7 +107,7 @@ Each check is logged to `~/.workbench/logs/desktop-updater.log`. The app has to 
 
 The coding-agent hooks run `workbench hook-check` after every turn, so the laptop needs `workbench` on the PATH. The app ships the same CLI as its server. **Install Command Line Tool…** links `~/.local/bin/workbench` to it, so the hooks, the terminal and the dashboard run one version.
 
-If `~/.local/bin/workbench` already exists from another install (such as `uv tool install`), the app asks before replacing it. Keeping the other install also works; the two copies are then updated separately. After replacing a `uv` install, `uv tool uninstall workbench` removes the leftover.
+If `~/.local/bin/workbench` already exists from another install (such as `uv tool install`), the app asks before replacing it. Keeping the other install also works; the two copies are then updated separately. After replacing a `uv` install, `uv tool uninstall workbench-dashboard` (or `uv tool uninstall workbench` for an install from before 0.1.3) removes the leftover.
 
 ## 6. Network Access
 

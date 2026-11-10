@@ -237,13 +237,18 @@ If the dashboard page returns `404` and the server log says `Web UI not found`, 
 
 On the Mac or Linux machine where code is written:
 
-1. **Install the `workbench` CLI globally,** in one of three ways:
+1. **Install the `workbench` CLI globally,** in one of four ways:
+   - From PyPI, where it is published as `workbench-dashboard` (the command is still `workbench`):
+     ```bash
+     uv tool install workbench-dashboard     # or: pipx install workbench-dashboard
+     ```
+     Later versions: `uv tool upgrade workbench-dashboard`.
    - From a clone of this repository:
      ```bash
      cd /path/to/workbench
      uv tool install --force .
      ```
-   - From a release, without a clone: `uv tool install <URL of workbench-<version>-py3-none-any.whl>`, copied from the [latest release](https://github.com/user7217/workbench/releases/latest).
+   - From a release's wheel: `uv tool install <URL of workbench_dashboard-<version>-py3-none-any.whl>`, copied from the [latest release](https://github.com/user7217/workbench/releases/latest).
    - With the macOS desktop app: **Install Command Line Tool…** in its menu links `~/.local/bin/workbench` to the copy inside the app ([desktop.md §5](desktop.md#5-the-command-line-tool)).
 2. **Run the interactive setup wizard:**
    ```bash
@@ -272,7 +277,7 @@ On the Mac or Linux machine where code is written:
    - The coding session is never interrupted, and automatic reviews after commits stop: run `/workbench-review` manually at milestones.
    - Ideas the assistant offered but the user did not agree to land in the project's **Inbox** on the dashboard (Keep / Dismiss) instead of the tree.
    - Results go to `~/.workbench/logs/updater.log` and `workbench history --kind update`. To preview what it would record, run `workbench auto-update --transcript <session.jsonl> --dry-run` inside the project's repo.
-   - After an upgrade from an older version, reinstall the CLI (`uv tool install --force .`) so the hook runs the new code. A CLI linked from the desktop app updates with the app.
+   - After an upgrade from an older version, reinstall the CLI (`uv tool upgrade workbench-dashboard`, or `uv tool install --force .` from a clone) so the hook runs the new code. A CLI linked from the desktop app updates with the app.
 
 ---
 

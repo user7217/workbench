@@ -132,7 +132,7 @@ Each [GitHub Release](https://github.com/user7217/workbench/releases) provides:
 | :--- | :--- | :--- |
 | `Workbench_<version>_aarch64.dmg` | Desktop mode: menu-bar app on macOS (Apple silicon, unsigned); also `brew install --cask user7217/workbench/workbench-dashboard` | [docs/desktop.md](docs/desktop.md) |
 | `ghcr.io/user7217/workbench:<version>` | Server mode: Docker image for `linux/amd64` and `linux/arm64` | [docs/setup.md](docs/setup.md) |
-| `workbench-<version>-py3-none-any.whl` | The CLI (and `workbench serve`) on the laptop: `uv tool install <wheel URL>` | [docs/setup.md](docs/setup.md) |
+| [`workbench-dashboard` on PyPI](https://pypi.org/project/workbench-dashboard/) (also attached as a wheel) | The CLI (and `workbench serve`) on the laptop: `uv tool install workbench-dashboard` or `pipx install workbench-dashboard` | [docs/setup.md](docs/setup.md) |
 
 What changed in each version is in [CHANGELOG.md](CHANGELOG.md).
 
@@ -158,7 +158,7 @@ Server mode in brief:
    ```
 3. **Configure the laptop:**
    ```bash
-   uv tool install .
+   uv tool install workbench-dashboard   # or `uv tool install .` from this checkout
    workbench setup
    workbench discover --local
    ```

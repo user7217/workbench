@@ -1,7 +1,7 @@
 # Builds and publishes a release when a version tag (v1.2.3) is pushed:
 #   - Workbench_<version>_aarch64.dmg   macOS desktop app (unsigned, Apple silicon)
 #   - Workbench_<version>_aarch64.app.tar.gz (+ .sig) and latest.json: what installed apps update from
-#   - workbench-<version>-py3-none-any.whl and workbench-<version>.tar.gz
+#   - workbench_dashboard-<version>-py3-none-any.whl and .tar.gz, also published to PyPI
 #   - ghcr.io/<owner>/workbench:<version> (and :<major>.<minor>, :latest) for linux/amd64 + arm64
 # The release notes are the version's section of CHANGELOG.md. See docs/releasing.md.
 name: Release
@@ -195,6 +195,26 @@ jobs:
           case "$version" in *-*) prerelease="--prerelease" ;; esac
           gh release create "$GITHUB_REF_NAME" dist/* --verify-tag $prerelease \
             --title "Workbench $version" --notes-file notes.md
+
+  # Publishes the wheel and sdist as workbench-dashboard on PyPI with trusted publishing: PyPI
+  # trusts this workflow's OIDC token (no API token is stored), once the project's trusted
+  # publisher names this repository, release.yml and the environment `pypi` (docs/releasing.md).
+  # Runs after the GitHub Release, since a version uploaded to PyPI can never be replaced.
+  pypi:
+    name: PyPI
+    needs: [check, release]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/workbench-dashboard/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: python
+          path: dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
 
   # Points the Homebrew cask (tap user7217/homebrew-workbench) at the new dmg. Needs the
   # HOMEBREW_TAP_TOKEN secret: a fine-grained token with Contents read/write on the tap repo only.
