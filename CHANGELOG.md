@@ -6,7 +6,9 @@ Each release on [GitHub Releases](https://github.com/user7217/workbench/releases
 
 ## [Unreleased]
 
-### Added
+## [0.2.1] - 2026-11-12
+
+### Fixed
 
 - **Status changes on the dependency map:** the status mark of every phase, topic, component and subtopic on the map (a phase's numbered badge included) opens the same status menu as the lists, without changing the selection.
 - **The lists follow the selection:** selecting an item on the map (or anywhere else) scrolls the Navigation and Contents panels to it, opening its phase in Contents if it was folded there. On a phone the panel tab that is opened next is scrolled to it.
@@ -81,7 +83,8 @@ The first release. Everything below is new.
 - **Security:** write endpoints require `X-Workbench: 1` and JSON; a server listening on localhost rejects other `Host` names, blocking DNS rebinding.
 - **Releases:** one version number for the Python package, web UI and desktop app (`scripts/version.py`), this changelog, and a release workflow that builds the `.dmg`, the wheel and sdist, and the Docker image for each `v*` tag.
 
-[Unreleased]: https://github.com/user7217/workbench/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/user7217/workbench/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/user7217/workbench/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/user7217/workbench/compare/v0.1.3...v0.2.0
 [0.1.3]: https://github.com/user7217/workbench/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/user7217/workbench/compare/v0.1.1...v0.1.2
