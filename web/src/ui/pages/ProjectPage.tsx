@@ -8,6 +8,7 @@ import {
   projectUsesPhases,
   pendingKeys,
 } from "@workbench-core";
+import { useEffect } from "react";
 import { AddItemInline } from "../components/Editing";
 import { ComponentInspector } from "../components/Inspector";
 import { PanelResizer } from "../components/PanelResizer";
@@ -18,12 +19,22 @@ import { ProjectNavPanel } from "../components/ProjectNavPanel";
 import { ProjectVisualPanel } from "../components/ProjectVisualPanel";
 import { MAX_CONTENTS_WIDTH, MIN_CONTENTS_WIDTH } from "../layoutPrefs";
 import { useLook } from "../lookState";
+import { useRevealSelection } from "../revealSelection";
 
 // Building Workspace — Three Coordinated Resizable Panels + Optional Phases + Adjustable Context Panel
 export function ProjectPage() {
   const wb = useWorkbench();
   const { isPending, selectProject, activeProject, activePhase } = wb;
-  const { panelWidths, mobilePanel } = useLook();
+  const { panelWidths, mobilePanel, setCollapsedPhases } = useLook();
+  const { phaseId: selectedPhaseId, componentId: selectedComponentId } = wb.selection;
+  // A part chosen elsewhere (on the map, say) opens its phase in Contents if it was folded there
+  useEffect(() => {
+    if (selectedPhaseId && selectedComponentId)
+      setCollapsedPhases((prev) =>
+        prev[selectedPhaseId] ? { ...prev, [selectedPhaseId]: false } : prev,
+      );
+  }, [selectedPhaseId, selectedComponentId, setCollapsedPhases]);
+  useRevealSelection(activeProject?.id, selectedComponentId ?? selectedPhaseId, mobilePanel);
   const usesPhases = activeProject ? projectUsesPhases(activeProject) : true;
   const isEmptyDiscovered = activeProject ? isNewDiscoveredProject(activeProject) : false;
   const activeComponentEntry = wb.activeComponent;

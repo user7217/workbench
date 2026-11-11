@@ -283,6 +283,8 @@ phase; **Part of…** in the project header attaches the project to a parent or 
 project with suggestions shows an **Inbox** above its phases, with **Keep** and **Dismiss** on each
 row, and its Home card shows how many suggestions are waiting.
 
+Status marks open the status menu wherever they appear, the dependency map included (a phase's numbered badge there is its status mark). Selecting an item anywhere scrolls the Navigation and Contents panels to its row: rows carry `data-reveal-id="<project or path id>/<item id>"`, and `useRevealSelection` (`src/ui/revealSelection.ts`) scrolls each panel on its own, after the core has expanded the row's parents.
+
 ![Inline editing of a component summary, with the structure controls above it](docs/images/default-inline-editing.png)
 
 The **Settings** menu at the bottom of the sidebar (`components/SettingsMenu.tsx`, the last tab of the bottom bar on a phone) holds two preferences of a different kind:

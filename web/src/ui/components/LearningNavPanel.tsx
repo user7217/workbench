@@ -3,6 +3,7 @@ import { useWorkbench } from "@workbench-core";
 import { MAX_NAV_WIDTH, MIN_NAV_WIDTH } from "../layoutPrefs";
 import { useLook } from "../lookState";
 import { KindBadge, StatusNodeGlyph } from "./status";
+import { revealId } from "../revealSelection";
 
 // PANEL A: Learning Navigation (Left)
 export function LearningNavPanel() {
@@ -75,6 +76,7 @@ export function LearningNavPanel() {
                           className={`tree-phase-row ${
                             isTopActive && !selectedSubtopicId ? "active" : ""
                           }`}
+                          data-reveal-id={revealId(lp.id, top.id)}
                           onClick={(e) => {
                             e.stopPropagation();
                             selectLearningPath(lp.id, top.id, null);
@@ -104,6 +106,7 @@ export function LearningNavPanel() {
                                 <div
                                   key={sub.id}
                                   className={`tree-comp-row ${isSubActive ? "active" : ""}`}
+                                  data-reveal-id={revealId(lp.id, sub.id)}
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     selectLearningPath(lp.id, top.id, sub.id);

@@ -6,6 +6,11 @@ Each release on [GitHub Releases](https://github.com/user7217/workbench/releases
 
 ## [Unreleased]
 
+### Added
+
+- **Status changes on the dependency map:** the status mark of every phase, topic, component and subtopic on the map (a phase's numbered badge included) opens the same status menu as the lists, without changing the selection.
+- **The lists follow the selection:** selecting an item on the map (or anywhere else) scrolls the Navigation and Contents panels to it, opening its phase in Contents if it was folded there. On a phone the panel tab that is opened next is scrolled to it.
+
 ## [0.2.0] - 2026-11-12
 
 ### Added

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { STATUS_LABELS } from "@workbench-core";
 import { StatusNodeGlyph } from "./status";
 
@@ -14,6 +15,10 @@ interface StatusMenuProps<S extends string> {
   /** What is being changed, for the accessible name (e.g. the item's name). */
   subject?: string;
   size?: number;
+  /** Shown in the trigger in place of the status glyph (a phase's numbered badge, say). */
+  glyph?: ReactNode;
+  /** Extra classes on the trigger (e.g. `nodrag nopan` inside the dependency map). */
+  className?: string;
 }
 
 const MENU_WIDTH = 150;
@@ -21,6 +26,8 @@ const MENU_WIDTH = 150;
 /**
  * Click a status to change it: a small menu of the allowed statuses, positioned with `fixed` so
  * scrolling panels never clip it. All clicks stop propagating so rows underneath are not selected.
+ * The menu is rendered into `document.body`: inside a transformed parent (the zoomed dependency
+ * map) `fixed` would be relative to that parent and scaled with it.
  */
 export function StatusMenu<S extends string>({
   status,
@@ -31,6 +38,8 @@ export function StatusMenu<S extends string>({
   variant = "icon",
   subject,
   size = 14,
+  glyph,
+  className,
 }: StatusMenuProps<S>) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
@@ -96,7 +105,7 @@ export function StatusMenu<S extends string>({
       <button
         ref={triggerRef}
         type="button"
-        className={`status-menu-trigger ${variant}${busy ? " busy" : ""}${open ? " open" : ""}`}
+        className={`status-menu-trigger ${variant}${busy ? " busy" : ""}${open ? " open" : ""}${className ? ` ${className}` : ""}`}
         data-testid={testId}
         disabled={busy}
         aria-haspopup="menu"
@@ -109,7 +118,7 @@ export function StatusMenu<S extends string>({
           setOpen((o) => !o);
         }}
       >
-        <StatusNodeGlyph status={status} size={size} />
+        {glyph ?? <StatusNodeGlyph status={status} size={size} />}
         {variant === "pill" && (
           <>
             <span className="status-menu-label">{busy ? "Saving…" : label}</span>
@@ -119,35 +128,38 @@ export function StatusMenu<S extends string>({
           </>
         )}
       </button>
-      {open && pos && (
-        <div
-          ref={menuRef}
-          className="status-menu-popover"
-          role="menu"
-          data-testid={`${testId}-menu`}
-          style={{ top: pos.top, left: pos.left, width: MENU_WIDTH }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {options.map((opt) => (
-            <button
-              key={opt}
-              type="button"
-              role="menuitemradio"
-              aria-checked={opt === status}
-              className={`status-menu-option${opt === status ? " current" : ""}`}
-              data-testid={`status-option-${opt}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                setOpen(false);
-                if (opt !== status) onSelect(opt);
-              }}
-            >
-              <StatusNodeGlyph status={opt} />
-              <span>{STATUS_LABELS[opt] ?? opt}</span>
-            </button>
-          ))}
-        </div>
-      )}
+      {open &&
+        pos &&
+        createPortal(
+          <div
+            ref={menuRef}
+            className="status-menu-popover"
+            role="menu"
+            data-testid={`${testId}-menu`}
+            style={{ top: pos.top, left: pos.left, width: MENU_WIDTH }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {options.map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                role="menuitemradio"
+                aria-checked={opt === status}
+                className={`status-menu-option${opt === status ? " current" : ""}`}
+                data-testid={`status-option-${opt}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setOpen(false);
+                  if (opt !== status) onSelect(opt);
+                }}
+              >
+                <StatusNodeGlyph status={opt} />
+                <span>{STATUS_LABELS[opt] ?? opt}</span>
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
     </>
   );
 }

@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import type React from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import {
   ReactFlow,
   Controls,
@@ -15,6 +16,10 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import {
+  ITEM_STATUSES,
+  LEARNING_ITEM_STATUSES,
+  pendingKeys,
+  useWorkbench,
   getProjectGroups,
   indexProjectComponents,
   learningTree,
@@ -32,6 +37,65 @@ import {
 } from "@workbench-core";
 import { type MapLayout, useLook } from "../lookState";
 import { KindBadge, PhaseNumberBadge, StatusNodeGlyph, statusColorVar, statusTint } from "./status";
+import { StatusMenu } from "./StatusMenu";
+
+/** Whose status a map node changes: a phase/component of a project or a learning topic/subtopic. */
+interface MapStatusTarget {
+  kind: "project" | "learning";
+  /** Project or learning path id (the child project's id for items inside a child project) */
+  ownerId: string;
+  itemId: string;
+}
+
+/**
+ * A node's status glyph as a status menu, wired to the same actions as the lists. `nodrag nopan`
+ * keeps React Flow from starting a drag or a pan on it; its clicks stop before the node's own.
+ */
+function MapStatus({
+  target,
+  status,
+  label,
+  size = 14,
+  glyph,
+}: {
+  target: MapStatusTarget;
+  status: string;
+  label: string;
+  size?: number;
+  glyph?: React.ReactNode;
+}) {
+  const wb = useWorkbench();
+  const { kind, ownerId, itemId } = target;
+  const testId = `visual-status-menu-${itemId}`;
+  if (kind === "learning") {
+    return (
+      <StatusMenu
+        status={status}
+        options={LEARNING_ITEM_STATUSES}
+        busy={wb.isPending(pendingKeys.learningItem(ownerId, itemId))}
+        testId={testId}
+        subject={label}
+        size={size}
+        glyph={glyph}
+        className="nodrag nopan"
+        onSelect={(st) => wb.setLearningItemStatus(ownerId, itemId, st)}
+      />
+    );
+  }
+  return (
+    <StatusMenu
+      status={status}
+      options={ITEM_STATUSES}
+      busy={wb.isPending(pendingKeys.projectItem(ownerId, itemId))}
+      testId={testId}
+      subject={label}
+      size={size}
+      glyph={glyph}
+      className="nodrag nopan"
+      onSelect={(st) => wb.setItemStatus(ownerId, itemId, st)}
+    />
+  );
+}
 
 // The map has two layouts (a look preference, see lookState). Vertical: the phases are columns, as
 // many per row as the panel's width holds at a readable zoom, so it uses the width it has before it
@@ -278,6 +342,7 @@ function PhaseGroupNode({
     expanded: boolean;
     onToggle?: () => void;
     horizontal?: boolean;
+    statusTarget?: MapStatusTarget;
   };
 }) {
   const { status, selected } = data;
@@ -316,7 +381,17 @@ function PhaseGroupNode({
             : { ...HIDDEN_HANDLE, left: 0 }
         }
       />
-      {data.numbered ? (
+      {data.statusTarget ? (
+        <MapStatus
+          target={data.statusTarget}
+          status={status}
+          label={data.label}
+          size={16}
+          glyph={
+            data.numbered ? <PhaseNumberBadge index={data.index} status={status} /> : undefined
+          }
+        />
+      ) : data.numbered ? (
         <PhaseNumberBadge index={data.index} status={status} />
       ) : (
         <StatusNodeGlyph status={status} size={16} />
@@ -365,6 +440,7 @@ function ComponentCardNode({
     expanded: boolean;
     onToggle?: () => void;
     horizontal?: boolean;
+    statusTarget?: MapStatusTarget;
   };
 }) {
   return (
@@ -405,7 +481,11 @@ function ComponentCardNode({
           left: -3.5,
         }}
       />
-      <StatusNodeGlyph status={data.status} />
+      {data.statusTarget ? (
+        <MapStatus target={data.statusTarget} status={data.status} label={data.label} />
+      ) : (
+        <StatusNodeGlyph status={data.status} />
+      )}
       <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
         {data.label}
       </span>
@@ -693,6 +773,8 @@ const CHILD_PROJECT_EDGE_STYLE = {
 interface MapInput {
   rootTitle: string;
   isLearning: boolean;
+  /** The project or learning path the map shows, for status changes */
+  ownerId: string;
   numbered: boolean;
   groups: MapGroup[];
   selectedId: string | null;
@@ -721,6 +803,16 @@ function mapBuilder(input: MapInput, layout: MapLayout) {
   const openIds = new Set<string>();
   const selectedPath = pathTo(groups, selectedId);
   const partEdgeType = horizontal ? "default" : "elbow";
+
+  /** Whose status an item's node changes; items inside a child project belong to that project. */
+  const statusTarget = (item: MapItem): MapStatusTarget =>
+    item.foreign
+      ? { kind: "project", ownerId: item.foreign.projectId, itemId: item.foreign.itemId }
+      : {
+          kind: input.isLearning ? "learning" : "project",
+          ownerId: input.ownerId,
+          itemId: item.id,
+        };
 
   const isOpen = (item: MapItem, depth: number) => {
     if (!item.children?.length) return false;
@@ -803,6 +895,7 @@ function mapBuilder(input: MapInput, layout: MapLayout) {
         expanded: open,
         onToggle: () => onToggle(item.id, !open),
         horizontal,
+        statusTarget: statusTarget(item),
       },
     });
     edges.push({
@@ -839,6 +932,7 @@ function mapBuilder(input: MapInput, layout: MapLayout) {
         expanded: open,
         onToggle: () => onToggle(pNodeId, !open),
         horizontal,
+        statusTarget: statusTarget(grp),
       },
     });
     edges.push({
@@ -1046,6 +1140,7 @@ function VisualGraphInner({
     const built = buildMap(mapLayout, {
       rootTitle: project ? project.name : learningPath!.name,
       isLearning: !project,
+      ownerId: project ? project.id : learningPath!.id,
       numbered: project ? projectUsesPhases(project) : false,
       groups,
       selectedId,

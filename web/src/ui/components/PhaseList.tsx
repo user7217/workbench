@@ -18,6 +18,7 @@ import { CentreComp } from "./ComponentCards";
 import { AddItemInline, EditableField } from "./Editing";
 import { ItemStatusMenu } from "./ItemStatusMenu";
 import { ItemStructureActions } from "./StructureControls";
+import { revealId } from "../revealSelection";
 
 export function PhaseList({ project: activeProject }: { project: Project }) {
   const wb = useWorkbench();
@@ -44,6 +45,7 @@ export function PhaseList({ project: activeProject }: { project: Project }) {
             key={ph.id}
             className={`tier-1-phase-section ${isActivePh ? "active-phase-card" : ""}`}
             data-testid={`phase-block-${ph.id}`}
+            data-reveal-id={revealId(activeProject.id, ph.id)}
           >
             {/* LEVEL 1: Phase (when uses_phases is true) or Direct Topic (when uses_phases is false) */}
             <div
