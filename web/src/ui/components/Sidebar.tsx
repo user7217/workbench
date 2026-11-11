@@ -5,6 +5,7 @@
  */
 import { useState } from "react";
 import { useWorkbench, getProjectGroups, todayHasWork } from "@workbench-core";
+import { SettingsMenu } from "./SettingsMenu";
 import { TodayIcon } from "./TodayToggle";
 
 // Left Sidebar — Compact, Collapsible, Home / Learning / Building only
@@ -246,6 +247,7 @@ export function Sidebar() {
           </div>
         </div>
       )}
+      <SettingsMenu collapsed={sidebarCollapsed} />
     </aside>
   );
 }

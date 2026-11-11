@@ -1,5 +1,7 @@
-"""Today's Work: replace the stored list of chosen roots (today.yaml).
+"""Today's Work: replace the stored list of chosen roots, or turn it on or off (today.yaml).
 
+The on/off switch is `enabled` in today.yaml, so it applies to every device and server reading
+the data repository. Turning it off keeps the list; while it is off the list cannot be changed.
 Only the roots are stored; the UI expands each into its children and prerequisites. Entries
 are not looked up in the repository, and none of the project deletion guards apply: entries
 leaving the list is the normal case.
@@ -31,6 +33,8 @@ from workbench.validate import TODAY_FILE, validate_today_file
 from workbench.yamlio import dump_yaml_roundtrip, load_yaml_roundtrip, parse_iso_date_for_yaml
 
 _BODY_KEYS: tuple[str, ...] = ("day", "entries")
+_ENABLED_KEYS: tuple[str, ...] = ("enabled",)
+TODAY_OFF_DETAIL = "Today's Work is turned off"
 _ENTRY_KEYS: tuple[str, ...] = ("kind", "id", "item")
 _KINDS: tuple[str, ...] = get_args(TodayKind)
 _DATE_RE = re.compile(DATE_PATTERN)
@@ -182,8 +186,17 @@ def describe_change(old: list[EntryKey], new: list[EntryKey], day: str) -> str:
 # ---------------------------------------------------------------------------
 
 
+def _is_turned_off(doc: CommentedMap) -> bool:
+    """Whether the stored list has Today's Work turned off (`enabled: false`; missing means on)."""
+    return doc.get("enabled") is False
+
+
 def set_today(state: ServerState, body: object) -> dict[str, Any]:
-    """Replace the Today's Work list with the body's entries; creates today.yaml if missing."""
+    """Replace the Today's Work list with the body's entries; creates today.yaml if missing.
+
+    Refused with 403 while Today's Work is turned off. The check reads today.yaml as it is on
+    origin, inside the write, so a switch made on another device is respected.
+    """
     data = _require_body(body)
     _reject_unknown_keys(data, _BODY_KEYS)
     for key in _BODY_KEYS:
@@ -195,6 +208,8 @@ def set_today(state: ServerState, body: object) -> dict[str, Any]:
     def edit(wt_dir: Path) -> str:
         target = wt_dir / TODAY_FILE
         doc = _load_today_doc(target)
+        if _is_turned_off(doc):
+            raise WriteError(TODAY_OFF_DETAIL, status_code=403)
         old_keys = replace_entries(doc, day, keys)
         dump_yaml_roundtrip(doc, target)
 
@@ -202,5 +217,35 @@ def set_today(state: ServerState, body: object) -> dict[str, Any]:
         if not vres.ok:
             raise WriteError(f"Validation failed: {'; '.join(vres.errors)}", status_code=422)
         return _edit_message(describe_change(old_keys, keys, day), _SCOPE)
+
+    return _run_transaction(state, _SCOPE, edit)
+
+
+def set_today_enabled(state: ServerState, body: object) -> dict[str, Any]:
+    """Turn Today's Work on or off (`enabled` in today.yaml); the day and the entries are kept.
+
+    Body: {"enabled": true|false}. Creates today.yaml if missing. Always allowed, so a list
+    that is turned off can be turned back on. Setting the value already stored commits nothing.
+    """
+    data = _require_body(body)
+    _reject_unknown_keys(data, _ENABLED_KEYS)
+    if "enabled" not in data:
+        raise WriteError("'enabled' is required", status_code=400)
+    enabled = data["enabled"]
+    if not isinstance(enabled, bool):
+        raise WriteError(f"'enabled' must be true or false, not {enabled!r}", status_code=400)
+
+    def edit(wt_dir: Path) -> str:
+        target = wt_dir / TODAY_FILE
+        doc = _load_today_doc(target)
+        order = _field_order(Today)
+        _set_key(doc, "schema_version", 1, order)
+        _set_key(doc, "enabled", enabled, order)
+        dump_yaml_roundtrip(doc, target)
+
+        vres, _ = validate_today_file(target)
+        if not vres.ok:
+            raise WriteError(f"Validation failed: {'; '.join(vres.errors)}", status_code=422)
+        return _edit_message("turn on" if enabled else "turn off", _SCOPE)
 
     return _run_transaction(state, _SCOPE, edit)

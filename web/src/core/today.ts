@@ -28,6 +28,11 @@ export interface TodayEntry {
 }
 
 export interface TodayData {
+  /**
+   * Whether Today's Work is turned on (`enabled` in today.yaml, so it applies to every device and
+   * server reading the data repo). Missing means on. The entries are kept while it is off.
+   */
+  enabled?: boolean;
   /** The local calendar day (YYYY-MM-DD) the list was last confirmed for; null if never set. */
   day: string | null;
   entries: TodayEntry[];
@@ -118,12 +123,11 @@ export function todayOf(snapshot: SnapshotData): TodayData {
 }
 
 /**
- * Whether the server offers Today's Work. It can be turned off per install (`workbench today off`,
- * the desktop app's menu, WORKBENCH_TODAY); a look then shows no Today tab and no add buttons.
- * A server from before the switch existed has it on exactly when it sends a `today` list.
+ * Whether Today's Work is turned on: the server sends a `today` list (older servers do not) and
+ * its `enabled` switch is not false. When off, a look shows no Today tab and no add buttons.
  */
 export function todayEnabled(snapshot: SnapshotData): boolean {
-  return snapshot.features ? snapshot.features.today !== false : snapshot.today !== undefined;
+  return snapshot.today !== undefined && snapshot.today.enabled !== false;
 }
 
 export function hasEntry(today: TodayData, entry: TodayEntry): boolean {

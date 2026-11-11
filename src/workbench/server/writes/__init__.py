@@ -4,8 +4,8 @@ Every edit goes through `_commit_edit` (in `_transaction`), which holds the repo
 the whole operation, edits one YAML file in a fresh worktree cut from origin/<branch>,
 validates it (structure, privacy, semantic diff against origin), commits, and pushes with
 up to three fetch/rebase/validate/push attempts before resyncing. The Today's Work list
-(`set_today`) runs the same worktree transaction (`_run_transaction`) on today.yaml, without
-the semantic diff: entries leaving that list is normal.
+(`set_today`) and its on/off switch (`set_today_enabled`) run the same worktree transaction
+(`_run_transaction`) on today.yaml, without the semantic diff: entries leaving that list is normal.
 """
 
 from __future__ import annotations
@@ -32,7 +32,7 @@ from workbench.server.writes.structure import (
     set_project_parent,
 )
 from workbench.server.writes.suggestions import dismiss_suggestion, keep_suggestion
-from workbench.server.writes.today import set_today
+from workbench.server.writes.today import set_today, set_today_enabled
 
 __all__ = [
     "AllowedLearningStatus",
@@ -45,6 +45,7 @@ __all__ = [
     "move_project_item",
     "set_project_parent",
     "set_today",
+    "set_today_enabled",
     "update_learning_fields",
     "update_learning_item_fields",
     "update_learning_item_status",

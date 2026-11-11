@@ -63,15 +63,8 @@ No controlled study of a "now / next" task list for ADHD was found while buildin
 
 ## 5. Turning It Off
 
-Today's Work is on by default and can be switched off wherever the dashboard server runs:
+Today's Work is on by default. It is switched off and on with the **Today's Work** switch in the **Settings** menu at the bottom of the dashboard's sidebar.
 
-| Where | How |
-| :--- | :--- |
-| Laptop, at setup | `workbench setup` asks **Turn on Today's Work?** (default: yes) and stores the answer as `today = "on"` or `"off"` in `~/.workbench/config.toml`. |
-| Laptop, later | `workbench today off` (and `workbench today on`); `workbench today` prints the current setting. The server reads it when it starts, so `workbench serve` has to be restarted. |
-| Desktop app | **Today's Work** in the menu-bar menu, under **Start at Login**. It stores the same setting and restarts the server itself. |
-| Docker server | `WORKBENCH_TODAY=off` in `.env`, then `docker compose up -d`. |
+The switch is saved as `enabled` in `today.yaml` (an `edit(today): turn off` or `edit(today): turn on` commit), so it applies to every device and every server that reads the same `workbench-data`: the laptop, the desktop app, a Docker server and a phone all follow it once they have synced.
 
-With `workbench serve`, an explicitly set `WORKBENCH_TODAY` wins over `config.toml`.
-
-When it is off, the dashboard has no Today tab and no sun or **Today** buttons, and the server refuses changes to the list. The stored list is kept: `today.yaml` stays in `workbench-data`, is still validated, and is shown again as it was once the feature is turned back on. The switch belongs to one server, so another install that has it on (a Docker server next to a laptop with it off, say) keeps showing and changing the same list.
+When it is off, the dashboard has no Today tab and no sun or **Today** buttons anywhere, and the server refuses changes to the list (`403`). Switching it back on is always allowed. The list is kept while it is off: the day and the entries stay in `today.yaml`, are still validated, and are shown again as they were once the switch is turned back on.

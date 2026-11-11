@@ -6,6 +6,7 @@
  */
 
 export type Day = string | null;
+export type Enabled = boolean;
 export type Added = string;
 export type Id = string;
 export type Item = string | null;
@@ -25,6 +26,7 @@ export type SchemaVersion = 1;
  */
 export interface Today {
   day?: Day;
+  enabled?: Enabled;
   entries?: Entries;
   schema_version?: SchemaVersion;
 }

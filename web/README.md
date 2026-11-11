@@ -80,7 +80,7 @@ re-renders on every store change. Outside React, `createWorkbench(options)` retu
 
 | Field | Type | Meaning |
 |---|---|---|
-| `snapshot` | `{projects, learning, topic_markdowns, today, features, commit, synced_at}` | Everything the server knows. `today` is `{day, entries}` and `features` is `{today: boolean}` (older servers omit both). |
+| `snapshot` | `{projects, learning, topic_markdowns, today, commit, synced_at}` | Everything the server knows. `today` is `{enabled, day, entries}` (older servers omit it). |
 | `syncStatus` | `{last_good_commit, last_checked_at, last_error}` | Last sync of the data repo; `last_error` = a bad commit that was skipped. |
 | `route` | `{page: "home" \| "today" \| "building" \| "learning"}` or `{page: "project" \| "learning-path", id}` | Current page. |
 | `selection` | `{phaseId, componentId, topicId, subtopicId}` | What is selected on the project / learning page. |
@@ -116,8 +116,8 @@ re-renders on every store change. Outside React, `createWorkbench(options)` retu
 | `topicMarkdown(pathId, itemId)` | Markdown notes of a topic/subtopic. |
 | `relatedLearning(project)`, `relatedProjects(lp)` | Cross references. |
 | `projectTree(project)`, `learningTree(lp)` | Trees for maps/diagrams (include child projects). |
-| `today` | Today's Work as stored: `{day, entries: [{kind, id, item?, added}]}`. Only the chosen roots are stored. |
-| `todayEnabled` | Whether this server has Today's Work turned on. When false, a look shows no Today page and no add buttons (the default look does this). |
+| `today` | Today's Work as stored: `{enabled?, day, entries: [{kind, id, item?, added}]}`. Only the chosen roots are stored. |
+| `todayEnabled` | Whether Today's Work is turned on: the server sends `today` and its `enabled` is not `false`. The switch lives in `today.yaml`, so it is the same on every device. When false, a look shows no Today page and no add buttons (the default look does this). |
 | `todayPlan(keepDone?)` | The roots expanded into `{groups, missing}`: one group per project or learning path, in the order they were first added and not ranked against each other. A group is `{key, kind, id, name, status, entries, whole, steps, now, next, total, done}`; each step has a `state` of `done`, `now`, `next`, `later`, `blocked` or `parked`. `todayHasWork(plan)` says whether any group has a step to do. The ordering rules are in [`../docs/today.md`](../docs/today.md). |
 | `isInToday(entry)` | Whether that exact root is on the list. |
 
@@ -179,7 +179,8 @@ server refuses):
 | `keepSuggestion(projectId, suggestionId)` → `Promise<string \| null>` | Adds the suggestion to the tree as a `not_started` item under its `under` (a new phase/topic when it has none) and resolves to the new item's id. Refused (422) when the `under` item no longer exists. |
 | `dismissSuggestion(projectId, suggestionId)` → `Promise<boolean>` | Removes it from the inbox. |
 | `addToToday(entry)`, `removeFromToday(entry)` → `Promise<boolean>` | Put a root on Today's Work or take it off. `entry` is `{kind: "project" \| "learning", id, item?}`; without `item` it is the whole project or path. Optimistic; quick successive calls are sent as one list. |
-| `setTodayEntries(entries, confirmDay = true)` → `Promise<boolean>` | Replace the list. By default it also confirms the list for the viewer's current day (the new-day review and "clear" use this). |
+| `setTodayEntries(entries, confirmDay = true)` → `Promise<boolean>` | Replace the list. By default it also confirms the list for the viewer's current day (the new-day review and "clear" use this). Refused locally (resolves `false` with an error) while Today's Work is turned off. |
+| `setTodayEnabled(on)` → `Promise<boolean>` | Turn Today's Work on or off for every device (`POST /api/today/enabled`). Optimistic; the list is kept while it is off; a value changed again during a save is sent after it, and nothing is sent when it ends where it started. Pending key `today-enabled`. |
 
 ### Pending keys
 
@@ -283,6 +284,15 @@ project with suggestions shows an **Inbox** above its phases, with **Keep** and 
 row, and its Home card shows how many suggestions are waiting.
 
 ![Inline editing of a component summary, with the structure controls above it](docs/images/default-inline-editing.png)
+
+The **Settings** menu at the bottom of the sidebar (`components/SettingsMenu.tsx`, the last tab of the bottom bar on a phone) holds two preferences of a different kind:
+
+| Setting | Kept | How |
+| :--- | :--- | :--- |
+| **Map layout**: vertical (the project across the top, phases in columns below it; the default) or horizontal (the project on the left, phases and parts in columns to the right) | In this browser only, since a phone and a laptop suit different layouts | Look-only state: `mapLayout` / `setMapLayout` from `useLook()` (`lookState.tsx`), stored by `layoutPrefs.ts` under `workbench_map_layout`. The map's own toolbar has the same switch beside **Fit to view**. |
+| **Today's Work** on or off | In `today.yaml` (`enabled`), so for every device and server reading the same data | Core: `wb.todayEnabled` and `wb.setTodayEnabled(on)`. Off hides the Today tab and every sun and **Today** button; the stored list is kept. |
+
+A custom look gets the Today's Work switch through `useWorkbench()` like any other action; the map layout belongs to the default look and is not part of the core.
 
 Regenerate these screenshots (builds both looks, runs a temporary demo server, restores `web/dist`):
 

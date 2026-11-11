@@ -63,6 +63,11 @@
       "default": null,
       "title": "Day"
     },
+    "enabled": {
+      "default": true,
+      "title": "Enabled",
+      "type": "boolean"
+    },
     "entries": {
       "items": {
         "$ref": "#/$defs/TodayEntry"

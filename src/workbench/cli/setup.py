@@ -1,16 +1,14 @@
-"""Machine setup commands: install, the go-live wizard and the Today's Work switch."""
+"""Machine setup commands: install and the go-live wizard."""
 
 from __future__ import annotations
 
 import os
-import tomllib
 from pathlib import Path
 
 import typer
 
 from workbench.agents.install import run_install
-from workbench.cli._common import _fail
-from workbench.config import WorkbenchLocalConfig, load_local_config, save_local_config
+from workbench.config import WorkbenchLocalConfig, save_local_config
 from workbench.gitops import clone_repo, ls_remote
 
 app = typer.Typer()
@@ -61,11 +59,6 @@ def cmd_setup(
         "The built-in secret and path scan always runs",
         default=False,
     )
-    today_on = typer.confirm(
-        "Turn on Today's Work? It adds a Today tab holding the work chosen for the day, "
-        "with the current and next step highlighted",
-        default=_stored_today(target_home) == "on",
-    )
 
     typer.echo(f"Checking repository access for {data_repo_url}...")
     if not ls_remote(data_repo_url):
@@ -87,7 +80,6 @@ def cmd_setup(
         github_owners=owners,
         user_emails=emails,
         privacy_review="auto" if llm_review else "off",
-        today="on" if today_on else "off",
     )
     cfg_path = save_local_config(cfg, home_dir=target_home)
     typer.echo(f"Wrote configuration to {cfg_path}")
@@ -120,38 +112,3 @@ def cmd_setup(
     for p in installed:
         typer.echo(f"Installed: {p}")
     typer.echo("Setup complete.")
-
-
-def _stored_today(home_dir: Path) -> str:
-    """The `today` setting already in config.toml ("on" without a readable config file)."""
-    try:
-        return load_local_config(home_dir=home_dir).today
-    except (OSError, tomllib.TOMLDecodeError):
-        return WorkbenchLocalConfig().today
-
-
-_TODAY_RESTART_NOTE = (
-    "Restart the dashboard server for this to take effect (the desktop app does that itself)."
-)
-
-
-@app.command("today")
-def cmd_today(
-    state: str | None = typer.Argument(
-        None, metavar="[on|off]", help="Turn Today's Work on or off; without it, print the state"
-    ),
-) -> None:
-    """Show whether Today's Work is on, or turn it on or off (stored in ~/.workbench/config.toml)."""
-    if state not in (None, "on", "off"):
-        raise typer.BadParameter(f"'{state}' is not 'on' or 'off'", param_hint="[on|off]")
-    try:
-        cfg = load_local_config()
-        if state is None:
-            typer.echo(cfg.today)
-            return
-        cfg.today = state
-        save_local_config(cfg)
-    except (OSError, tomllib.TOMLDecodeError) as exc:
-        # One line on stderr: the desktop app shows it in a dialog
-        _fail(f"cannot read or write ~/.workbench/config.toml: {exc}")
-    typer.echo(f"Today's Work is {state}. {_TODAY_RESTART_NOTE}")

@@ -4,6 +4,11 @@
 
 const VIEW_STORAGE_KEY = "workbench_project_view_mode";
 const PANEL_WIDTHS_STORAGE_KEY = "workbench_panel_widths_v1";
+const MAP_LAYOUT_STORAGE_KEY = "workbench_map_layout";
+
+/** How the dependency map is drawn: phases in columns under the project, or flowing left to right. */
+export type MapLayout = "vertical" | "horizontal";
+export const DEFAULT_MAP_LAYOUT: MapLayout = "vertical";
 
 export const DEFAULT_NAV_WIDTH = 276;
 export const MIN_NAV_WIDTH = 200;
@@ -42,6 +47,24 @@ export function readStoredViewMode(): "list" | "visual" {
 export function writeStoredViewMode(mode: "list" | "visual"): void {
   try {
     window.localStorage.setItem(VIEW_STORAGE_KEY, mode);
+  } catch {
+    // Ignore localStorage errors
+  }
+}
+
+export function readStoredMapLayout(): MapLayout {
+  try {
+    const val = window.localStorage.getItem(MAP_LAYOUT_STORAGE_KEY);
+    if (val === "vertical" || val === "horizontal") return val;
+  } catch {
+    // Ignore localStorage errors
+  }
+  return DEFAULT_MAP_LAYOUT;
+}
+
+export function writeStoredMapLayout(layout: MapLayout): void {
+  try {
+    window.localStorage.setItem(MAP_LAYOUT_STORAGE_KEY, layout);
   } catch {
     // Ignore localStorage errors
   }

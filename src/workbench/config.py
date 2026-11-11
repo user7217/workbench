@@ -32,9 +32,6 @@ class WorkbenchLocalConfig:
     # workbench-update skill), "headless" (a background agent does it, see updater.py) or "off"
     update_mode: Literal["session", "headless", "off"] = "session"
     updater_command: str = DEFAULT_UPDATER_COMMAND
-    # Today's Work (the dashboard's Today tab): "on" (default) or "off". `workbench serve` passes
-    # it to the server as WORKBENCH_TODAY
-    today: Literal["on", "off"] = "on"
 
     def to_toml(self) -> str:
         def _fmt_str(s: str) -> str:
@@ -55,7 +52,6 @@ class WorkbenchLocalConfig:
             f"github_api_base = {_fmt_str(self.github_api_base)}",
             f"update_mode = {_fmt_str(self.update_mode)}",
             f"updater_command = {_fmt_str(self.updater_command)}",
-            f"today = {_fmt_str(self.today)}",
         ]
         return "\n".join(lines) + "\n"
 
@@ -74,7 +70,11 @@ def get_workbench_dir(home_dir: Path | None = None, env: dict[str, str] | None =
 def load_local_config(
     home_dir: Path | None = None, env: dict[str, str] | None = None
 ) -> WorkbenchLocalConfig:
-    """Load ~/.workbench/config.toml if present, or return defaults."""
+    """Load ~/.workbench/config.toml if present, or return defaults.
+
+    Unknown keys are ignored, so a key that is no longer used (such as the old `today` switch,
+    now `enabled` in today.yaml) still loads and is dropped the next time the config is saved.
+    """
     wb_dir = get_workbench_dir(home_dir=home_dir, env=env)
     cfg_path = wb_dir / "config.toml"
     if not cfg_path.exists():
@@ -86,12 +86,6 @@ def load_local_config(
     update_mode = data.get("update_mode", "session")
     if update_mode not in ("session", "headless", "off"):
         update_mode = "session"
-    today = data.get("today", "on")
-    if isinstance(today, bool):
-        # `today = false` reads naturally in TOML, so a boolean is taken as meant
-        today = "on" if today else "off"
-    if today not in ("on", "off"):
-        today = "on"
     return WorkbenchLocalConfig(
         data_repo_url=str(data.get("data_repo_url", "")),
         branch=str(data.get("branch", "main")),
@@ -103,7 +97,6 @@ def load_local_config(
         github_api_base=str(data.get("github_api_base", "https://api.github.com")),
         update_mode=update_mode,
         updater_command=str(data.get("updater_command", DEFAULT_UPDATER_COMMAND)),
-        today=today,
     )
 
 

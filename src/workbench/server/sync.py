@@ -25,8 +25,8 @@ from workbench.yamlio import load_yaml_roundtrip, to_plain_python
 
 
 def empty_today() -> dict[str, Any]:
-    """The snapshot's `today` value when the repository has no today.yaml."""
-    return {"day": None, "entries": []}
+    """The snapshot's `today` value when the repository has no today.yaml (Today's Work on)."""
+    return {"enabled": True, "day": None, "entries": []}
 
 
 @dataclass
@@ -52,9 +52,6 @@ class ServerState:
     github_owners: list[str] = field(default_factory=list)
     github_read_token: str | None = None
     github_api_base: str = "https://api.github.com"
-    # Today's Work on this server (WORKBENCH_TODAY). Off: snapshots carry an empty `today` and
-    # POST /api/today is refused; today.yaml in the data repo is still validated and kept
-    today_enabled: bool = True
 
     snapshot: dict[str, Any] = field(
         default_factory=lambda: {
@@ -214,17 +211,9 @@ class ServerState:
             }
 
     def get_snapshot_dict(self) -> dict[str, Any]:
-        """The snapshot as handed to a client: the cached data plus this server's `features`.
-
-        `features` says what this running server has turned on, so it is added here and never
-        stored in snapshot.json. With Today's Work off the stored list is not handed out.
-        """
+        """The snapshot as handed to a client (a shallow copy of the cached data)."""
         with self._lock:
-            served = dict(self.snapshot)
-        if not self.today_enabled:
-            served["today"] = empty_today()
-        served["features"] = {"today": self.today_enabled}
-        return served
+            return dict(self.snapshot)
 
 
 def _last_changed(repo_root: Path, env: dict[str, str] | None = None) -> dict[str, dict[str, str]]:
@@ -253,13 +242,15 @@ def _last_changed(repo_root: Path, env: dict[str, str] | None = None) -> dict[st
 def _read_today(repo_root: Path) -> dict[str, Any]:
     """The stored Today's Work list (roots only, never expanded); empty without today.yaml.
 
-    An entry for a whole project or learning path carries no `item` key.
+    An entry for a whole project or learning path carries no `item` key. `enabled` is the
+    Today's Work switch; the entries are handed out even when it is off.
     """
     path = repo_root / TODAY_FILE
     if not path.is_file():
         return empty_today()
     today = Today.model_validate(to_plain_python(load_yaml_roundtrip(path)))
     return {
+        "enabled": today.enabled,
         "day": today.day,
         "entries": [entry.model_dump(exclude_none=True) for entry in today.entries],
     }

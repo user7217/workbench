@@ -192,8 +192,6 @@ def init_demo_environment(base_dir: Path) -> dict[str, Any]:
         user_emails=["demo@example.invalid"],
         privacy_review="off",
         reviewer_command=DEFAULT_REVIEWER_COMMAND,
-        # The demo always shows Today's Work
-        today="on",
     )
     save_local_config(cfg, home_dir=laptop_home, env=env)
 

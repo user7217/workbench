@@ -206,6 +206,10 @@ Notes:
 - **Without systemd:** a cron line does the same: `0 * * * * $HOME/workbench/packaging/docker/update.sh >> $HOME/workbench-update.log 2>&1`.
 - **Stopping it:** `sudo systemctl disable --now workbench-update.timer`.
 
+### 2.9 (Optional) Opening the Dashboard on a Phone
+
+The dashboard has a phone layout (below 720px the sidebar becomes a tab bar along the bottom, with **Settings** as its last tab). To reach the server from a phone, install the Tailscale app on the phone, sign in to the same tailnet, and open `http://100.101.102.103:8420` (the server's Tailscale IP from 2.1), or `https://<server-name>.<tailnet>.ts.net` with Tailscale Serve (2.7). Adding the page to the home screen from the browser's share menu gives it an icon like an app.
+
 ---
 
 ## Step 3: Deploy the Server (Option B: Without Docker via `workbench serve`)
@@ -260,7 +264,6 @@ On the Mac or Linux machine where code is written:
    - **Git author email(s):** The commit email(s) (`git config user.email`) so local discovery only registers repositories the user authored.
    - **Local scan roots:** Directories where the code lives (e.g., `~/Documents, ~/code, ~/projects`).
    - **LLM privacy reviewer (default: no):** whether `workbench push` should also send changed text to Claude Haiku for a privacy check. The built-in secret, path and email scan runs either way. Change it later with `privacy_review` in `~/.workbench/config.toml`.
-   - **Today's Work (default: yes):** whether the dashboard gets the Today tab, which holds the work chosen for the day with the current and next step highlighted ([today.md](today.md)). Running the wizard again offers the stored answer as the default. Change it later with `workbench today on` or `workbench today off`, then restart the dashboard server. A Docker server takes the setting from `WORKBENCH_TODAY` in `.env` instead.
 
    It then clones `workbench-data` to `~/.workbench/data`, previews the exact hook and skill files it will write to `~/.claude`, `~/.gemini`, and `~/Library/LaunchAgents/com.workbench.discover.plist`, and asks for confirmation (`yes`).
 3. **Run the first local discovery scan:**

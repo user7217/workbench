@@ -38,7 +38,7 @@ export function TodayToggle({
   testIdPrefix?: string;
 }) {
   const wb = useWorkbench();
-  if (!wb.todayEnabled) return null; // Today's Work is turned off on this server
+  if (!wb.todayEnabled) return null; // Today's Work is turned off (Settings menu)
   const on = wb.isInToday(entry);
   const label = on
     ? `Remove ${subject} from Today's Work`

@@ -15,10 +15,11 @@ export interface SnapshotData {
   topic_markdowns: Record<string, string>;
   /** When each project / learning path last changed in git (ISO 8601), keyed by id. Older servers omit it. */
   updated_at?: { projects?: Record<string, string>; learning?: Record<string, string> };
-  /** Today's Work: the chosen roots and the day they were confirmed for. Older servers omit it. */
+  /**
+   * Today's Work: the on/off switch, the chosen roots and the day they were confirmed for.
+   * Older servers omit it.
+   */
   today?: TodayData;
-  /** Optional parts of the dashboard this server has turned on. Older servers omit it. */
-  features?: { today?: boolean };
   commit: string | null;
   synced_at: string | null;
 }
@@ -150,8 +151,11 @@ export const suggestionUrls = {
     `/api/projects/${enc(projectId)}/suggestions/${enc(suggestionId)}/dismiss`,
 };
 
-/** Today's Work: one endpoint that replaces the stored list. */
+/** Today's Work: one endpoint that replaces the stored list (refused with 403 while turned off). */
 export const todayUrl = "/api/today";
+
+/** Today's Work on/off switch (`enabled` in today.yaml); body `{enabled: boolean}`. */
+export const todayEnabledUrl = "/api/today/enabled";
 
 /** Body of POST /api/today: the day the list is for and the roots, in order. */
 export function todayBody(day: string, entries: TodayEntry[]) {

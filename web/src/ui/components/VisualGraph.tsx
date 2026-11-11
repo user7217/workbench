@@ -30,10 +30,13 @@ import {
   type TreeItem as MapItem,
   type TreeGroup as MapGroup,
 } from "@workbench-core";
+import { type MapLayout, useLook } from "../lookState";
 import { KindBadge, PhaseNumberBadge, StatusNodeGlyph, statusColorVar, statusTint } from "./status";
 
-// The map lays its phases out as columns, as many per row as the panel's width holds at a readable
-// zoom, so it uses the width it has before it grows downwards. It never grows past MAX_FIT_ZOOM;
+// The map has two layouts (a look preference, see lookState). Vertical: the phases are columns, as
+// many per row as the panel's width holds at a readable zoom, so it uses the width it has before it
+// grows downwards. Horizontal: the project on the left, its phases in a column, and each nested
+// level of parts one more column to the right. Either way it never grows past MAX_FIT_ZOOM;
 // if it is taller than the panel it starts at the top and scrolls vertically. Below
 // MIN_READABLE_ZOOM it stops shrinking and the user pans instead.
 const MIN_READABLE_ZOOM = 0.85;
@@ -102,6 +105,49 @@ const HIDDEN_HANDLE = {
   border: "none",
 };
 
+/**
+ * Where a node's outgoing lines leave it. Vertical: an invisible anchor on the bottom edge, near the
+ * left side, that the elbow lines drop from. Horizontal: a dot on the right edge (shown only while
+ * the node has open parts), the lines curving right into the next column.
+ */
+function SourceHandle({
+  horizontal,
+  visible,
+  color,
+  size = 7,
+}: {
+  horizontal?: boolean;
+  visible: boolean;
+  color: string;
+  size?: number;
+}) {
+  if (!horizontal)
+    return (
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        style={{ ...HIDDEN_HANDLE, left: ELBOW_X, bottom: 0 }}
+      />
+    );
+  return (
+    <Handle
+      type="source"
+      position={Position.Right}
+      style={
+        visible
+          ? {
+              background: color,
+              border: HANDLE_BORDER,
+              width: size,
+              height: size,
+              right: -size / 2,
+            }
+          : { ...HIDDEN_HANDLE, right: 0 }
+      }
+    />
+  );
+}
+
 /** SVG path through the points with right-angle corners rounded by `radius`. */
 function roundedPath(points: [number, number][], radius: number): string {
   const pts = points.filter(
@@ -161,7 +207,11 @@ const edgeTypes = { elbow: ElbowEdge, rail: RailEdge };
  * The project (or learning path) as a header across the top of the map, as wide as the phase
  * columns below it (and the rails beside them). A rail per column links it to its phases.
  */
-function RootCardNode({ data }: { data: { label: string; isLearning?: boolean; width?: number } }) {
+function RootCardNode({
+  data,
+}: {
+  data: { label: string; isLearning?: boolean; width?: number; horizontal?: boolean };
+}) {
   return (
     <div
       data-testid="visual-root-node"
@@ -204,8 +254,12 @@ function RootCardNode({ data }: { data: { label: string; isLearning?: boolean; w
       >
         {data.label}
       </div>
-      {/* The rails draw their own path from the header's bottom edge; this anchors them */}
-      <Handle type="source" position={Position.Bottom} style={HIDDEN_HANDLE} />
+      {data.horizontal ? (
+        <SourceHandle horizontal visible color="var(--accent)" size={8} />
+      ) : (
+        // The rails draw their own path from the header's bottom edge; this anchors them
+        <Handle type="source" position={Position.Bottom} style={HIDDEN_HANDLE} />
+      )}
     </div>
   );
 }
@@ -223,6 +277,7 @@ function PhaseGroupNode({
     childCount: number;
     expanded: boolean;
     onToggle?: () => void;
+    horizontal?: boolean;
   };
 }) {
   const { status, selected } = data;
@@ -246,7 +301,21 @@ function PhaseGroupNode({
         transition: "background-color 140ms ease, border-color 140ms ease",
       }}
     >
-      <Handle type="target" position={Position.Left} style={{ ...HIDDEN_HANDLE, left: 0 }} />
+      <Handle
+        type="target"
+        position={Position.Left}
+        style={
+          data.horizontal
+            ? {
+                background: statusColorVar(status),
+                border: HANDLE_BORDER,
+                width: 8,
+                height: 8,
+                left: -4,
+              }
+            : { ...HIDDEN_HANDLE, left: 0 }
+        }
+      />
       {data.numbered ? (
         <PhaseNumberBadge index={data.index} status={status} />
       ) : (
@@ -274,10 +343,11 @@ function PhaseGroupNode({
           label={data.label}
         />
       )}
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        style={{ ...HIDDEN_HANDLE, left: ELBOW_X, bottom: 0 }}
+      <SourceHandle
+        horizontal={data.horizontal}
+        visible={data.childCount > 0 && data.expanded}
+        color={statusColorVar(status)}
+        size={8}
       />
     </div>
   );
@@ -294,6 +364,7 @@ function ComponentCardNode({
     childCount: number;
     expanded: boolean;
     onToggle?: () => void;
+    horizontal?: boolean;
   };
 }) {
   return (
@@ -347,10 +418,10 @@ function ComponentCardNode({
           label={data.label}
         />
       )}
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        style={{ ...HIDDEN_HANDLE, left: ELBOW_X, bottom: 0 }}
+      <SourceHandle
+        horizontal={data.horizontal}
+        visible={data.childCount > 0 && data.expanded}
+        color={statusColorVar(data.status)}
       />
     </div>
   );
@@ -368,6 +439,7 @@ function ChildProjectNode({
     expanded: boolean;
     onOpen?: () => void;
     onToggle?: () => void;
+    horizontal?: boolean;
   };
 }) {
   return (
@@ -448,10 +520,10 @@ function ChildProjectNode({
           <path d="M7 17L17 7M8 7h9v9" />
         </svg>
       </button>
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        style={{ ...HIDDEN_HANDLE, left: ELBOW_X, bottom: 0 }}
+      <SourceHandle
+        horizontal={data.horizontal}
+        visible={data.childCount > 0 && data.expanded}
+        color="var(--accent)"
       />
     </div>
   );
@@ -496,6 +568,16 @@ const RAIL_OFFSET = COL_GAP / 2; // a column's rail runs this far left of the co
 const PHASE_GAP = 30; // between two phases stacked in one column
 const PHASE_TO_PARTS = 8;
 const ELBOW_X = 14; // where a parent's connector leaves its bottom edge, from its left side
+
+// Horizontal layout: the project on the left, then a column of phases, then one column per nested
+// level of parts, with lines flowing left to right. Node sizes are the same as in the vertical one.
+const H_ROW_H = 42; // one part: a 34px card plus the gap to the next
+const H_GROUP_GAP = 22; // between the blocks of two phases
+const H_ROOT_W = 200;
+const H_COL_GAP = 56; // between two columns, room for the curved lines
+const H_X_PHASE = H_ROOT_W + H_COL_GAP;
+const H_X_COMP = H_X_PHASE + PHASE_W + H_COL_GAP;
+const H_COMP_COL_W = COMP_W + H_COL_GAP; // each nested level is one more column right
 
 /** True when an item has parts and every part (and everything under it) is done. */
 function isComplete(item: MapItem): boolean {
@@ -597,28 +679,48 @@ function columnsFor(
   return { cols: Math.max(1, Math.min(groupCount, fit)), colW };
 }
 
+const EDGE_STYLE = (highlighted: boolean, strong: boolean) => ({
+  stroke: highlighted ? "var(--accent)" : EDGE_IDLE,
+  strokeWidth: strong ? 2 : 1.5,
+});
+
+const CHILD_PROJECT_EDGE_STYLE = {
+  stroke: "var(--accent)",
+  strokeWidth: 1.5,
+  strokeDasharray: "5 4",
+};
+
+interface MapInput {
+  rootTitle: string;
+  isLearning: boolean;
+  numbered: boolean;
+  groups: MapGroup[];
+  selectedId: string | null;
+  selectedPhaseId: string | null | undefined;
+  toggled: Record<string, boolean>;
+  onToggle: (key: string, open: boolean) => void;
+  panelWidth: number;
+  onOpenProject?: (projectId: string, itemId?: string) => void;
+}
+
+interface MapResult {
+  nodes: Node[];
+  edges: Edge[];
+  openIds: Set<string>;
+}
+
 /**
- * The project as a header, phases dealt into `cols` columns in reading order, parts as an
- * indented outline under each phase. Every top-level part shows one nested level; deeper levels open when toggled (or
- * when they hold the selection).
+ * What both layouts share: the fold rules, the selection, and how a phase or part becomes a node
+ * and the line into it. A layout only decides where each node goes and how its lines are routed.
  */
-function buildTreeNodesAndEdges(
-  rootTitle: string,
-  isLearning: boolean,
-  numbered: boolean,
-  groups: MapGroup[],
-  selectedId: string | null,
-  selectedPhaseId: string | null | undefined,
-  toggled: Record<string, boolean>,
-  onToggle: (key: string, open: boolean) => void,
-  panelWidth: number,
-  onOpenProject?: (projectId: string, itemId?: string) => void,
-): { nodes: Node[]; edges: Edge[]; openIds: Set<string> } {
-  const rfNodes: Node[] = [];
-  const rfEdges: Edge[] = [];
+function mapBuilder(input: MapInput, layout: MapLayout) {
+  const { groups, selectedId, selectedPhaseId, toggled, onToggle, onOpenProject } = input;
+  const horizontal = layout === "horizontal";
+  const nodes: Node[] = [];
+  const edges: Edge[] = [];
   const openIds = new Set<string>();
   const selectedPath = pathTo(groups, selectedId);
-  const { cols, colW } = columnsFor(panelWidth, groups.length, maxNesting(groups));
+  const partEdgeType = horizontal ? "default" : "elbow";
 
   const isOpen = (item: MapItem, depth: number) => {
     if (!item.children?.length) return false;
@@ -630,28 +732,40 @@ function buildTreeNodesAndEdges(
     return item.defaultOpen ?? depth === 0;
   };
 
-  const edgeStyle = (highlighted: boolean, strong: boolean) => ({
-    stroke: highlighted ? "var(--accent)" : EDGE_IDLE,
-    strokeWidth: strong ? 2 : 1.5,
-  });
+  /** Fold state of a phase (or topic) node; records it in openIds when open. */
+  const openGroup = (grp: MapGroup) => {
+    const pNodeId = `phase:${grp.id}`;
+    // Groups fold like components: open unless finished, but always open around the selection
+    const open =
+      (grp.children?.length ?? 0) > 0 &&
+      ((selectedPath.has(grp.id) && selectedId !== grp.id) ||
+        (toggled[pNodeId] ?? !isComplete(grp)));
+    if (open) openIds.add(pNodeId);
+    return open;
+  };
 
-  /** Places an item at row `topY` of column `colX` and its open parts below it; returns the rows used. */
-  const place = (
-    item: MapItem,
-    depth: number,
-    topY: number,
-    colX: number,
-    sourceId: string,
-    phaseHighlighted: boolean,
-  ): number => {
-    const kids = item.children || [];
+  /** Fold state of a part; records it in openIds when open. */
+  const openItem = (item: MapItem, depth: number) => {
     const open = isOpen(item, depth);
     if (open) openIds.add(item.id);
-    const position = { x: colX + INDENT * (depth + 1), y: topY };
+    return open;
+  };
 
+  const isPhaseSelected = (grp: MapGroup) =>
+    selectedId === grp.id || selectedPhaseId === grp.id || selectedPath.has(grp.id);
+
+  /** A part (or child project) node at `position`, and the line into it from `sourceId`. */
+  const addItem = (
+    item: MapItem,
+    open: boolean,
+    position: { x: number; y: number },
+    sourceId: string,
+    phaseHighlighted: boolean,
+  ) => {
+    const kids = item.children || [];
     if (item.isProject) {
       const projectId = item.id.slice(PROJECT_NODE_PREFIX.length);
-      rfNodes.push({
+      nodes.push({
         id: item.id,
         type: "childProject",
         position,
@@ -663,43 +777,124 @@ function buildTreeNodesAndEdges(
           expanded: open,
           onOpen: () => onOpenProject?.(projectId),
           onToggle: () => onToggle(item.id, !open),
+          horizontal,
         },
       });
-      rfEdges.push({
+      edges.push({
         id: `e:${sourceId}->${item.id}`,
         source: sourceId,
         target: item.id,
-        type: "elbow",
-        style: { stroke: "var(--accent)", strokeWidth: 1.5, strokeDasharray: "5 4" },
+        type: partEdgeType,
+        style: CHILD_PROJECT_EDGE_STYLE,
       });
-    } else {
-      const isSelected = selectedId === item.id;
-      rfNodes.push({
-        id: item.id,
-        type: "componentNode",
-        position,
-        data: {
-          label: item.name,
-          status: item.status,
-          selected: isSelected,
-          compId: item.id,
-          childCount: kids.length,
-          expanded: open,
-          onToggle: () => onToggle(item.id, !open),
-        },
-      });
-      rfEdges.push({
-        id: `e:${sourceId}->${item.id}`,
-        source: sourceId,
-        target: item.id,
-        type: "elbow",
-        style: edgeStyle(isSelected || selectedPath.has(item.id) || phaseHighlighted, isSelected),
-      });
+      return;
     }
+    const isSelected = selectedId === item.id;
+    nodes.push({
+      id: item.id,
+      type: "componentNode",
+      position,
+      data: {
+        label: item.name,
+        status: item.status,
+        selected: isSelected,
+        compId: item.id,
+        childCount: kids.length,
+        expanded: open,
+        onToggle: () => onToggle(item.id, !open),
+        horizontal,
+      },
+    });
+    edges.push({
+      id: `e:${sourceId}->${item.id}`,
+      source: sourceId,
+      target: item.id,
+      type: partEdgeType,
+      style: EDGE_STYLE(isSelected || selectedPath.has(item.id) || phaseHighlighted, isSelected),
+    });
+  };
 
+  /** A phase (or topic) node at `position`, and the line into it from the root. */
+  const addGroup = (
+    grp: MapGroup,
+    idx: number,
+    open: boolean,
+    position: { x: number; y: number },
+    rootEdge: Pick<Edge, "type" | "data" | "zIndex">,
+  ) => {
+    const pNodeId = `phase:${grp.id}`;
+    const selected = isPhaseSelected(grp);
+    nodes.push({
+      id: pNodeId,
+      type: "phaseGroup",
+      position,
+      data: {
+        label: grp.name,
+        status: grp.status,
+        phaseId: grp.id,
+        index: idx,
+        numbered: input.numbered,
+        selected,
+        childCount: (grp.children || []).length,
+        expanded: open,
+        onToggle: () => onToggle(pNodeId, !open),
+        horizontal,
+      },
+    });
+    edges.push({
+      id: `e:root->${pNodeId}`,
+      source: "root:node",
+      target: pNodeId,
+      ...rootEdge,
+      style: EDGE_STYLE(selected, selected),
+    });
+  };
+
+  /** The project (or learning path) node; it goes first, under everything else. */
+  const addRoot = (position: { x: number; y: number }, width: number) => {
+    nodes.unshift({
+      id: "root:node",
+      type: "rootNode",
+      position,
+      data: { label: input.rootTitle, isLearning: input.isLearning, width, horizontal },
+    });
+  };
+
+  const result = (): MapResult => ({ nodes, edges, openIds });
+
+  return { openGroup, openItem, isPhaseSelected, addItem, addGroup, addRoot, result };
+}
+
+/**
+ * Vertical: the project as a header, phases dealt into columns (as many as `panelWidth` holds) in
+ * reading order, parts as an indented outline under each phase. Every top-level part shows one
+ * nested level; deeper levels open when toggled (or when they hold the selection).
+ */
+function buildVerticalMap(input: MapInput): MapResult {
+  const { groups, panelWidth } = input;
+  const map = mapBuilder(input, "vertical");
+  const { cols, colW } = columnsFor(panelWidth, groups.length, maxNesting(groups));
+
+  /** Places an item at row `topY` of column `colX` and its open parts below it; returns the rows used. */
+  const place = (
+    item: MapItem,
+    depth: number,
+    topY: number,
+    colX: number,
+    sourceId: string,
+    phaseHighlighted: boolean,
+  ): number => {
+    const open = map.openItem(item, depth);
+    map.addItem(
+      item,
+      open,
+      { x: colX + INDENT * (depth + 1), y: topY },
+      sourceId,
+      phaseHighlighted,
+    );
     let rows = 1;
     if (open) {
-      for (const kid of kids)
+      for (const kid of item.children || [])
         rows += place(kid, depth + 1, topY + rows * ROW_H, colX, item.id, false);
     }
     return rows;
@@ -712,64 +907,96 @@ function buildTreeNodesAndEdges(
   groups.forEach((grp, idx) => {
     const col = idx % cols;
     const top = columnTop[col];
-    const kids = grp.children || [];
     const colX = col * (colW + COL_GAP);
-    const isPhaseSelected =
-      selectedId === grp.id || selectedPhaseId === grp.id || selectedPath.has(grp.id);
+    const isPhaseSelected = map.isPhaseSelected(grp);
     const pNodeId = `phase:${grp.id}`;
-    // Groups fold like components: open unless finished, but always open around the selection
-    const groupOpen =
-      kids.length > 0 &&
-      ((selectedPath.has(grp.id) && selectedId !== grp.id) ||
-        (toggled[pNodeId] ?? !isComplete(grp)));
-    if (groupOpen) openIds.add(pNodeId);
+    const groupOpen = map.openGroup(grp);
 
     let rows = 0;
     if (groupOpen) {
       const partsTop = top + PHASE_H + PHASE_TO_PARTS;
-      for (const kid of kids)
+      for (const kid of grp.children || [])
         rows += place(kid, 0, partsTop + rows * ROW_H, colX, pNodeId, isPhaseSelected);
     }
     const blockHeight = PHASE_H + (rows > 0 ? PHASE_TO_PARTS + rows * ROW_H - (ROW_H - 34) : 0);
     columnTop[col] = top + blockHeight + PHASE_GAP;
 
-    rfNodes.push({
-      id: pNodeId,
-      type: "phaseGroup",
-      position: { x: colX, y: top },
-      data: {
-        label: grp.name,
-        status: grp.status,
-        phaseId: grp.id,
-        index: idx,
-        numbered,
-        selected: isPhaseSelected,
-        childCount: kids.length,
-        expanded: groupOpen,
-        onToggle: () => onToggle(pNodeId, !groupOpen),
+    map.addGroup(
+      grp,
+      idx,
+      groupOpen,
+      { x: colX, y: top },
+      {
+        type: "rail",
+        data: { railX: colX - RAIL_OFFSET, fromY: ROOT_H },
+        // The rails of one column overlap; the selected phase's branch is drawn on top
+        zIndex: isPhaseSelected ? 1 : 0,
       },
-    });
-    rfEdges.push({
-      id: `e:root->${pNodeId}`,
-      source: "root:node",
-      target: pNodeId,
-      type: "rail",
-      data: { railX: colX - RAIL_OFFSET, fromY: ROOT_H },
-      // The rails of one column overlap; the selected phase's branch is drawn on top
-      zIndex: isPhaseSelected ? 1 : 0,
-      style: edgeStyle(isPhaseSelected, isPhaseSelected),
-    });
+    );
   });
 
-  rfNodes.unshift({
-    id: "root:node",
-    type: "rootNode",
-    // Starts left of the first column's rail, so every rail hangs from the header
-    position: { x: -2 * RAIL_OFFSET, y: 0 },
-    data: { label: rootTitle, isLearning, width: Math.max(gridW + 2 * RAIL_OFFSET, ROOT_MIN_W) },
+  // Starts left of the first column's rail, so every rail hangs from the header
+  map.addRoot({ x: -2 * RAIL_OFFSET, y: 0 }, Math.max(gridW + 2 * RAIL_OFFSET, ROOT_MIN_W));
+  return map.result();
+}
+
+/**
+ * Horizontal: the project on the left, its phases in a column, each phase's parts in the column to
+ * its right and every nested level one more column right, each parent centred on its open parts.
+ */
+function buildHorizontalMap(input: MapInput): MapResult {
+  const map = mapBuilder(input, "horizontal");
+
+  /** Lays out an item and its open descendants from `topY`; returns how many rows it takes. */
+  const place = (
+    item: MapItem,
+    depth: number,
+    topY: number,
+    sourceId: string,
+    phaseHighlighted: boolean,
+  ): number => {
+    const open = map.openItem(item, depth);
+    let rows = 1;
+    if (open) {
+      let used = 0;
+      for (const kid of item.children || [])
+        used += place(kid, depth + 1, topY + used * H_ROW_H, item.id, false);
+      rows = Math.max(1, used);
+    }
+    const position = { x: H_X_COMP + depth * H_COMP_COL_W, y: topY + ((rows - 1) * H_ROW_H) / 2 };
+    map.addItem(item, open, position, sourceId, phaseHighlighted);
+    return rows;
+  };
+
+  let currentY = 0;
+  const phaseCenters: number[] = [];
+
+  input.groups.forEach((grp, idx) => {
+    const isPhaseSelected = map.isPhaseSelected(grp);
+    const pNodeId = `phase:${grp.id}`;
+    const groupOpen = map.openGroup(grp);
+
+    let rows = 0;
+    if (groupOpen) {
+      for (const kid of grp.children || [])
+        rows += place(kid, 0, currentY + rows * H_ROW_H, pNodeId, isPhaseSelected);
+    }
+    const blockHeight = Math.max(rows * H_ROW_H - (H_ROW_H - 34), PHASE_H);
+    const phaseY = currentY + blockHeight / 2 - PHASE_H / 2;
+    phaseCenters.push(phaseY + PHASE_H / 2);
+
+    map.addGroup(grp, idx, groupOpen, { x: H_X_PHASE, y: phaseY }, { type: "default" });
+    currentY += blockHeight + H_GROUP_GAP;
   });
 
-  return { nodes: rfNodes, edges: rfEdges, openIds };
+  const rootCenterY =
+    phaseCenters.length > 0 ? (phaseCenters[0] + phaseCenters[phaseCenters.length - 1]) / 2 : 0;
+  map.addRoot({ x: 0, y: rootCenterY - ROOT_H / 2 }, H_ROOT_W);
+  return map.result();
+}
+
+function buildMap(layout: MapLayout, input: MapInput): MapResult {
+  return layout === "horizontal" ? buildHorizontalMap(input) : buildVerticalMap(input);
 }
 
 function VisualGraphInner({
@@ -798,6 +1025,7 @@ function VisualGraphInner({
   const openIdsRef = useRef<Set<string>>(new Set());
 
   const targetKey = project?.id || learningPath?.id || "";
+  const { mapLayout, setMapLayout } = useLook();
 
   const groups: MapGroup[] = useMemo(
     () =>
@@ -815,18 +1043,18 @@ function VisualGraphInner({
 
   useEffect(() => {
     if ((!project && !learningPath) || panelWidth === 0) return;
-    const built = buildTreeNodesAndEdges(
-      project ? project.name : learningPath!.name,
-      !project,
-      project ? projectUsesPhases(project) : false,
+    const built = buildMap(mapLayout, {
+      rootTitle: project ? project.name : learningPath!.name,
+      isLearning: !project,
+      numbered: project ? projectUsesPhases(project) : false,
       groups,
       selectedId,
       selectedPhaseId,
       toggled,
-      setFold,
+      onToggle: setFold,
       panelWidth,
-      project ? onOpenProject : undefined,
-    );
+      onOpenProject: project ? onOpenProject : undefined,
+    });
     openIdsRef.current = built.openIds;
     layoutBounds.current = boundsOf(built.nodes);
     setNodes(built.nodes);
@@ -841,6 +1069,7 @@ function VisualGraphInner({
     setFold,
     panelWidth,
     onOpenProject,
+    mapLayout,
   ]);
 
   /**
@@ -858,7 +1087,7 @@ function VisualGraphInner({
 
       const w = el.clientWidth;
       const h = el.clientHeight;
-      // Fit the width: the layout already chose how many columns this width holds
+      // Fit the width: the vertical layout already chose how many columns this width holds
       const widthZoom = (w - 2 * FIT_PADDING) / bounds.width;
       const zoom = Math.min(Math.max(widthZoom, MIN_READABLE_ZOOM), MAX_FIT_ZOOM);
       const contentW = bounds.width * zoom;
@@ -886,6 +1115,12 @@ function VisualGraphInner({
     fitNextLayout.current = true;
     setToggled({});
   }, [targetKey]);
+
+  // Switching between the vertical and horizontal layouts (here or from a settings menu) refits
+  // biome-ignore lint/correctness/useExhaustiveDependencies: mapLayout is the trigger, not a value read inside
+  useEffect(() => {
+    fitNextLayout.current = true;
+  }, [mapLayout]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new layout (nodes) is the trigger
   useEffect(() => {
@@ -1076,6 +1311,7 @@ function VisualGraphInner({
         >
           Fit to view
         </button>
+        <MapLayoutButton layout={mapLayout} onChange={setMapLayout} />
       </div>
       {/* React Flow sets up its zoom when it mounts and cannot do that in a hidden panel (a tab on
           small screens), so it mounts once the panel has a width and then stays mounted */}
@@ -1103,6 +1339,58 @@ function VisualGraphInner({
         </ReactFlow>
       )}
     </div>
+  );
+}
+
+/** Switches the map between its vertical and horizontal layouts; shows the layout it switches to. */
+function MapLayoutButton({
+  layout,
+  onChange,
+}: {
+  layout: MapLayout;
+  onChange: (layout: MapLayout) => void;
+}) {
+  const next: MapLayout = layout === "vertical" ? "horizontal" : "vertical";
+  const label = next === "horizontal" ? "Horizontal layout" : "Vertical layout";
+  return (
+    <button
+      type="button"
+      className="canvas-tool-btn"
+      onClick={() => onChange(next)}
+      data-testid="map-layout-toggle"
+      data-layout={layout}
+      aria-label={label}
+      title={label}
+      style={{ display: "inline-flex", alignItems: "center", padding: "4px 7px" }}
+    >
+      <svg
+        width="13"
+        height="13"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        {next === "horizontal" ? (
+          <>
+            <rect x="2" y="9" width="6" height="6" rx="1" />
+            <rect x="16" y="3" width="6" height="6" rx="1" />
+            <rect x="16" y="15" width="6" height="6" rx="1" />
+            <path d="M8 12h4M12 6v12M12 6h4M12 18h4" />
+          </>
+        ) : (
+          <>
+            <rect x="9" y="2" width="6" height="6" rx="1" />
+            <rect x="3" y="16" width="6" height="6" rx="1" />
+            <rect x="15" y="16" width="6" height="6" rx="1" />
+            <path d="M12 8v4M6 12h12M6 12v4M18 12v4" />
+          </>
+        )}
+      </svg>
+    </button>
   );
 }
 

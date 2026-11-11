@@ -295,6 +295,9 @@ class Today(StrictModel):
     """
 
     schema_version: Literal[1] = 1
+    # Whether Today's Work is turned on. Stored here, in the data repository, so the switch applies
+    # to every device and server reading it. Turning it off keeps the day and the entries.
+    enabled: bool = True
     # The local calendar day the list was last confirmed for; None when it was never set
     day: DateStr | None = None
     entries: list[TodayEntry] = Field(default_factory=list, max_length=MAX_TODAY_ENTRIES)
