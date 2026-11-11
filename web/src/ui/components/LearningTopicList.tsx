@@ -3,6 +3,7 @@ import { useWorkbench, getItemShortDescription, type LearningPath } from "@workb
 import { useLook } from "../lookState";
 import { LearningItemStatusMenu } from "./ItemStatusMenu";
 import { StatusNodeGlyph } from "./status";
+import { revealId } from "../revealSelection";
 
 // Concise Topics & Subtopics List
 export function LearningTopicList({ learningPath: activeLp }: { learningPath: LearningPath }) {
@@ -25,6 +26,7 @@ export function LearningTopicList({ learningPath: activeLp }: { learningPath: Le
             key={top.id}
             className={`tier-1-phase-section ${isActiveTop ? "active-phase-card" : ""}`}
             data-testid={`learning-topic-${top.id}`}
+            data-reveal-id={revealId(activeLp.id, top.id)}
           >
             <div
               className="tier-1-phase-header"
@@ -53,6 +55,7 @@ export function LearningTopicList({ learningPath: activeLp }: { learningPath: Le
                       key={sub.id}
                       className={`tier-2-subtopic-group ${isSubSelected ? "selected" : ""}`}
                       data-testid={`learning-subtopic-${sub.id}`}
+                      data-reveal-id={revealId(activeLp.id, sub.id)}
                     >
                       <div
                         className="tier-2-subtopic-header"

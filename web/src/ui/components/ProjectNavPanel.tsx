@@ -17,6 +17,7 @@ import {
 import { MAX_NAV_WIDTH, MIN_NAV_WIDTH } from "../layoutPrefs";
 import { useLook } from "../lookState";
 import { KindBadge, PhaseNumberBadge, StatusNodeGlyph } from "./status";
+import { revealId } from "../revealSelection";
 
 /** Left tree: a child project listed inside its parent. */
 function TreeChildProject({ child, depth }: { child: Project; depth: number }) {
@@ -70,6 +71,7 @@ function TreeComp({
       <div
         className={`tree-comp-row ${isCompActive ? "active" : ""}`}
         data-testid={`nav-tree-comp-${comp.id}`}
+        data-reveal-id={revealId(p.id, comp.id)}
         style={depth > 0 ? { paddingLeft: 10 + depth * 14 } : undefined}
         onClick={(e) => {
           e.stopPropagation();
@@ -247,6 +249,7 @@ export function ProjectNavPanel() {
                               isPhaseActive && !selectedComponentId ? "active" : ""
                             }`}
                             data-testid={`nav-tree-phase-${ph.id}`}
+                            data-reveal-id={revealId(p.id, ph.id)}
                             onClick={(e) => {
                               e.stopPropagation();
                               selectProject(p.id, ph.id, null);

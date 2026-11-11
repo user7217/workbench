@@ -14,6 +14,7 @@ import { useLook } from "../lookState";
 import { ChildProjectRows } from "./ChildProjects";
 import { ItemStatusMenu } from "./ItemStatusMenu";
 import { StatusNodeGlyph } from "./status";
+import { revealId } from "../revealSelection";
 
 /** Collapsible "N parts" toggle for a component's nested components. */
 function NestedToggle({ comp, testId }: { comp: Component; testId: string }) {
@@ -115,6 +116,7 @@ export function CentreComp({
     <div
       className={`tier-2-subtopic-group ${isCompSelected ? "selected" : ""} ${depth > 0 ? "nested" : ""}`}
       data-testid={`component-row-${comp.id}`}
+      data-reveal-id={revealId(projectId, comp.id)}
     >
       <div
         className="tier-2-subtopic-header"

@@ -12,11 +12,13 @@ import { PanelResizer } from "../components/PanelResizer";
 import { PanelTabs } from "../components/PanelTabs";
 import { MAX_CONTENTS_WIDTH, MIN_CONTENTS_WIDTH } from "../layoutPrefs";
 import { useLook } from "../lookState";
+import { useRevealSelection } from "../revealSelection";
 
 // Learning Workspace — Three Coordinated Resizable Panels + Adjustable Context Panel
 export function LearningPage() {
-  const { activeLearningPath: activeLp, activeLearningItem } = useWorkbench();
+  const { activeLearningPath: activeLp, activeLearningItem, selection } = useWorkbench();
   const { panelWidths, mobilePanel } = useLook();
+  useRevealSelection(activeLp?.id, selection.subtopicId ?? selection.topicId, mobilePanel);
 
   return (
     <div className="three-panel-workspace" data-testid="learning-three-panel-workspace">
