@@ -6,6 +6,8 @@ Each release on [GitHub Releases](https://github.com/user7217/workbench/releases
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-12
+
 ### Added
 
 - **Today's Work:** a new **Today** tab holds what was chosen for the day. A sun button beside every phase, topic, component and subtopic (and a **Today** button on every project and learning path) adds the item with everything nested under it and the unfinished items it depends on. The tab has one card per project or learning path, like Home, with no project ranked above another. Each card shows its own step to do **Now** and the one **Next** in two colours, with **Done**, **Start** and **Do first**; finishing a step moves that card's next one into place. On a new day it asks which unfinished topics stay. See docs/today.md.
@@ -74,7 +76,8 @@ The first release. Everything below is new.
 - **Security:** write endpoints require `X-Workbench: 1` and JSON; a server listening on localhost rejects other `Host` names, blocking DNS rebinding.
 - **Releases:** one version number for the Python package, web UI and desktop app (`scripts/version.py`), this changelog, and a release workflow that builds the `.dmg`, the wheel and sdist, and the Docker image for each `v*` tag.
 
-[Unreleased]: https://github.com/user7217/workbench/compare/v0.1.3...HEAD
+[Unreleased]: https://github.com/user7217/workbench/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/user7217/workbench/compare/v0.1.3...v0.2.0
 [0.1.3]: https://github.com/user7217/workbench/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/user7217/workbench/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/user7217/workbench/compare/v0.1.0...v0.1.1
