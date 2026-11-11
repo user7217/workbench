@@ -8,7 +8,6 @@ import {
   Handle,
   Position,
   useReactFlow,
-  useNodesInitialized,
   ReactFlowProvider,
   type Node,
   type Edge,
@@ -138,54 +137,46 @@ function ElbowEdge({ sourceX, sourceY, targetX, targetY, style }: EdgeProps) {
 }
 
 /**
- * Root to phase. Phases in the first row hang off one horizontal line under the root; phases in
- * wrapped rows are reached down a gutter left of the columns, so no connector crosses a column.
+ * Project to phase. Each column has its own rail: it drops from the bottom of the project header
+ * down the gap left of that column and branches right into every phase stacked in it. The rail
+ * stays outside the phase cards and apart from the phase-to-part lines, so a phase further down
+ * a column never looks like part of the phase above it.
  */
-function BusEdge({ sourceX, sourceY, targetX, targetY, style, data }: EdgeProps) {
-  const { busY, gutterX, rowBusY } = (data ?? {}) as {
-    busY?: number;
-    gutterX?: number;
-    rowBusY?: number;
-  };
-  const firstBus = busY ?? (sourceY + targetY) / 2;
-  const points: [number, number][] =
-    gutterX === undefined || rowBusY === undefined
-      ? [
-          [sourceX, sourceY],
-          [sourceX, firstBus],
-          [targetX, firstBus],
-          [targetX, targetY],
-        ]
-      : [
-          [sourceX, sourceY],
-          [sourceX, firstBus],
-          [gutterX, firstBus],
-          [gutterX, rowBusY],
-          [targetX, rowBusY],
-          [targetX, targetY],
-        ];
-  return <BaseEdge path={roundedPath(points, 8)} style={style} />;
+function RailEdge({ targetX, targetY, style, data }: EdgeProps) {
+  const { railX, fromY } = (data ?? {}) as { railX: number; fromY: number };
+  const path = roundedPath(
+    [
+      [railX, fromY],
+      [railX, targetY],
+      [targetX, targetY],
+    ],
+    8,
+  );
+  return <BaseEdge path={path} style={style} />;
 }
 
-const edgeTypes = { elbow: ElbowEdge, bus: BusEdge };
+const edgeTypes = { elbow: ElbowEdge, rail: RailEdge };
 
-function RootCardNode({ data }: { data: { label: string; isLearning?: boolean } }) {
+/**
+ * The project (or learning path) as a header across the top of the map, as wide as the phase
+ * columns below it (and the rails beside them). A rail per column links it to its phases.
+ */
+function RootCardNode({ data }: { data: { label: string; isLearning?: boolean; width?: number } }) {
   return (
     <div
       data-testid="visual-root-node"
       title={data.label}
       style={{
-        width: ROOT_W,
+        width: data.width ?? ROOT_MIN_W,
         height: ROOT_H,
-        background: "var(--bg-card)",
-        border: "1.5px solid var(--accent)",
-        boxShadow: "0 4px 18px color-mix(in srgb, var(--accent) 18%, transparent)",
+        background: "color-mix(in srgb, var(--accent) 7%, var(--bg-card))",
+        border: "1px solid color-mix(in srgb, var(--accent) 45%, transparent)",
         borderRadius: 10,
-        padding: "10px 12px",
+        padding: "0 16px",
         display: "flex",
         flexDirection: "column",
         justifyContent: "center",
-        gap: 4,
+        gap: 2,
         color: "var(--text-primary)",
         boxSizing: "border-box",
       }}
@@ -213,17 +204,8 @@ function RootCardNode({ data }: { data: { label: string; isLearning?: boolean } 
       >
         {data.label}
       </div>
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        style={{
-          background: "var(--accent)",
-          border: HANDLE_BORDER,
-          width: 8,
-          height: 8,
-          bottom: -4,
-        }}
-      />
+      {/* The rails draw their own path from the header's bottom edge; this anchors them */}
+      <Handle type="source" position={Position.Bottom} style={HIDDEN_HANDLE} />
     </div>
   );
 }
@@ -264,17 +246,7 @@ function PhaseGroupNode({
         transition: "background-color 140ms ease, border-color 140ms ease",
       }}
     >
-      <Handle
-        type="target"
-        position={Position.Top}
-        style={{
-          background: statusColorVar(status),
-          border: HANDLE_BORDER,
-          width: 8,
-          height: 8,
-          top: -4,
-        }}
-      />
+      <Handle type="target" position={Position.Left} style={{ ...HIDDEN_HANDLE, left: 0 }} />
       {data.numbered ? (
         <PhaseNumberBadge index={data.index} status={status} />
       ) : (
@@ -506,18 +478,22 @@ interface VisualGraphProps {
   onOpenProject?: (projectId: string, itemId?: string) => void;
 }
 
-// Layout: the root sits on top, each phase (or topic) is a column with its parts listed under it
-// as an indented outline, and the columns wrap into as many rows as the panel's width needs.
+// Layout: the project is a header across the top, linked to its phases by one rail per column
+// (see RailEdge). Below it the phases (or topics) are dealt into
+// as many columns as the panel's width holds, in reading order (1, 2, 3 across, then 4 under 1),
+// and each phase lists its parts under it as an indented outline. A column stacks its own phases,
+// so a folded phase leaves no hole next to a long one.
 const ROW_H = 40; // one part: a 34px card plus the gap to the next
 const PHASE_H = 42;
 const PHASE_W = 258;
 const COMP_W = 236;
 const INDENT = 22; // each nested level moves this far right
-const ROOT_W = 200;
-const ROOT_H = 64;
+const ROOT_MIN_W = 240;
+const ROOT_H = 56;
 const COL_GAP = 30;
-const ROW_GAP = 40; // between wrapped rows of phases; the connector to the next row runs in it
-const BUS_DROP = 20; // how far above a row of phases its horizontal connector runs
+const ROOT_TO_PHASES = 22;
+const RAIL_OFFSET = COL_GAP / 2; // a column's rail runs this far left of the column
+const PHASE_GAP = 30; // between two phases stacked in one column
 const PHASE_TO_PARTS = 8;
 const ELBOW_X = 14; // where a parent's connector leaves its bottom edge, from its left side
 
@@ -577,7 +553,7 @@ interface LayoutBounds {
 }
 
 const NODE_SIZE: Record<string, { w: number; h: number }> = {
-  rootNode: { w: ROOT_W, h: ROOT_H },
+  rootNode: { w: ROOT_MIN_W, h: ROOT_H },
   phaseGroup: { w: PHASE_W, h: PHASE_H },
   componentNode: { w: COMP_W, h: 34 },
   childProject: { w: COMP_W, h: 34 },
@@ -589,9 +565,10 @@ function boundsOf(nodes: Node[]): LayoutBounds | null {
   let [minX, minY, maxX, maxY] = [Infinity, Infinity, -Infinity, -Infinity];
   for (const node of nodes) {
     const size = NODE_SIZE[node.type ?? ""] ?? NODE_SIZE.componentNode;
+    const w = (node.data as { width?: number }).width ?? size.w;
     minX = Math.min(minX, node.position.x);
     minY = Math.min(minY, node.position.y);
-    maxX = Math.max(maxX, node.position.x + size.w);
+    maxX = Math.max(maxX, node.position.x + w);
     maxY = Math.max(maxY, node.position.y + size.h);
   }
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
@@ -621,8 +598,8 @@ function columnsFor(
 }
 
 /**
- * Root on top, phases as columns (wrapping to `cols` per row), parts as an indented outline under
- * each phase. Every top-level part shows one nested level; deeper levels open when toggled (or
+ * The project as a header, phases dealt into `cols` columns in reading order, parts as an
+ * indented outline under each phase. Every top-level part shows one nested level; deeper levels open when toggled (or
  * when they hold the selection).
  */
 function buildTreeNodesAndEdges(
@@ -729,78 +706,67 @@ function buildTreeNodesAndEdges(
   };
 
   const gridW = cols * colW + (cols - 1) * COL_GAP;
-  const rootX = (gridW - ROOT_W) / 2;
-  const firstBusY = ROOT_H + BUS_DROP;
-  // Connectors to wrapped rows run down a gutter left of the first column
-  const gutterX = -COL_GAP / 2;
+  // Where the next phase of each column starts
+  const columnTop = Array.from({ length: cols }, () => ROOT_H + ROOT_TO_PHASES);
 
-  let rowTop = ROOT_H + 2 * BUS_DROP;
-  for (let start = 0; start < groups.length; start += cols) {
-    const rowIndex = start / cols;
-    let rowHeight = PHASE_H;
+  groups.forEach((grp, idx) => {
+    const col = idx % cols;
+    const top = columnTop[col];
+    const kids = grp.children || [];
+    const colX = col * (colW + COL_GAP);
+    const isPhaseSelected =
+      selectedId === grp.id || selectedPhaseId === grp.id || selectedPath.has(grp.id);
+    const pNodeId = `phase:${grp.id}`;
+    // Groups fold like components: open unless finished, but always open around the selection
+    const groupOpen =
+      kids.length > 0 &&
+      ((selectedPath.has(grp.id) && selectedId !== grp.id) ||
+        (toggled[pNodeId] ?? !isComplete(grp)));
+    if (groupOpen) openIds.add(pNodeId);
 
-    groups.slice(start, start + cols).forEach((grp, col) => {
-      const idx = start + col;
-      const kids = grp.children || [];
-      const colX = col * (colW + COL_GAP);
-      const isPhaseSelected =
-        selectedId === grp.id || selectedPhaseId === grp.id || selectedPath.has(grp.id);
-      const pNodeId = `phase:${grp.id}`;
-      // Groups fold like components: open unless finished, but always open around the selection
-      const groupOpen =
-        kids.length > 0 &&
-        ((selectedPath.has(grp.id) && selectedId !== grp.id) ||
-          (toggled[pNodeId] ?? !isComplete(grp)));
-      if (groupOpen) openIds.add(pNodeId);
+    let rows = 0;
+    if (groupOpen) {
+      const partsTop = top + PHASE_H + PHASE_TO_PARTS;
+      for (const kid of kids)
+        rows += place(kid, 0, partsTop + rows * ROW_H, colX, pNodeId, isPhaseSelected);
+    }
+    const blockHeight = PHASE_H + (rows > 0 ? PHASE_TO_PARTS + rows * ROW_H - (ROW_H - 34) : 0);
+    columnTop[col] = top + blockHeight + PHASE_GAP;
 
-      let rows = 0;
-      if (groupOpen) {
-        const partsTop = rowTop + PHASE_H + PHASE_TO_PARTS;
-        for (const kid of kids)
-          rows += place(kid, 0, partsTop + rows * ROW_H, colX, pNodeId, isPhaseSelected);
-      }
-      const blockHeight = PHASE_H + (rows > 0 ? PHASE_TO_PARTS + rows * ROW_H - (ROW_H - 34) : 0);
-      rowHeight = Math.max(rowHeight, blockHeight);
-
-      rfNodes.push({
-        id: pNodeId,
-        type: "phaseGroup",
-        position: { x: colX, y: rowTop },
-        data: {
-          label: grp.name,
-          status: grp.status,
-          phaseId: grp.id,
-          index: idx,
-          numbered,
-          selected: isPhaseSelected,
-          childCount: kids.length,
-          expanded: groupOpen,
-          onToggle: () => onToggle(pNodeId, !groupOpen),
-        },
-      });
-      rfEdges.push({
-        id: `e:root->${pNodeId}`,
-        source: "root:node",
-        target: pNodeId,
-        type: "bus",
-        // Selected connectors draw above the idle ones they share segments with
-        zIndex: isPhaseSelected ? 1 : 0,
-        data:
-          rowIndex === 0
-            ? { busY: firstBusY }
-            : { busY: firstBusY, gutterX, rowBusY: rowTop - BUS_DROP },
-        style: edgeStyle(isPhaseSelected, isPhaseSelected),
-      });
+    rfNodes.push({
+      id: pNodeId,
+      type: "phaseGroup",
+      position: { x: colX, y: top },
+      data: {
+        label: grp.name,
+        status: grp.status,
+        phaseId: grp.id,
+        index: idx,
+        numbered,
+        selected: isPhaseSelected,
+        childCount: kids.length,
+        expanded: groupOpen,
+        onToggle: () => onToggle(pNodeId, !groupOpen),
+      },
     });
-
-    rowTop += rowHeight + ROW_GAP;
-  }
+    rfEdges.push({
+      id: `e:root->${pNodeId}`,
+      source: "root:node",
+      target: pNodeId,
+      type: "rail",
+      data: { railX: colX - RAIL_OFFSET, fromY: ROOT_H },
+      // The rails of one column overlap; the selected phase's branch is drawn on top
+      zIndex: isPhaseSelected ? 1 : 0,
+      style: edgeStyle(isPhaseSelected, isPhaseSelected),
+    });
+  });
 
   rfNodes.unshift({
     id: "root:node",
     type: "rootNode",
-    position: { x: rootX, y: 0 },
-    data: { label: rootTitle, isLearning },
+    // Starts left of the first column's rail, so every rail hangs from the header
+    position: { x: -2 * RAIL_OFFSET, y: 0 },
+    data: { label: rootTitle, isLearning, width: Math.max(gridW + 2 * RAIL_OFFSET, ROOT_MIN_W) },
   });
 
   return { nodes: rfNodes, edges: rfEdges, openIds };
@@ -821,7 +787,6 @@ function VisualGraphInner({
   const [edges, setEdges] = useState<Edge[]>([]);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const { getNodes, getInternalNode, getNodesBounds, getViewport, setViewport } = useReactFlow();
-  const nodesInitialized = useNodesInitialized();
   // Set when the next layout should be fitted to the panel: a new project, a new panel width,
   // expand all / collapse all. Folding one node keeps the view where it is.
   const fitNextLayout = useRef(true);
@@ -883,31 +848,37 @@ function VisualGraphInner({
    * pan. The bounds come from the layout itself (every node has a fixed size), not from what React
    * Flow has measured, so a fit can never use the positions of the layout before this one.
    */
-  const fitReadable = useCallback(() => {
-    const el = wrapperRef.current;
-    const bounds = layoutBounds.current;
-    // Nothing to fit without a layout, or while the panel is hidden (a tab on small screens)
-    if (!el || !bounds || el.clientWidth === 0 || el.clientHeight === 0) return;
+  const fitReadable = useCallback(
+    (animate = false): boolean => {
+      const el = wrapperRef.current;
+      const bounds = layoutBounds.current;
+      // Nothing to fit without a layout, or while the panel is hidden (a tab on small screens);
+      // the caller keeps the fit pending and tries again when the panel is shown
+      if (!el || !bounds || el.clientWidth === 0 || el.clientHeight === 0) return false;
 
-    const w = el.clientWidth;
-    const h = el.clientHeight;
-    // Fit the width: the layout already chose how many columns this width holds
-    const widthZoom = (w - 2 * FIT_PADDING) / bounds.width;
-    const zoom = Math.min(Math.max(widthZoom, MIN_READABLE_ZOOM), MAX_FIT_ZOOM);
-    const contentW = bounds.width * zoom;
-    const contentH = bounds.height * zoom;
-    const x =
-      contentW <= w - 2 * FIT_PADDING
-        ? (w - contentW) / 2 - bounds.x * zoom
-        : FIT_PADDING - bounds.x * zoom;
-    const usableH = h - TOP_CLEARANCE - FIT_PADDING;
-    // A map shorter than the panel sits a little above the middle; a taller one starts at the top
-    const y =
-      contentH <= usableH
-        ? TOP_CLEARANCE + (usableH - contentH) / 3 - bounds.y * zoom
-        : TOP_CLEARANCE - bounds.y * zoom;
-    setViewport({ x, y, zoom }, { duration: 160 });
-  }, [setViewport]);
+      const w = el.clientWidth;
+      const h = el.clientHeight;
+      // Fit the width: the layout already chose how many columns this width holds
+      const widthZoom = (w - 2 * FIT_PADDING) / bounds.width;
+      const zoom = Math.min(Math.max(widthZoom, MIN_READABLE_ZOOM), MAX_FIT_ZOOM);
+      const contentW = bounds.width * zoom;
+      const contentH = bounds.height * zoom;
+      const x =
+        contentW <= w - 2 * FIT_PADDING
+          ? (w - contentW) / 2 - bounds.x * zoom
+          : FIT_PADDING - bounds.x * zoom;
+      const usableH = h - TOP_CLEARANCE - FIT_PADDING;
+      // A map shorter than the panel sits a little above the middle; a taller one starts at the top
+      const y =
+        contentH <= usableH
+          ? TOP_CLEARANCE + (usableH - contentH) / 3 - bounds.y * zoom
+          : TOP_CLEARANCE - bounds.y * zoom;
+      // A map that just appeared is placed at once; a refit the user asked for glides
+      setViewport({ x, y, zoom }, { duration: animate ? 160 : 0 });
+      return true;
+    },
+    [setViewport],
+  );
 
   // A different project or learning path starts with its default folds and a fresh fit
   // biome-ignore lint/correctness/useExhaustiveDependencies: targetKey is the trigger, not a value read inside
@@ -918,11 +889,10 @@ function VisualGraphInner({
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: a new layout (nodes) is the trigger
   useEffect(() => {
-    if (fitNextLayout.current && nodesInitialized && nodes.length > 0) {
-      fitNextLayout.current = false;
-      fitReadable();
-    }
-  }, [nodesInitialized, nodes, fitReadable]);
+    // The fit uses the layout's own bounds (node sizes are fixed), so it does not wait for React
+    // Flow to measure the nodes
+    if (fitNextLayout.current && nodes.length > 0 && fitReadable()) fitNextLayout.current = false;
+  }, [nodes, fitReadable]);
 
   /** After a child project unfolds, pan so it and its parts are on screen (once they are measured). */
   const panToSubtree = useCallback(
@@ -984,19 +954,22 @@ function VisualGraphInner({
   useEffect(() => {
     const el = wrapperRef.current;
     if (!el) return;
-    setPanelWidth(el.clientWidth);
+    if (el.clientWidth > 0) setPanelWidth(el.clientWidth);
     if (typeof ResizeObserver === "undefined") return;
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
     const observer = new ResizeObserver(() => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
+        const width = el.clientWidth;
+        if (width === 0) return; // hidden: keep the layout for this width until it is shown again
         setPanelWidth((previous) => {
-          if (previous === el.clientWidth) {
-            fitReadable(); // only the height changed: same layout, new fit
+          if (previous === width) {
+            // Only the height changed (or the panel was shown again): same layout, new fit
+            if (fitReadable()) fitNextLayout.current = false;
             return previous;
           }
           fitNextLayout.current = true;
-          return el.clientWidth;
+          return width;
         });
       }, 90);
     });
@@ -1098,29 +1071,37 @@ function VisualGraphInner({
         <button
           type="button"
           className="canvas-tool-btn"
-          onClick={fitReadable}
+          onClick={() => fitReadable(true)}
           data-testid="fit-view-button"
         >
           Fit to view
         </button>
       </div>
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        onNodeClick={handleNodeClick}
-        // Wheel/trackpad scrolls the map (it may be taller than the panel); pinch or the controls zoom
-        panOnScroll
-        zoomOnScroll={false}
-        zoomOnPinch
-        minZoom={0.3}
-        maxZoom={2}
-        proOptions={{ hideAttribution: true }}
-      >
-        <Background variant={BackgroundVariant.Dots} gap={20} size={1.2} color="var(--border)" />
-        <Controls showInteractive={false} position="bottom-right" />
-      </ReactFlow>
+      {/* React Flow sets up its zoom when it mounts and cannot do that in a hidden panel (a tab on
+          small screens), so it mounts once the panel has a width and then stays mounted */}
+      {panelWidth > 0 && (
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          // A fit asked for before React Flow was ready happens as soon as it is
+          onInit={() => {
+            if (fitNextLayout.current && fitReadable()) fitNextLayout.current = false;
+          }}
+          edgeTypes={edgeTypes}
+          onNodeClick={handleNodeClick}
+          // Wheel/trackpad scrolls the map (it may be taller than the panel); pinch or the controls zoom
+          panOnScroll
+          zoomOnScroll={false}
+          zoomOnPinch
+          minZoom={0.3}
+          maxZoom={2}
+          proOptions={{ hideAttribution: true }}
+        >
+          <Background variant={BackgroundVariant.Dots} gap={20} size={1.2} color="var(--border)" />
+          <Controls showInteractive={false} position="bottom-right" />
+        </ReactFlow>
+      )}
     </div>
   );
 }

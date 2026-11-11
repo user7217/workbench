@@ -15,13 +15,13 @@ Each release on [GitHub Releases](https://github.com/user7217/workbench/releases
 ### Changed
 
 - The data repository may now contain `today.yaml`, the Today's Work list. Every Workbench install (server, desktop app, CLI) has to be on this version or newer before Today's Work is used: older versions reject the file as a disallowed path and stop syncing until they are updated.
-- **Dependency map layout:** the project is on top and each phase is a column with its parts listed under it. The columns wrap to the width of the panel, so the map uses the space it has before it grows downwards, and fits a phone in one column.
+- **Dependency map layout:** the project is a header across the top, and the phases are dealt into as many columns as the panel's width holds (1, 2, 3 across, then 4 under 1), each with its parts listed under it. Each column stacks its own phases, so a folded phase leaves no gap. The header reaches each column's phases through a rail down the left of that column, apart from the lines that join a phase to its parts, so a phase in a second row can no longer look like the child of the one above it. A phone shows one column.
 - **Look:** calmer borders and surfaces, the Inter typeface bundled with the UI (the same text on every system), thinner scrollbars, and roomier Home cards.
 
 ### Fixed
 
 - After an update, browsers kept showing the previous UI until a hard reload; the page is now always checked with the server.
-- The dependency map logged errors while its panel was hidden on narrow screens.
+- The dependency map logged errors, and was not fitted to its panel, when that panel started hidden behind a tab on narrow screens.
 
 ## [0.1.3] - 2026-11-10
 
