@@ -206,6 +206,10 @@ Notes:
 - **Without systemd:** a cron line does the same: `0 * * * * $HOME/workbench/packaging/docker/update.sh >> $HOME/workbench-update.log 2>&1`.
 - **Stopping it:** `sudo systemctl disable --now workbench-update.timer`.
 
+### 2.9 (Optional) Opening the Dashboard on a Phone
+
+The dashboard has a phone layout (below 720px the sidebar becomes a tab bar along the bottom, with **Settings** as its last tab). To reach the server from a phone, install the Tailscale app on the phone, sign in to the same tailnet, and open `http://100.101.102.103:8420` (the server's Tailscale IP from 2.1), or `https://<server-name>.<tailnet>.ts.net` with Tailscale Serve (2.7). Adding the page to the home screen from the browser's share menu gives it an icon like an app.
+
 ---
 
 ## Step 3: Deploy the Server (Option B: Without Docker via `workbench serve`)

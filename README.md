@@ -46,6 +46,8 @@ Open any project to explore its phases/topics, nested components, and prerequisi
 
 ![Project workspace with interactive visual map and contextual panel](web/docs/images/default-project-map.png)
 
+The map is vertical by default (the project across the top, its phases in columns below it) and can be switched to a horizontal layout (the project on the left, its phases and parts in columns to the right) from the **Settings** menu at the bottom of the sidebar or the button beside **Fit to view**. The choice is kept per browser.
+
 ### Inline Web Editing & Structure Controls
 
 Click any status icon to update it, click the pencil (`✎`) on any title, summary, or note to edit inline, or reorder, move, add, and delete phases and components directly from the browser—every change is validated and committed to `workbench-data`:
@@ -56,6 +58,8 @@ Click any status icon to update it, click the pencil (`✎`) on any title, summa
 
 ## Key Features
 
+- **Today's Work, a working-memory view:** Put a phase, a topic or any part on today's list with one click; it arrives with everything nested under it and the unfinished things it depends on, in the order it can be worked through. Each project gets its own card with its step to do **Now** in one colour and the one **Next** in another; finishing a step moves the next one into place, and no project is ranked above another. It can be turned off entirely from the dashboard's Settings menu, on every device at once. No deadlines, counts or streaks. See **[docs/today.md](docs/today.md)**.
+- **Works on a phone:** Below 720px the sidebar becomes a tab bar, the three workspace panels become tabs, and the dependency map lays its phases out in as many columns as the screen holds.
 - **Unified Projects & Learning Workspace:** View active, paused, planned, and completed projects alongside self-directed learning paths on a single dark-mode Home grid ordered by most recent activity.
 - **Flexible Project Hierarchies:**
   - **Optional phases (`uses_phases: true | false`):** Organize multi-stage builds into sequential **Phases** (`uses_phases: true`), or list **Topics** directly (`uses_phases: false`) without artificial phase wrappers.
@@ -87,7 +91,7 @@ In desktop mode the server box runs on the laptop itself, inside the macOS menu-
 
 1. **Two-Repository Separation (`workbench` vs. `workbench-data`):**
    - `workbench` (this repository) contains the Python CLI, validation/privacy engine, FastAPI server, and React/TypeScript frontend.
-   - `workbench-data` is the private data repository containing only `workbench.yaml`, `projects/<id>/project.yaml`, and `learning/<id>/path.yaml` (+ optional `topics/<item-id>.md` notes). The server never needs access to the source code repositories.
+   - `workbench-data` is the private data repository containing only `workbench.yaml`, `projects/<id>/project.yaml`, `learning/<id>/path.yaml` (+ optional `topics/<item-id>.md` notes), and `today.yaml` (the Today's Work list). The server never needs access to the source code repositories.
 2. **Root-Commit Repository Identity ([`src/workbench/identity.py`](src/workbench/identity.py)):**
    - Every repository is matched to its Workbench project by its initial commit SHA (`git rev-list --max-parents=0 HEAD`) and disambiguated by its `owner/repo` GitHub remote slug on forks. Moving or renaming a folder on disk never breaks its link.
 3. **Isolated Worktree Transactions ([`src/workbench/cli/`](src/workbench/cli/), [`src/workbench/server/writes/`](src/workbench/server/writes/)):**
@@ -121,6 +125,7 @@ Open **http://127.0.0.1:8420** in a browser (or set `WORKBENCH_PORT` to use a di
 - `make demo` builds the frontend and spins up a temporary, sandboxed `workbench-data` repository seeded with sample hardware/software projects and learning paths. It never touches `~/.workbench`, `~/.claude`, or `~/.gemini`.
 - Press `/` on the Home screen to filter projects and learning paths.
 - Click any project card to open the three-panel workspace, drag the vertical or horizontal dividers to resize panels, and click status icons or text fields to edit them live.
+- Open **Settings** at the bottom of the sidebar to switch the dependency map between its vertical and horizontal layouts, or to turn Today's Work off and on.
 
 ---
 
@@ -269,6 +274,7 @@ Workbench's documentation follows the [Diátaxis](https://diataxis.fr/) structur
 | **[README.md](README.md)** | **Overview & Tutorial** | Project overview, screenshots, 60-second `make demo` quickstart, and CLI cheat sheet. |
 | **[docs/setup.md](docs/setup.md)** | **Deployment How-To** | Step-by-step setup for `workbench-data`, SSH deploy keys, Docker Compose + Tailscale, `workbench serve`, and laptop hooks. |
 | **[docs/desktop.md](docs/desktop.md)** | **Desktop How-To** | Installing, setting up, using and building the macOS menu-bar app that runs the dashboard on the laptop. |
+| **[docs/today.md](docs/today.md)** | **Feature Guide** | Today's Work: adding items, how the order and the Now / Next steps are worked out, where the list is stored, and the research behind the design. |
 | **[docs/releasing.md](docs/releasing.md)** | **Maintainer How-To** | Versions, the changelog, and cutting a release with the release workflow. |
 | **[CHANGELOG.md](CHANGELOG.md)** | **Release Notes** | What changed in each version. |
 | **[docs/reference.md](docs/reference.md)** | **Technical Reference** | Annotated YAML schemas (`project.yaml`, `path.yaml`), `config.toml`, environment variables, HTTP API endpoints, and every CLI command with its options. |

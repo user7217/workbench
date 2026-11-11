@@ -43,6 +43,8 @@ _MAX_PUSH_ATTEMPTS = 3
 EntityKind = Literal["project", "learning"]
 Mutation = Callable[[Any], None]
 RepoCheck = Callable[[Path], None]
+# Edits files in a worktree and returns the commit subject
+WorktreeEdit = Callable[[Path], str]
 CommitMessage = str | Callable[[], str]
 
 # A dashboard write failed; status_code is the HTTP status to report. The shared document
@@ -121,6 +123,30 @@ def _push_with_retries(state: ServerState, wt_dir: Path) -> None:
     raise WriteError("Failed to push update to remote", status_code=500)
 
 
+def _run_transaction(state: ServerState, name: str, edit: WorktreeEdit) -> dict[str, Any]:
+    """Run `edit` in a fresh worktree cut from origin/<branch>, then commit, push and resync.
+
+    `edit` receives the worktree directory, changes and validates files in it, and returns
+    the commit subject; it raises WriteError to abandon the write. The repo lock is held
+    throughout and the worktree is always removed. Returns the snapshot after a forced resync.
+    """
+    with state._repo_lock:
+        state.ensure_repo_cloned()
+        fetch_origin(state.repo_dir, branch=state.branch, env=state.env)
+
+        wt_dir = state.work_root / f"write-{name}-{secrets.token_hex(4)}"
+        create_worktree(state.repo_dir, wt_dir, ref=f"origin/{state.branch}", env=state.env)
+        try:
+            message = edit(wt_dir)
+            commit_all(wt_dir, message, env=state.env)
+            _push_with_retries(state, wt_dir)
+        finally:
+            remove_worktree(state.repo_dir, wt_dir, env=state.env)
+
+        state.sync_once(force=True)
+        return state.get_snapshot_dict()
+
+
 def _commit_edit(
     state: ServerState,
     kind: EntityKind,
@@ -144,36 +170,24 @@ def _commit_edit(
     rel_path = _entity_rel_path(kind, entity_id)
     label = "Project" if kind == "project" else "Learning path"
 
-    with state._repo_lock:
-        state.ensure_repo_cloned()
-        fetch_origin(state.repo_dir, branch=state.branch, env=state.env)
+    def edit(wt_dir: Path) -> str:
+        target = wt_dir / rel_path
+        if not target.exists():
+            raise WriteError(f"{label} '{entity_id}' not found", status_code=404)
 
-        wt_dir = state.work_root / f"write-{entity_id}-{secrets.token_hex(4)}"
-        create_worktree(state.repo_dir, wt_dir, ref=f"origin/{state.branch}", env=state.env)
-        try:
-            target = wt_dir / rel_path
-            if not target.exists():
-                raise WriteError(f"{label} '{entity_id}' not found", status_code=404)
+        doc = load_yaml_roundtrip(target)
+        mutate(doc)
+        doc["updated"] = parse_iso_date_for_yaml(datetime.date.today().isoformat())
+        dump_yaml_roundtrip(doc, target)
 
-            doc = load_yaml_roundtrip(target)
-            mutate(doc)
-            doc["updated"] = parse_iso_date_for_yaml(datetime.date.today().isoformat())
-            dump_yaml_roundtrip(doc, target)
+        plain = _validate_edited_file(kind, target, entity_id)
+        if plain is not None:
+            _check_against_origin(state, rel_path, plain, allow_removals, allow_text_removal)
+        if check_repo is not None:
+            check_repo(wt_dir)
+        return commit_message() if callable(commit_message) else commit_message
 
-            plain = _validate_edited_file(kind, target, entity_id)
-            if plain is not None:
-                _check_against_origin(state, rel_path, plain, allow_removals, allow_text_removal)
-            if check_repo is not None:
-                check_repo(wt_dir)
-
-            message = commit_message() if callable(commit_message) else commit_message
-            commit_all(wt_dir, message, env=state.env)
-            _push_with_retries(state, wt_dir)
-        finally:
-            remove_worktree(state.repo_dir, wt_dir, env=state.env)
-
-        state.sync_once(force=True)
-        return state.get_snapshot_dict()
+    return _run_transaction(state, entity_id, edit)
 
 
 # ---------------------------------------------------------------------------

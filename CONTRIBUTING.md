@@ -48,6 +48,31 @@ cd web
 WORKBENCH_API=http://127.0.0.1:8441 npm run dev
 ```
 
+### Trying a Branch with Real Data
+
+A server started from a branch commits and pushes every change made in its dashboard. Pointed at the real `workbench-data`, it would push the branch's data format to every other install (an older server or desktop app may reject a file it does not know and stop syncing). Give it a local, bare copy of the data instead, so every change stays on the laptop:
+
+```bash
+make build                                                     # the branch's web UI
+git clone --bare ~/.workbench/data ~/wb-test/data.git          # once; a copy of the data repo
+WORKBENCH_DATA_REMOTE=~/wb-test/data.git WORKBENCH_STATE_DIR=~/wb-test/state \
+  uv run workbench serve --port 8425                           # http://127.0.0.1:8425
+```
+
+Port 8425 keeps clear of the desktop app's 8420. Deleting `~/wb-test` throws the copy away; cloning again starts over from the current data.
+
+### Checking on a Phone
+
+Below 720px the look switches to its phone layout. For a quick look, the browser's device toolbar is enough (Cmd+Shift+M in Chrome's DevTools). For a real phone that is on the same [Tailscale](https://tailscale.com) tailnet as the laptop, serve on the laptop's Tailscale address and open that address on the phone:
+
+```bash
+tailscale ip -4                                                # e.g. 100.78.89.92
+WORKBENCH_DATA_REMOTE=~/wb-test/data.git WORKBENCH_STATE_DIR=~/wb-test/state \
+  uv run workbench serve --host 100.78.89.92 --port 8425       # phone: http://100.78.89.92:8425
+```
+
+The server has no login, so bind it to the Tailscale address, never to a Wi-Fi (`192.168.x.y`) or public one. macOS may ask once whether Python may accept incoming connections.
+
 ### Desktop App (macOS)
 
 The menu-bar app lives in `desktop/` (Tauri 2, Rust) and runs a PyInstaller-frozen copy of the CLI and server. [docs/desktop.md](docs/desktop.md) §8 lists the parts.

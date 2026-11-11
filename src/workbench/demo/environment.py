@@ -10,6 +10,7 @@ fake repos with placeholders, filled in once the repos exist:
 
 from __future__ import annotations
 
+import datetime
 import json
 import re
 from pathlib import Path
@@ -26,6 +27,7 @@ from workbench.gitops import (
     push_head_to_branch,
     run_git,
 )
+from workbench.validate import TODAY_FILE
 from workbench.yamlio import (
     dump_yaml_roundtrip,
     load_yaml_roundtrip,
@@ -111,7 +113,10 @@ def _fill_commit_placeholders(text: str, commits: RepoCommits) -> str:
 
 
 def _write_seed_files(seed_dir: Path, commits: RepoCommits) -> None:
-    """Copy data/seed into seed_dir; project.yaml/path.yaml are filled in and round-tripped."""
+    """Copy data/seed into seed_dir; project.yaml/path.yaml are filled in and round-tripped.
+
+    today.yaml gets the build date as its `day`, so the demo's Today's Work list is current.
+    """
     for src in sorted(SEED_DIR.rglob("*")):
         if not src.is_file() or src.suffix not in (".yaml", ".md"):
             continue
@@ -119,6 +124,10 @@ def _write_seed_files(seed_dir: Path, commits: RepoCommits) -> None:
         text = src.read_text(encoding="utf-8")
         if src.name in ("project.yaml", "path.yaml"):
             data = load_yaml_str_roundtrip(_fill_commit_placeholders(text, commits))
+            dump_yaml_roundtrip(data, dest)
+        elif src.name == TODAY_FILE:
+            data = load_yaml_str_roundtrip(text)
+            data["day"] = datetime.date.today()
             dump_yaml_roundtrip(data, dest)
         else:
             dest.parent.mkdir(parents=True, exist_ok=True)

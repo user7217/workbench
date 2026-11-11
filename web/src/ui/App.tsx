@@ -7,13 +7,14 @@ import { LookProvider, useLookState } from "./lookState";
 import { HomePage } from "./pages/HomePage";
 import { LearningPage } from "./pages/LearningPage";
 import { ProjectPage } from "./pages/ProjectPage";
+import { TodayPage } from "./pages/TodayPage";
 
 /**
  * The current Workbench look. All data, selection and writes come from useWorkbench(); look-only
  * layout state comes from useLookState() and reaches the pages through <LookProvider>.
  */
 export function App() {
-  const { route, lastError, dismissError, clearComponentSelection } = useWorkbench();
+  const { route, lastError, dismissError, clearComponentSelection, todayEnabled } = useWorkbench();
   const look = useLookState();
 
   const filterInputRef = useRef<HTMLInputElement | null>(null);
@@ -63,7 +64,9 @@ export function App() {
 
           <div className="content-and-inspector">
             <main className={isSplitWorkspace ? "main-scroll split-mode" : "main-scroll"}>
-              {route.page === "home" && <HomePage />}
+              {/* With Today's Work turned off, its route falls back to Home */}
+              {(route.page === "home" || (route.page === "today" && !todayEnabled)) && <HomePage />}
+              {route.page === "today" && todayEnabled && <TodayPage />}
               {route.page === "building" && <ProjectPage />}
               {route.page === "project" && <ProjectPage />}
               {route.page === "learning" && <LearningPage />}

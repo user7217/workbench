@@ -1,0 +1,88 @@
+{
+  "$defs": {
+    "TodayEntry": {
+      "additionalProperties": false,
+      "description": "One thing chosen for the day: a whole project or learning path, or one item inside it.",
+      "properties": {
+        "added": {
+          "title": "Added",
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 48,
+          "minLength": 1,
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "item": {
+          "anyOf": [
+            {
+              "maxLength": 48,
+              "minLength": 1,
+              "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Item"
+        },
+        "kind": {
+          "enum": [
+            "project",
+            "learning"
+          ],
+          "title": "Kind",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "added"
+      ],
+      "title": "TodayEntry",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "today.yaml: the roots chosen for Today's Work. The UI expands them; nothing here is expanded.\n\nEntries are not checked against the projects and learning paths in the repository: one\nthat points at something since removed stays valid, so removing an item elsewhere can\nnever make the data repository invalid.",
+  "properties": {
+    "day": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Day"
+    },
+    "enabled": {
+      "default": true,
+      "title": "Enabled",
+      "type": "boolean"
+    },
+    "entries": {
+      "items": {
+        "$ref": "#/$defs/TodayEntry"
+      },
+      "maxItems": 60,
+      "title": "Entries",
+      "type": "array"
+    },
+    "schema_version": {
+      "const": 1,
+      "default": 1,
+      "title": "Schema Version",
+      "type": "integer"
+    }
+  },
+  "title": "Today",
+  "type": "object"
+}

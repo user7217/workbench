@@ -1,0 +1,207 @@
+/*
+ * Phone layout (up to 720px wide). The sidebar turns into a tab bar along the bottom, pages use
+ * the full width, and controls grow to a size a thumb can hit. The three workspace panels already
+ * become tabs below 1080px (responsive.css); this file only tightens them.
+ */
+
+/* dvh follows the visible height when a phone browser shows or hides its address bar */
+@supports (height: 100dvh) {
+  .workbench-layout,
+  .sidebar,
+  .main-column {
+    height: 100dvh;
+  }
+}
+
+@media (max-width: 720px) {
+  :root {
+    --tabbar-h: calc(54px + env(safe-area-inset-bottom, 0px));
+  }
+
+  body {
+    font-size: 14px;
+  }
+
+  .workbench-layout {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  /* Sidebar -> bottom tab bar */
+  .sidebar,
+  .sidebar.collapsed {
+    order: 2;
+    width: 100%;
+    min-width: 0;
+    height: var(--tabbar-h);
+    padding: 0 6px env(safe-area-inset-bottom, 0px);
+    flex-direction: row;
+    border-right: none;
+    border-top: 1px solid var(--border);
+  }
+
+  .sidebar-top-row,
+  .sidebar-scroll-tree {
+    display: none;
+  }
+
+  .nav-primary {
+    flex: 1;
+    flex-direction: row;
+    gap: 2px;
+    margin: 0;
+  }
+
+  .nav-item,
+  .sidebar.collapsed .nav-item {
+    position: relative;
+    flex: 1;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    padding: 6px 0;
+    font-size: 10.5px;
+    border-color: transparent;
+  }
+
+  .nav-item svg {
+    width: 19px;
+    height: 19px;
+  }
+
+  .nav-item.active {
+    background: transparent;
+    border-color: transparent;
+    color: var(--accent-bright);
+  }
+
+  .nav-dot {
+    position: absolute;
+    top: 7px;
+    left: calc(50% + 9px);
+    margin: 0;
+  }
+
+  .main-column {
+    order: 1;
+    flex: 1;
+    height: auto;
+    min-height: 0;
+  }
+
+  .top-search-header {
+    padding: 0 12px;
+  }
+
+  .search-box-wrapper {
+    width: 100%;
+    height: 34px;
+  }
+
+  /* 16px keeps iOS from zooming the page when a field is focused */
+  .filter-input,
+  input[type="text"],
+  textarea {
+    font-size: 16px;
+  }
+
+  .main-scroll {
+    padding: 14px 12px 20px;
+  }
+
+  /* Page headers: the title gets the full width, its controls move to a row of their own */
+  .centre-project-title-row {
+    flex-wrap: wrap;
+  }
+
+  .centre-project-title-text {
+    flex: 1 1 60%;
+    min-width: 0;
+  }
+
+  .header-status-control {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .main-scroll.split-mode {
+    padding: 0;
+  }
+
+  button {
+    min-height: 32px;
+  }
+
+  /* Detail headers: the title first, its status buttons on a row below */
+  .inspector-header {
+    flex-wrap: wrap;
+  }
+
+  .inspector-header-left {
+    flex: 1 1 100%;
+  }
+
+  /* Workspace panel headers: the button says which view is shown, so the indicator can go */
+  .segmented-view-switch .seg-indicator {
+    display: none;
+  }
+
+  .panel-sticky-header {
+    padding: 0 12px;
+  }
+
+  /* Today's Work */
+  .today-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .today-group {
+    padding: 14px;
+  }
+
+  .today-block-actions button,
+  .today-card-actions button {
+    min-height: 42px;
+    flex: 1;
+  }
+
+  .today-block-next button {
+    min-height: 36px;
+  }
+
+  .today-step {
+    flex-wrap: wrap;
+    padding: 8px 10px 8px 12px;
+  }
+
+  .today-step-actions {
+    order: 3;
+    width: 100%;
+    padding-left: 25px;
+  }
+
+  .today-step-actions:empty {
+    display: none;
+  }
+
+  .today-step-actions button {
+    min-height: 34px;
+    flex: 1;
+  }
+
+  /* Only the steps that can be acted on show their buttons, to keep the list short */
+  .today-step-later .today-step-actions,
+  .today-step-done .today-step-actions {
+    display: none;
+  }
+
+  .today-empty,
+  .today-review {
+    padding: 18px 16px;
+  }
+
+  .toast-error {
+    bottom: calc(var(--tabbar-h) + 10px);
+  }
+}

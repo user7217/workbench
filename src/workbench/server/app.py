@@ -25,6 +25,8 @@ from workbench.server.writes import (
     keep_suggestion,
     move_project_item,
     set_project_parent,
+    set_today,
+    set_today_enabled,
     update_learning_fields,
     update_learning_item_fields,
     update_learning_item_status,
@@ -326,6 +328,16 @@ def create_app(
     ) -> JSONResponse:
         return await _run_body_write(request, state, dismiss_suggestion, project_id, suggestion_id)
 
+    # Today's Work: replaces the stored list of chosen roots (today.yaml); 403 while turned off
+    @app.post("/api/today")
+    async def post_today(request: Request) -> JSONResponse:
+        return await _run_body_write(request, state, set_today)
+
+    # Today's Work on/off switch (`enabled` in today.yaml); always allowed
+    @app.post("/api/today/enabled")
+    async def post_today_enabled(request: Request) -> JSONResponse:
+        return await _run_body_write(request, state, set_today_enabled)
+
     # Serve built UI static files if web/dist exists
     if dist_dir.exists() and (dist_dir / "index.html").exists():
         assets_dir = dist_dir / "assets"
@@ -337,7 +349,11 @@ def create_app(
             candidate = (dist_dir / full_path).resolve()
             if full_path and candidate.is_file() and dist_dir.resolve() in candidate.parents:
                 return FileResponse(str(candidate))
-            return FileResponse(str(dist_dir / "index.html"))
+            # The page names its scripts and styles by content hash. If a browser kept an old
+            # copy of the page it would keep loading the old UI after an update, so the page
+            # itself is always checked with the server (the hashed files under /assets may be
+            # cached freely).
+            return FileResponse(str(dist_dir / "index.html"), headers={"Cache-Control": "no-cache"})
     else:
         logger.warning(
             "Web UI not found at %s (no index.html); serving the API only. "

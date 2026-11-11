@@ -183,6 +183,8 @@ privacy_review = "off"
 reviewer_command = 'claude -p --model haiku --tools "" --strict-mcp-config --no-session-persistence'
 ```
 
+Keys that Workbench does not know are ignored and dropped the next time it writes the file. This includes `today` from earlier development builds: the Today's Work switch is now `enabled` in `today.yaml` ([section 7](#7-todays-work-list-todayyaml)).
+
 Both commands get their prompt on stdin, run in an empty temporary directory, and must print JSON. Any agent CLI that does that can be used; only Claude Code has been tested.
 
 ---
@@ -216,7 +218,7 @@ Every `POST` endpoint requires `Content-Type: application/json` and the custom h
 
 | Method & Route | Request Body | Description |
 | :--- | :--- | :--- |
-| `GET /api/snapshot` | — | Return the current validated snapshot (`projects`, `learning`, `topic_markdowns`, `updated_at` with each project's and path's last change time from git, `commit`, `synced_at`). |
+| `GET /api/snapshot` | — | Return the current validated snapshot (`projects`, `learning`, `topic_markdowns`, `today` with the Today's Work list, `updated_at` with each project's and path's last change time from git, `commit`, `synced_at`). `today` is always present: `{"enabled": true\|false, "day": "YYYY-MM-DD"\|null, "entries": [{"kind", "id", "item"?, "added"}]}`, and `{"enabled": true, "day": null, "entries": []}` when the repository has no `today.yaml` ([section 7](#7-todays-work-list-todayyaml)). The entries are sent even when `enabled` is `false`. |
 | `GET /api/status` | — | Return sync health (`last_good_commit`, `last_checked_at`, `last_error`). |
 | `POST /api/sync` | `{}` | Trigger an immediate `git fetch` + validation sync against `origin/main` (commits nothing). |
 | `POST /api/projects/{id}/status` | `{"status": "..."}` | Update a project's top-level status (`planned`, `active`, `paused`, `done`, `archived`). |
@@ -229,6 +231,8 @@ Every `POST` endpoint requires `Content-Type: application/json` and the custom h
 | `POST /api/projects/{id}/items/{item_id}/delete` | `{"confirm": true}` | Delete a phase, topic, or component and everything under it. Refused while another component still lists a removed id in `depends_on`, or a child project sits under a removed item. |
 | `POST /api/projects/{id}/suggestions/{sug_id}/keep` | `{}` | Move a suggestion from the inbox into the tree as a `not_started` item under its `under` (a new phase/topic when it has none). `422` if that item no longer exists. Returns `item_id`. |
 | `POST /api/projects/{id}/suggestions/{sug_id}/dismiss` | `{}` | Dismiss and remove a suggestion from the inbox. |
+| `POST /api/today` | `{"day": "YYYY-MM-DD", "entries": [{"kind": "project"\|"learning", "id": "<id>", "item"?: "<id>"\|null}]}` | Replace the Today's Work list in `today.yaml` (created when missing) with `entries`, in the order given. Both keys are required; `added` is not accepted. An entry already in the list keeps its `added` date and a new one gets `day`. An empty list keeps the file with `entries: []`. Entries are not looked up, so one may name a project or item that does not exist. `400` for a bad date, kind or id, a duplicate entry, or more than 60 entries. Removing entries is never refused by the semantic diff guard. While Today's Work is turned off (`enabled: false` in `today.yaml` as it is on the remote) the answer is `403` with `{"detail": "Today's Work is turned off"}` and nothing is changed. |
+| `POST /api/today/enabled` | `{"enabled": true\|false}` | Turn Today's Work on or off: sets `enabled` in `today.yaml` (created when missing) and keeps `day` and `entries`. Always allowed. Commits `edit(today): turn on` or `edit(today): turn off`; setting the value already stored commits nothing. `400` when `enabled` is missing or not a boolean. |
 | `POST /api/learning/{id}/status` | `{"status": "..."}` | Update a learning path's top-level status. |
 | `POST /api/learning/{id}/fields` | `{"name"?, "description"?}` | Update a learning path's name and/or description. |
 | `POST /api/learning/{id}/items/{item_id}/status` | `{"status": "..."}` | Update a learning topic or subtopic status (`not_started`, `in_progress`, `done`). |
@@ -243,7 +247,7 @@ Every command runs on the laptop (where `~/.workbench/config.toml` and the `~/.w
 | Command | Arguments & options |
 | :--- | :--- |
 | `workbench --version` | Print the version (the same for the CLI, server, web UI and desktop app). |
-| `workbench setup` | `--home <dir>`. Interactive wizard: writes `config.toml`, clones `workbench-data`, installs the agent skills, hooks and the macOS discovery job after the user types `yes`. |
+| `workbench setup` | `--home <dir>`. Interactive wizard: asks for the data repository, GitHub owners, author emails, scan roots and the optional LLM privacy review; writes `config.toml`, clones `workbench-data`, installs the agent skills, hooks and the macOS discovery job after the user types `yes`. |
 | `workbench install` | `--home <dir>` (required), `--claude`, `--gemini`, `--launchd`. Install or refresh the skills and hooks for each agent, and the macOS `launchd` job. |
 | `workbench show` | `--id <project>`, `--item <item-id>`, `--brief`. Without `--id`, the project registered for the current repo. |
 | `workbench focus` | `--set <project>[/<item>]`, `--clear`. Without options, print the current repo's focus. |
@@ -266,3 +270,43 @@ Every command runs on the laptop (where `~/.workbench/config.toml` and the `~/.w
 | `workbench auto-update` | `--job <file>` (written by the hook) or `--transcript <file.jsonl>`, plus `--dry-run`. Run by hand inside the project repo. |
 | `workbench serve` | `--host` (default `127.0.0.1`), `--port` (default `8420`). Run the dashboard server without Docker. On `127.0.0.1` or `localhost` it answers only to those host names (`WORKBENCH_ALLOWED_HOSTS`). The macOS desktop app runs this command from login ([desktop.md](desktop.md)). |
 | `workbench demo init <dir>` | Create a throwaway demo environment (bare remote, fake HOME and repos) in `<dir>`; used by `make demo` and the tests. |
+
+---
+
+## 7. Today's Work List (`today.yaml`)
+
+Defined by `Today` in [`src/workbench/models.py`](../src/workbench/models.py) and exported to [`schema/today.schema.json`](../schema/today.schema.json). The file sits at the root of `workbench-data`, next to `workbench.yaml`, and is optional: a repository without it is valid and its snapshot reports an empty list.
+
+It stores only the roots chosen for the day. The dashboard expands each root into its children and prerequisites and works out the order; none of that is stored.
+
+```yaml
+schema_version: 1
+enabled: true                 # the Today's Work switch; optional, true when absent
+day: 2026-11-10               # the local calendar day the list was last confirmed for; null or absent if never set
+entries:
+  - kind: project             # project | learning
+    id: robot-arm             # project id, or learning path id when kind is learning
+    item: kinematics          # optional: a phase, topic or component (or a learning topic or subtopic)
+    added: 2026-11-09         # the day the entry was first added
+  - kind: learning
+    id: signal-processing     # no item: the whole learning path
+    added: 2026-11-10
+```
+
+| Field | Type / Pattern | Constraint |
+| :--- | :--- | :--- |
+| `schema_version` | integer | Must be `1` |
+| `enabled` | boolean | Whether Today's Work is turned on; optional, `true` by default |
+| `day` | `DateStr` or null | `YYYY-MM-DD`; optional |
+| `entries` | list | At most 60 entries; optional, empty by default |
+| `entries[].kind` | `TodayKind` | `project` or `learning` |
+| `entries[].id`, `entries[].item` | `SlugId` | `^[a-z0-9]+(-[a-z0-9]+)*$`, 1–48 chars; `item` is optional |
+| `entries[].added` | `DateStr` | `YYYY-MM-DD` |
+
+- No two entries may share the same `kind`, `id` and `item`. The same `id` may appear as a whole project and again with an `item`.
+- Unknown keys are rejected, as in the other files.
+- Entries are not checked against the projects and learning paths in the repository. An entry that names a project, path or item that no longer exists is valid and the dashboard ignores it, so removing an item from a project never makes the repository invalid.
+- The semantic diff guard and the removed-file check of `workbench push` do not apply to this file: entries leaving the list, or the file being deleted, is never refused.
+- The dashboard writes the file through `POST /api/today` ([section 5](#5-server-http-api-reference)); its commits are `edit(today): add <entry>`, `edit(today): remove <entry>`, `edit(today): set <n> entries for <day>` or `edit(today): clear`, where `<entry>` is `<project>[/<item>]` or `learning/<path>[/<item>]`. The switch is written through `POST /api/today/enabled` (`edit(today): turn on` / `edit(today): turn off`). There is no CLI command for either.
+- A Workbench version from before this file existed rejects it as a disallowed path, so every install (server, desktop app, CLI) must be updated before the list is used.
+- `enabled: false` turns Today's Work off for every device and server reading the repository: the dashboard hides the Today tab and the sun and **Today** buttons, and `POST /api/today` is refused. The file is still validated and the day and entries are kept ([today.md](today.md#5-turning-it-off)).

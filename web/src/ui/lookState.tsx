@@ -1,6 +1,6 @@
 /**
  * Look-only state shared by the pages of the default look: resizable panel sizes, the project view
- * mode, the active panel on narrow viewports and the disclosure sets that are not selection-driven.
+ * mode, the dependency map's layout, the active panel on narrow viewports and the disclosure sets that are not selection-driven.
  * App owns it (so it survives page switches) and provides it; components read it with useLook().
  */
 import type React from "react";
@@ -14,13 +14,18 @@ import {
   MIN_CONTENTS_WIDTH,
   MIN_DIAGRAM_HEIGHT,
   MIN_NAV_WIDTH,
+  type MapLayout,
   type PanelWidths,
   clampVal,
+  readStoredMapLayout,
   readStoredPanelWidths,
   readStoredViewMode,
+  writeStoredMapLayout,
   writeStoredPanelWidths,
   writeStoredViewMode,
 } from "./layoutPrefs";
+
+export type { MapLayout } from "./layoutPrefs";
 
 export type Resizer = "left" | "right" | "horizontal";
 export type MobilePanel = "nav" | "contents" | "visual";
@@ -30,6 +35,9 @@ type SetDisclosure = React.Dispatch<React.SetStateAction<Disclosure>>;
 export interface LookState {
   viewMode: "list" | "visual";
   toggleProjectViewMode: () => void;
+  /** The dependency map's layout, remembered per device */
+  mapLayout: MapLayout;
+  setMapLayout: (layout: MapLayout) => void;
   panelWidths: PanelWidths;
   activeResizer: Resizer | null;
   startResizing: (which: Resizer, e: React.MouseEvent) => void;
@@ -74,6 +82,7 @@ function maxDiagramHeightFor(divider: HTMLElement): number {
 /** Creates the look-only state; App calls this once and provides the result. */
 export function useLookState(): LookState {
   const [viewMode, setViewMode] = useState<"list" | "visual">(readStoredViewMode);
+  const [mapLayout, setMapLayoutState] = useState<MapLayout>(readStoredMapLayout);
 
   // Resizable 3-panel widths & visual/context height with localStorage persistence
   const [panelWidths, setPanelWidths] = useState<PanelWidths>(readStoredPanelWidths);
@@ -102,6 +111,11 @@ export function useLookState(): LookState {
     setViewMode(next);
     writeStoredViewMode(next);
   };
+
+  const setMapLayout = useCallback((layout: MapLayout) => {
+    setMapLayoutState(layout);
+    writeStoredMapLayout(layout);
+  }, []);
 
   // Handle draggable vertical & horizontal divider mouse events
   useEffect(() => {
@@ -205,6 +219,8 @@ export function useLookState(): LookState {
   return {
     viewMode,
     toggleProjectViewMode,
+    mapLayout,
+    setMapLayout,
     panelWidths,
     activeResizer,
     startResizing,

@@ -52,10 +52,11 @@ src/workbench/
     ├── sync.py        # Staging-worktree validation and atomic last-good snapshot swap
     └── writes/        # Thread-safe server worktree transactions for inline UI edits
         ├── __init__.py     # Public write functions and WriteError, imported by app.py
-        ├── _transaction.py # `_commit_edit`: lock, worktree, validation, semantic check, commit, push retries
+        ├── _transaction.py # `_run_transaction`: lock, worktree, commit, push retries; `_commit_edit`: one project/learning file with validation and semantic check
         ├── fields.py       # Status and text-field edits
         ├── structure.py    # Add, move, delete, parent link
-        └── suggestions.py  # Keep or dismiss a suggestion
+        ├── suggestions.py  # Keep or dismiss a suggestion
+        └── today.py        # Replace the Today's Work list (today.yaml)
 ```
 
 The rest of the repository:
@@ -146,13 +147,14 @@ Workbench supports two ways to modify metadata from the CLI or web UI:
 Every write to `workbench-data` must pass three checks before a commit is pushed or accepted by the server:
 
 1. **Structural Validation (`validate.py`):**
-   - Enforces the repository path whitelist (`workbench.yaml`, `projects/<id>/project.yaml`, `learning/<id>/path.yaml`, `learning/<id>/topics/<id>.md`), Pydantic model constraints, directory-to-ID equality, and the 20 KB Markdown cap.
+   - Enforces the repository path whitelist (`workbench.yaml`, `today.yaml`, `projects/<id>/project.yaml`, `learning/<id>/path.yaml`, `learning/<id>/topics/<id>.md`), Pydantic model constraints, directory-to-ID equality, and the 20 KB Markdown cap.
 2. **Semantic Diff Guard (`semantic.py`):**
    - Compares the updated file against `origin/main` across all nested levels:
      - Blocks changing the top-level `id`.
      - Blocks renaming an existing item's `id` while keeping the same `name`.
      - Blocks removing any phase, topic, subtopic, or nested component ID unless `--allow-removals` is explicitly passed (or an explicit UI delete action is invoked).
      - Blocks deleting more than `30%` of total string content without `--allow-removals`.
+   - Applies to project and learning files only. `today.yaml` (the Today's Work list) is validated structurally and scanned for privacy, but entries leaving it, or the file being deleted, is never blocked.
 3. **Privacy & Secret Scanner (`privacy.py`):**
    - Scans every string value using deterministic regexes and `detect-secrets` for AWS keys (`AKIA...`), GitHub tokens (`ghp_...`, `github_pat_...`), OpenAI/Anthropic keys (`sk-...`), Slack tokens, private keys, JWTs, credentialed URLs, password assignments, local filesystem paths (`/Users/...`, `/home/...`, `C:\...`, `~/...`), private IPv4 addresses, `.local` hostnames, and personal emails.
    - **Never echoes secrets:** Error messages report only the YAML field path and rule name (`Privacy violation in 'phases[0].summary': detected local_path_users`), never the matched secret text.
@@ -180,8 +182,8 @@ The background job (`cli.agents._run_auto_update`, one at a time under `~/.workb
 
 ## 8. Dashboard Server (`server/`)
 
-- **Sync (`sync.py`):** on startup the server loads its cached `snapshot.json`, then every `WORKBENCH_POLL_SECONDS` fetches `origin/main` into its own clone, validates the fetched commit in a staging worktree and, only if it is valid, swaps in a new snapshot (projects, learning paths, topic Markdown, and each entry's last change time from `git log`). An invalid commit keeps the last good snapshot and is reported in `/api/status`. A sync never raises, and one lock serializes all git work on the clone.
-- **Writes (`writes/`):** each dashboard edit opens a worktree, applies the change with `edits.py`, runs the same validation and semantic checks as the CLI, commits an `edit(...)` message, rebases and pushes with retries, then resyncs and returns the new snapshot.
+- **Sync (`sync.py`):** on startup the server loads its cached `snapshot.json`, then every `WORKBENCH_POLL_SECONDS` fetches `origin/main` into its own clone, validates the fetched commit in a staging worktree and, only if it is valid, swaps in a new snapshot (projects, learning paths, topic Markdown, the Today's Work list from `today.yaml`, and each entry's last change time from `git log`). An invalid commit keeps the last good snapshot and is reported in `/api/status`. A sync never raises, and one lock serializes all git work on the clone.
+- **Writes (`writes/`):** each dashboard edit opens a worktree, applies the change with `edits.py`, runs the same validation and semantic checks as the CLI, commits an `edit(...)` message, rebases and pushes with retries, then resyncs and returns the new snapshot. `POST /api/today` replaces the list in `today.yaml` through the same transaction without the semantic check; it stores only the chosen roots, which the UI expands.
 - **Discovery:** with `WORKBENCH_GITHUB_OWNERS` set, the server runs GitHub discovery once a day.
 - **UI (`app.py`):** the built UI is served from `WORKBENCH_WEB_DIST` if set, else the copy inside the installed package (`workbench/web_dist`, added to the wheel by `packaging/hatch_build.py` when `web/dist` is built), else the checkout's `web/dist`. The server runs in the Docker image, with `workbench serve`, or inside the desktop app.
 - **Host check (`app.py`):** with `WORKBENCH_ALLOWED_HOSTS` set, requests addressed to any other host name are rejected (`400`). `workbench serve` sets it to `127.0.0.1,localhost` when listening on loopback, which blocks DNS rebinding; the Docker server leaves it unset.

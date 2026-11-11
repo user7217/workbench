@@ -68,6 +68,9 @@ ProjectStatus = Literal["planned", "active", "paused", "done", "archived"]
 ProjectOrigin = Literal["manual", "agent", "discovered"]
 PhaseStatus = Literal["not_started", "in_progress", "done", "parked"]
 LearningItemStatus = Literal["not_started", "in_progress", "done"]
+TodayKind = Literal["project", "learning"]
+
+MAX_TODAY_ENTRIES = 60
 
 
 class StrictModel(BaseModel):
@@ -272,15 +275,57 @@ class LearningPath(StrictModel):
         return self
 
 
+class TodayEntry(StrictModel):
+    """One thing chosen for the day: a whole project or learning path, or one item inside it."""
+
+    kind: TodayKind
+    # Project id, or learning path id when kind is "learning"
+    id: SlugId
+    # A phase/topic/component (or learning topic/subtopic); None means the whole project or path
+    item: SlugId | None = None
+    added: DateStr
+
+
+class Today(StrictModel):
+    """today.yaml: the roots chosen for Today's Work. The UI expands them; nothing here is expanded.
+
+    Entries are not checked against the projects and learning paths in the repository: one
+    that points at something since removed stays valid, so removing an item elsewhere can
+    never make the data repository invalid.
+    """
+
+    schema_version: Literal[1] = 1
+    # Whether Today's Work is turned on. Stored here, in the data repository, so the switch applies
+    # to every device and server reading it. Turning it off keeps the day and the entries.
+    enabled: bool = True
+    # The local calendar day the list was last confirmed for; None when it was never set
+    day: DateStr | None = None
+    entries: list[TodayEntry] = Field(default_factory=list, max_length=MAX_TODAY_ENTRIES)
+
+    @model_validator(mode="after")
+    def validate_unique_entries(self) -> Today:
+        seen: set[tuple[str, str, str | None]] = set()
+        for entry in self.entries:
+            key = (entry.kind, entry.id, entry.item)
+            if key in seen:
+                target = f"{entry.id}/{entry.item}" if entry.item else entry.id
+                raise ValueError(f"Duplicate today entry: {entry.kind} '{target}'")
+            seen.add(key)
+        return self
+
+
 def generate_json_schemas() -> dict[str, dict[str, Any]]:
     """Generate JSON Schemas from the Pydantic models."""
     project_schema = Project.model_json_schema()
     project_schema["title"] = "Project"
     learning_schema = LearningPath.model_json_schema()
     learning_schema["title"] = "LearningPath"
+    today_schema = Today.model_json_schema()
+    today_schema["title"] = "Today"
     return {
         "project.schema.json": project_schema,
         "learning.schema.json": learning_schema,
+        "today.schema.json": today_schema,
     }
 
 

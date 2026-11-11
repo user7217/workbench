@@ -16,6 +16,7 @@ import {
 import { ChildProjectRows } from "./ChildProjects";
 import { EditableField } from "./Editing";
 import { StatusMenu } from "./StatusMenu";
+import { TodayToggle } from "./TodayToggle";
 import { KindBadge, StatusNodeGlyph } from "./status";
 import { ParentControl } from "./StructureControls";
 import { SuggestionsInbox } from "./SuggestionsInbox";
@@ -87,6 +88,11 @@ export function ProjectHeader({ project: activeProject }: { project: Project }) 
           </div>
         </div>
         <div className="header-status-control">
+          <TodayToggle
+            variant="pill"
+            entry={{ kind: "project", id: activeProject.id }}
+            subject={activeProject.name}
+          />
           <StatusMenu
             variant="pill"
             status={activeProject.status}

@@ -1,0 +1,12 @@
+schema_version: 1
+# `day` is replaced with the date the demo is built, so the list opens as today's
+day: 2026-10-21
+entries:
+  - kind: project
+    id: demo-robot-arm
+    item: kinematics
+    added: 2026-10-21
+  - kind: learning
+    id: demo-robotics-kinematics
+    item: poe-kinematics
+    added: 2026-10-21

@@ -13,8 +13,8 @@ Workbench is pre-1.0. Security fixes go into the next release only; older versio
 Workbench separates executable application code from project metadata:
 
 - **`workbench` (Application Repository):** Contains the Python CLI, FastAPI server, and React frontend. Automated agents and discovery jobs never push to this repository.
-- **`workbench-data` (Private Metadata Repository):** Contains only declarative data files (`workbench.yaml`, `projects/<id>/project.yaml`, `learning/<id>/path.yaml`, and `learning/<id>/topics/<id>.md`).
-- **Path Whitelist Enforcement:** Every write path (`workbench push` and the other CLI commands, dashboard edits, the headless updater) and the server's staging-worktree validator, which checks every fetched commit before serving it, ([`src/workbench/validate.py`](src/workbench/validate.py)) reject any commit that touches a path outside those four patterns. Executable scripts, dotfiles, and Git hooks inside `workbench-data` are never executed.
+- **`workbench-data` (Private Metadata Repository):** Contains only declarative data files (`workbench.yaml`, `today.yaml`, `projects/<id>/project.yaml`, `learning/<id>/path.yaml`, and `learning/<id>/topics/<id>.md`).
+- **Path Whitelist Enforcement:** Every write path (`workbench push` and the other CLI commands, dashboard edits, the headless updater) and the server's staging-worktree validator, which checks every fetched commit before serving it, ([`src/workbench/validate.py`](src/workbench/validate.py)) reject any commit that touches a path outside those five patterns. Executable scripts, dotfiles, and Git hooks inside `workbench-data` are never executed.
 
 ---
 

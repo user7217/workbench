@@ -2,6 +2,7 @@
  * Entry stylesheet of the default look. The partials are imported in the original rule order, so
  * the cascade is unchanged; colours, radii and easing are the CSS variables in styles/tokens.css.
  */
+@import "@fontsource-variable/inter/index.css";
 @import "./styles/tokens.css";
 @import "./styles/base.css";
 @import "./styles/layout.css";
@@ -19,3 +20,6 @@
 @import "./styles/status-menu.css";
 @import "./styles/related.css";
 @import "./styles/editing.css";
+@import "./styles/today.css";
+@import "./styles/settings.css";
+@import "./styles/phone.css";

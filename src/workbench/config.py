@@ -70,7 +70,11 @@ def get_workbench_dir(home_dir: Path | None = None, env: dict[str, str] | None =
 def load_local_config(
     home_dir: Path | None = None, env: dict[str, str] | None = None
 ) -> WorkbenchLocalConfig:
-    """Load ~/.workbench/config.toml if present, or return defaults."""
+    """Load ~/.workbench/config.toml if present, or return defaults.
+
+    Unknown keys are ignored, so a key that is no longer used (such as the old `today` switch,
+    now `enabled` in today.yaml) still loads and is dropped the next time the config is saved.
+    """
     wb_dir = get_workbench_dir(home_dir=home_dir, env=env)
     cfg_path = wb_dir / "config.toml"
     if not cfg_path.exists():
