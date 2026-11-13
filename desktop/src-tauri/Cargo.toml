@@ -1,6 +1,6 @@
 [package]
 name = "workbench-desktop"
-version = "0.2.2"
+version = "0.2.3"
 description = "Menu-bar app that runs the Workbench dashboard server on this computer"
 license = "MIT"
 edition = "2021"

@@ -6,6 +6,8 @@ Each release on [GitHub Releases](https://github.com/user7217/workbench/releases
 
 ## [Unreleased]
 
+## [0.2.3] - 2026-11-13
+
 ### Added
 
 - **Parents follow their parts:** a phase, topic or component with parts becomes done when its last part is done, and goes back to in progress when a part is reopened or an unfinished part is added under it (a parked part keeps it open). It works from the dashboard, `workbench set` / `workbench add`, the agent updater and moving or deleting parts, walks up the whole chain, and names what followed in the commit message. Project and learning path statuses are not changed. See docs/reference.md §1.5.
@@ -94,7 +96,8 @@ The first release. Everything below is new.
 - **Security:** write endpoints require `X-Workbench: 1` and JSON; a server listening on localhost rejects other `Host` names, blocking DNS rebinding.
 - **Releases:** one version number for the Python package, web UI and desktop app (`scripts/version.py`), this changelog, and a release workflow that builds the `.dmg`, the wheel and sdist, and the Docker image for each `v*` tag.
 
-[Unreleased]: https://github.com/user7217/workbench/compare/v0.2.2...HEAD
+[Unreleased]: https://github.com/user7217/workbench/compare/v0.2.3...HEAD
+[0.2.3]: https://github.com/user7217/workbench/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/user7217/workbench/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/user7217/workbench/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/user7217/workbench/compare/v0.1.3...v0.2.0
