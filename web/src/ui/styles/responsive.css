@@ -37,7 +37,10 @@
     min-width: 0 !important;
   }
 
+  /* The active panel fills what the tab row above it leaves, so its bottom is never cut off */
   .workspace-panel.resp-active {
     display: flex;
+    flex: 1 1 0;
+    height: auto;
   }
 }

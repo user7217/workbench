@@ -18,8 +18,82 @@
     --tabbar-h: calc(54px + env(safe-area-inset-bottom, 0px));
   }
 
-  body {
+  /* Text: the desktop sizes, a step smaller for titles, so a phone screen holds more */
+  .domain-title {
+    font-size: 14.5px;
+  }
+
+  .unified-card-title,
+  .today-group-name {
+    font-size: 13.5px;
+  }
+
+  .detail-title {
     font-size: 14px;
+  }
+
+  .tier-1-phase-title {
+    font-size: 13px;
+  }
+
+  .today-title {
+    font-size: 17px;
+  }
+
+  .today-block-title {
+    font-size: 15.5px;
+  }
+
+  /* Full-screen panels: each workspace tab gets the whole height between the tab row and the
+     tab bar. The panel tabs already name the panel, so the panels' own title rows go. */
+  .panel-b-contents > .panel-sticky-header,
+  .panel-c-visual > .panel-sticky-header {
+    display: none;
+  }
+
+  .panel-a-nav > .panel-sticky-header {
+    height: 34px;
+  }
+
+  /* The map fills its tab; the selected item's details are in the Contents tab, which scrolls
+     to whatever is tapped on the map */
+  .panel-c-split-container {
+    padding: 6px;
+  }
+
+  .panel-c-diagram-frame {
+    flex: 1 1 auto;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  .panel-c-visual .panel-resizer-horizontal,
+  .panel-c-visual .visual-context-panel {
+    display: none;
+  }
+
+  /* Contents: a shallower indent, so the parts keep most of the width */
+  .tier-1-phase-header {
+    padding: 10px 12px;
+  }
+
+  .tier-2-subtopics-Indent {
+    padding: 8px 8px 10px 10px;
+    margin-left: 8px;
+  }
+
+  /* The Navigation tab is the way between phases, so the phase strip above Contents goes */
+  .phase-selector-strip {
+    display: none;
+  }
+
+  /* The sync line goes; a failed sync still shows its banner */
+  .footer-main-row {
+    display: none;
+  }
+
+  .footer-bar:not(:has(.footer-amber-banner)) {
+    display: none;
   }
 
   .workbench-layout {
