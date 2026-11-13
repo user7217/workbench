@@ -28,7 +28,6 @@ __pycache__/
 htmlcov/
 build/
 dist/
-tests/
 
 # --- Web UI ---
 web/node_modules/

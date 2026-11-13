@@ -1,0 +1,25 @@
+schema_version: 1
+id: demo-dangling-dep
+name: Dangling Dependency
+description: Component depends on non-existent target.
+status: active
+origin: manual
+updated: 2026-10-20
+repos: []
+links: []
+phases:
+  - id: phase-one
+    name: Phase One
+    status: in_progress
+    summary: ""
+    notes: ""
+    components:
+      - id: comp-a
+        name: Component A
+        status: in_progress
+        summary: ""
+        notes: ""
+        depends_on:
+          - non-existent-comp
+        links: []
+        refs: []
