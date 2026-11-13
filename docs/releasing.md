@@ -39,30 +39,42 @@ Refactors, CI tweaks and documentation fixes do not need an entry.
 
 ## 3. Cutting a Release
 
-On an up-to-date `main` with a clean working tree:
+`main` is protected by a ruleset (section 9): it changes only through a pull request whose CI checks pass. The version commit therefore goes in through a pull request like any other change, and only the tag is pushed directly.
 
 1. **Check the Unreleased section** of `CHANGELOG.md`: complete, and grouped as above.
-2. **Set the version.** This writes it to every file, turns `## [Unreleased]` into `## [0.2.0] - <today>` with a new empty Unreleased section above it, updates the compare links, and refreshes `uv.lock`:
+2. **Start a release branch** from an up-to-date `main` with a clean working tree:
+   ```bash
+   git switch main && git pull
+   git switch -c release/0.2.0
+   ```
+3. **Set the version.** This writes it to every file, turns `## [Unreleased]` into `## [0.2.0] - <today>` with a new empty Unreleased section above it, updates the compare links, and refreshes `uv.lock`:
    ```bash
    uv run python scripts/version.py set 0.2.0
    ```
-3. **Review and commit:**
+4. **Review, commit and push the branch:**
    ```bash
    git diff
    git commit -am "chore(workbench): release 0.2.0"
+   git push -u origin release/0.2.0
    ```
-4. **Tag and push** (the tag is what starts the release):
+5. **Open a pull request** for `release/0.2.0` on GitHub and merge it once CI passes.
+6. **Tag the merged commit and push the tag** (the tag is what starts the release):
    ```bash
+   git switch main && git pull
+   uv run python scripts/version.py check --tag v0.2.0   # main now carries 0.2.0
    git tag v0.2.0
-   git push origin main v0.2.0
+   git push origin v0.2.0
+   git branch -d release/0.2.0
    ```
-5. **Watch the Release workflow** in the repository's Actions tab. When it finishes, the release appears on the Releases page with all artifacts.
+7. **Watch the Release workflow** in the repository's Actions tab. When it finishes, the release appears on the Releases page with all artifacts.
+
+Tag right after merging, so the tag lands on the release's own merge commit rather than on later work.
 
 `set` refuses an empty Unreleased section and leaves every file untouched in that case. The workflow's first job runs `scripts/version.py check --tag <tag>`, so a tag that does not match the committed version, or a version without a changelog section, fails before anything is built or published.
 
 ## 4. If a Release Fails
 
-- **Before the `GitHub Release` job:** nothing public exists except possibly the Docker image. Fix the problem on `main`, then move the tag to the fixed commit and push it again:
+- **Before the `GitHub Release` job:** nothing public exists except possibly the Docker image. Fix the problem through a pull request, then, on the updated `main`, move the tag to the fixed commit and push it again (the ruleset covers branches, not tags):
   ```bash
   git tag -f v0.2.0 && git push -f origin v0.2.0
   ```
@@ -127,3 +139,18 @@ These need accounts outside GitHub and are planned for later:
 
 - **Apple signing and notarization** of the macOS app (an Apple Developer account), which removes the Gatekeeper prompt on first install. (Updates installed by the app itself do not show the prompt, since the app downloads them directly.)
 - **Windows and Linux** builds of the desktop app.
+
+## 9. Branch Rules on `main`
+
+A repository ruleset (Settings → Rules → Rulesets, named `main`, targeting the default branch, with no bypass list) keeps `main` releasable:
+
+| Rule | Setting |
+| :--- | :--- |
+| Restrict deletions | On |
+| Block force pushes | On |
+| Require a pull request before merging | On, with 0 required approvals: one maintainer cannot approve their own pull request |
+| Require status checks to pass | `Lint and format`, `Web UI and generated files`, `Package on ubuntu-latest`, `Package on macos-latest`, `Package on windows-latest`, `Docker image` |
+
+Linear history is not required, since pull requests are merged with merge commits. Tags are not covered, so a release tag can still be pushed, and moved after a failed release (section 4).
+
+The required checks are matched by the job names in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml). Renaming a job, or changing the operating systems of the package matrix, leaves the ruleset waiting for a check that never reports, and every pull request then stays blocked; update the list in the ruleset in the same change.

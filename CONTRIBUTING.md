@@ -105,21 +105,20 @@ uv run python -c "from pathlib import Path; from workbench.models import write_j
 (cd web && npm run generate-types)
 ```
 
-> **Note:** the maintainer's test suite checks that `schema/project.schema.json`, `schema/learning.schema.json`, and `web/src/types/*.d.ts` match `models.py` byte-for-byte, so commit the regenerated files together with the model change.
+> **Note:** the test suite (`tests/`) checks that `schema/project.schema.json`, `schema/learning.schema.json`, and `web/src/types/*.d.ts` match `models.py` byte-for-byte, so commit the regenerated files together with the model change.
 
 ---
 
 ## 4. Testing & Quality Checks
 
-> **The test suites are not published.** `tests/` (Python and Playwright) and `web/src/core/__tests__/` (Vitest) are kept out of the repository (see `.gitignore`), so in a fresh clone `make test` finds no tests and `npm test` reports no test files. Check a change with:
+> **Which suites are published.** The Python and Playwright tests in `tests/` are in the repository. The Vitest tests in `web/src/core/__tests__/` are still kept out of it (see `.gitignore`), so in a fresh clone `npm test` reports no test files. For a change to the web core, check it with:
 >
 > ```bash
-> uv run python -c "import workbench.cli, workbench.server.app"   # the backend imports cleanly
 > (cd web && npx tsc --noEmit -p . && npm run typecheck:look && npm run build)
 > make demo                                                     # then try the change in the browser
 > ```
 >
-> and describe what was tested in the pull request. The rest of this section describes how the suite runs where it exists.
+> and describe what was tested in the pull request.
 
 Run the full build and test suite with:
 
@@ -149,7 +148,7 @@ Biome reports the accessibility rules as warnings for now (clickable elements wi
 
 CI does not build the desktop app; the release workflow does, for every version tag.
 
-The test suites are not published, so CI does not run them; run them locally before opening a pull request.
+Pull requests into `main` can only be merged once all of these checks pass (see [docs/releasing.md](docs/releasing.md) §9). CI lints the Python tests but does not run them yet; run `make test` locally before opening a pull request.
 
 ### Changelog and Releases
 
