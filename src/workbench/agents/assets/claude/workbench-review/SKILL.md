@@ -65,6 +65,9 @@ The "left to do" part is the point of the dashboard; never skip it.
    `project.yaml` path it prints. Merge — do not
    regenerate:
    - **Keep everything already there.** Update statuses, add new items, never rename an `id`.
+   - **Parents follow their parts**: an item with parts is `done` exactly when all of its parts are
+     `done` (a `parked` part keeps it open). When you edit the file directly, keep every parent you
+     touch consistent with that; `workbench set` and the dashboard do it automatically.
      New ids are lowercase slugs (`^[a-z0-9]+(-[a-z0-9]+)*$`), unique across the whole file.
    - **Structure** — keep an existing `uses_phases` setting. For an empty entry, choose
      `uses_phases: true` with `phases:` if the work runs in stages, or `uses_phases: false` with

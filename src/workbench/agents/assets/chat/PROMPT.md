@@ -81,8 +81,8 @@ RULES:
    `id`; update its status and text, and add new ones. Never rename or drop an `id`. If the entry
    uses `uses_phases: false` with `topics:` instead of `phases:`, keep that structure.
 2. Status: `done` only when it is built and working; `in_progress` when partly built or not yet
-   working; `not_started` when planned; `parked` when put on hold. A phase is `done` when all its
-   components are, `in_progress` when any has started.
+   working; `not_started` when planned; `parked` when put on hold. A phase (or a component with
+   parts) is `done` exactly when all its parts are, `in_progress` when any has started.
 3. Left to do → `not_started` components: things I said should happen next or later, work that was
    deferred or split off, known problems that were not fixed, and follow-ups I agreed to. Do not add
    ideas I did not agree to.

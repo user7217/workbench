@@ -29,6 +29,14 @@ from workbench.validate import validate_project_file
 from workbench.yamlio import load_yaml_roundtrip, to_plain_python
 
 
+def _parent_id(loc: edits.Location, doc: Any) -> str | None:
+    """Id of the phase/component holding an item, or None for a phase/topic of the project."""
+    if loc.owner is doc:
+        return None
+    owner_id = loc.owner.get("id")
+    return owner_id if isinstance(owner_id, str) else None
+
+
 def _drop_if_empty(loc: edits.Location, doc: Any) -> None:
     """Remove an emptied nested list key (top-level phases/topics stay)."""
     if loc.owner is not doc and isinstance(loc.seq, list) and not loc.seq:
@@ -132,10 +140,15 @@ def move_project_item(
         same_list = target_seq is loc.seq
         limit = len(target_seq) - 1 if same_list else len(target_seq)
         _check_position(position, limit)
+        old_parent = _parent_id(loc, doc)
         loc.seq.pop(loc.index)
         target_seq.insert(position, loc.node)
         if not same_list:
             _drop_if_empty(loc, doc)
+            # The new parent gained a part and the old one lost one: both follow their parts
+            edits.roll_up_project(doc, item_id)
+            if old_parent is not None:
+                edits.roll_up_project_from(doc, old_parent)
 
     def message() -> str:
         scope = f"{project_id}/{item_id}"
@@ -181,8 +194,12 @@ def delete_project_item(
     def mutate(doc: Any) -> None:
         loc = edits.require_project_item(doc, project_id, item_id)
         ids = _subtree_ids(loc.node)
+        parent = _parent_id(loc, doc)
         loc.seq.pop(loc.index)
         _drop_if_empty(loc, doc)
+        if parent is not None:
+            # Removing the last open part finishes the parent
+            edits.roll_up_project_from(doc, parent)
         refs = sorted(
             f"{node.get('id')} -> {dep}"
             for node in _iter_component_nodes(doc)

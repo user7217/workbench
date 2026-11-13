@@ -119,6 +119,21 @@ under: wrist-differential
 | `repos[].root_commit`, `refs[]` | `CommitSha` | `^[0-9a-f]{7,64}$` |
 | `updated`, `suggestions[].added` | `DateStr` | `YYYY-MM-DD` |
 
+### 1.5 Status Roll-up
+
+An item with parts (a phase or topic with components, a component with nested components, a learning topic with subtopics) follows its parts:
+
+- When its last open part becomes `done`, the item becomes `done`.
+- When a part of a `done` item is reopened, or an unfinished part is added under it, the item goes back to `in_progress`.
+- Only `done` counts as finished: a `parked` part keeps its parent open.
+- Otherwise the parent's status is left as it is (a `not_started` phase does not start because one part did).
+
+The rule runs on every status change made through the dashboard, `workbench set` and `workbench add`, the headless agent updater, and on moving or deleting a part in the dashboard. It walks up from the item that changed, so a whole chain can follow at once (the last subtask finishes its component, which finishes its phase), and the commit subject names what followed: `edit(rover/encoders): status done; drive done, build done`.
+
+Only the ancestors of the item that changed are touched: a parent whose status was set by hand elsewhere in the file is not changed by an unrelated edit, and an item's own status, as set, is never overridden. Child projects attached under an item live in their own files and do not count; the project's or learning path's own `status` is never changed. A full review (`workbench push`) and a learning import write statuses directly; the agent instructions ask a reviewing agent to keep parents consistent with this rule.
+
+The rule lives in `src/workbench/edits.py` (`roll_up_project`, `roll_up_learning`).
+
 ---
 
 ## 2. Learning Path Schema (`learning/<id>/path.yaml`)

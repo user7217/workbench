@@ -78,6 +78,8 @@ nothing), run `workbench hook-check --mark-seen` and reply `Workbench: no update
 
 - **Statuses**: `done` only when built and working (tests pass or the user saw it work);
   `in_progress` when partly built; `not_started` for planned work; `parked` when the user put it on hold.
+  Set the part you worked on, not its parents: a parent turns `done` by itself when its last part
+  does, and back to `in_progress` when a part reopens or an unfinished one is added under it.
 - **New items**: problems actually found, next steps the user asked for or agreed to, and
   suggestions the user selected in step 3. Your own suggestions go through step 3, never straight in.
 - **Never** rename or remove items here; restructuring belongs in workbench-review.

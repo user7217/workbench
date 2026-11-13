@@ -6,6 +6,10 @@ Each release on [GitHub Releases](https://github.com/user7217/workbench/releases
 
 ## [Unreleased]
 
+### Added
+
+- **Parents follow their parts:** a phase, topic or component with parts becomes done when its last part is done, and goes back to in progress when a part is reopened or an unfinished part is added under it (a parked part keeps it open). It works from the dashboard, `workbench set` / `workbench add`, the agent updater and moving or deleting parts, walks up the whole chain, and names what followed in the commit message. Project and learning path statuses are not changed. See docs/reference.md §1.5.
+
 ## [0.2.2] - 2026-11-13
 
 ### Fixed

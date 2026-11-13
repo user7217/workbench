@@ -30,7 +30,9 @@ entry. Use one or two commands; each validates, privacy-scans, commits and pushe
    nothing), run `workbench hook-check --mark-seen` and reply "Workbench: no update needed".
 
 Rules: `done` only when built and working (tests pass or the user saw it work); `in_progress` when
-partly built; `not_started` for planned work; `parked` when the user put it on hold. New items only for
+partly built; `not_started` for planned work; `parked` when the user put it on hold. Set the part you
+worked on, not its parents: a parent turns `done` by itself when its last part does, and back to
+`in_progress` when a part reopens. New items only for
 work the user agreed to, problems actually found, or suggestions the user picked: if this message ended with suggestions not yet on the dashboard, list them numbered, ask which to track, and add only the chosen ones. Put sub-tasks --under the item they belong to so the tree keeps gaining depth; link items with --depends-on <ids>. Never rename or remove items
 here; restructuring belongs in a full review. Never include secrets, API keys, local paths, emails,
 private IPs, pasted logs or error output, or personal information. Commits are filed as
@@ -71,7 +73,8 @@ the current repo to belong to that project, run `workbench link --id <project-id
    - Every phase or topic with real work — done, in progress, or planned — gets children (`components:`,
      or `topics:` / `subtopics:`). Only a `parked` or not-yet-planned phase may have none.
    - Child status: `done` only when implemented and working; `in_progress` when partly built;
-     `not_started` when planned; `parked` when on hold. A phase follows its children.
+     `not_started` when planned; `parked` when on hold. A parent follows its children: `done`
+     exactly when all of them are `done`.
    - `depends_on` lists component ids needed first (existing ids, no cycles); link related work instead of duplicating it.
    - Build the tree: put each sub-task under the item it belongs to, to any depth, rather than flat at the top.
    - A component may hold its own `components:` list (any depth); ids stay unique across the project.

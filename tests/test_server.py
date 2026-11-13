@@ -387,17 +387,18 @@ def test_project_and_learning_status_writes_round_trip(write_env) -> None:
     assert _find_component_in(rover["phases"][0]["components"], "ekf-local")["status"] == "done"
     assert rover["updated"] == today
     subject, sha = _remote_head(laptop_data)
-    assert subject == "edit(demo-nested-rover/ekf-local): status done"
+    # ekf-local is the only part of ekf, ekf of navigation, navigation of build: all follow it
+    assert subject == (
+        "edit(demo-nested-rover/ekf-local): status done; ekf done, navigation done, build done"
+    )
     assert body["snapshot"]["commit"] == sha
     remote_rover = _remote_yaml(laptop_data, rover_path)
-    assert (
-        _find_component_in(remote_rover["phases"][0]["components"], "ekf-local")["status"] == "done"
-    )
-    # Sibling statuses untouched
-    assert (
-        _find_component_in(remote_rover["phases"][0]["components"], "ekf")["status"]
-        == "in_progress"
-    )
+    remote_build = remote_rover["phases"][0]
+    for comp_id in ("ekf-local", "ekf", "navigation"):
+        assert _find_component_in(remote_build["components"], comp_id)["status"] == "done"
+    assert remote_build["status"] == "done"
+    # The other phase is not an ancestor and is left alone
+    assert remote_rover["phases"][1]["status"] == "not_started"
 
     # Phase status change
     resp = client.post(
@@ -1172,3 +1173,65 @@ def test_serve_command_uses_laptop_config_and_its_own_state_dir(
     assert os.environ["WORKBENCH_DATA_REMOTE"] == "git@example.com:me/data.git"
     assert os.environ["WORKBENCH_BRANCH"] == "trunk"
     assert os.environ["WORKBENCH_STATE_DIR"] == str(home / ".workbench" / "server")
+
+
+def _rover_item_status(laptop_data: Path, item_id: str) -> str:
+    rover = _remote_yaml(laptop_data, "projects/demo-nested-rover/project.yaml")
+    for phase in rover["phases"]:
+        if phase["id"] == item_id:
+            return phase["status"]
+        found = _find_component_in(phase.get("components", []) or [], item_id)
+        if found is not None:
+            return found["status"]
+    raise AssertionError(f"{item_id} not found")
+
+
+def test_deleting_the_last_open_part_finishes_its_parents(write_env) -> None:
+    """A delete rolls the statuses of the removed part's parents up (edits.roll_up_project_from)."""
+    client, laptop_data = write_env
+    resp = client.post(
+        "/api/projects/demo-nested-rover/items",
+        headers=WRITE_HEADERS,
+        json={"parent_id": "ekf", "name": "Wiring"},
+    )
+    assert resp.status_code == 200, resp.text
+    new_id = resp.json()["item_id"]
+    resp = client.post(
+        "/api/projects/demo-nested-rover/items/ekf-local/status",
+        headers=WRITE_HEADERS,
+        json={"status": "done"},
+    )
+    assert resp.status_code == 200, resp.text
+    assert _rover_item_status(laptop_data, "ekf") == "in_progress"  # Wiring is still open
+
+    resp = client.post(
+        f"/api/projects/demo-nested-rover/items/{new_id}/delete",
+        headers=WRITE_HEADERS,
+        json={"confirm": True},
+    )
+    assert resp.status_code == 200, resp.text
+    for item_id in ("ekf", "navigation", "build"):
+        assert _rover_item_status(laptop_data, item_id) == "done"
+
+
+def test_moving_parts_updates_both_parents(write_env) -> None:
+    """The part's new parent and the parent it left both follow their parts."""
+    client, laptop_data = write_env
+    resp = client.post(
+        "/api/projects/demo-nested-rover/items/field-trials/status",
+        headers=WRITE_HEADERS,
+        json={"status": "done"},
+    )
+    assert resp.status_code == 200, resp.text
+    assert _rover_item_status(laptop_data, "testing") == "done"
+
+    # ekf-local (not started) moves from ekf into the done 'testing' phase
+    resp = client.post(
+        "/api/projects/demo-nested-rover/items/ekf-local/move",
+        headers=WRITE_HEADERS,
+        json={"parent_id": "testing", "position": 0},
+    )
+    assert resp.status_code == 200, resp.text
+    assert _rover_item_status(laptop_data, "testing") == "in_progress"
+    # ekf lost its only part: no parts left, so its status stays as it was
+    assert _rover_item_status(laptop_data, "ekf") == "in_progress"
