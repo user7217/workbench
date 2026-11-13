@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import stat
 from pathlib import Path
 
@@ -11,7 +10,13 @@ from typer.testing import CliRunner
 from workbench.cli import app
 from workbench.config import load_local_config, save_local_config
 from workbench.demo import init_demo_environment
-from workbench.gitops import commit_all, create_worktree, push_head_to_branch, remove_worktree, run_git
+from workbench.gitops import (
+    commit_all,
+    create_worktree,
+    push_head_to_branch,
+    remove_worktree,
+    run_git,
+)
 from workbench.validate import validate_data_repo
 from workbench.yamlio import (
     dump_yaml_roundtrip,
@@ -23,9 +28,7 @@ from workbench.yamlio import (
 runner = CliRunner()
 
 
-def test_cli_begin_push_concurrent_and_conflict_and_undo(
-    tmp_path: Path, monkeypatch: any
-) -> None:
+def test_cli_begin_push_concurrent_and_conflict_and_undo(tmp_path: Path, monkeypatch: any) -> None:
     """Test begin/push, two concurrent begins, conflicting edits to same project, --allow-removals, and undo (§14)."""
     demo_dir = tmp_path / "demo"
     info = init_demo_environment(demo_dir)
@@ -117,9 +120,7 @@ def test_cli_begin_push_concurrent_and_conflict_and_undo(
     assert "tree-formatter" in show_res.stdout
 
 
-def test_cli_push_race_retries_and_llm_reviewer(
-    tmp_path: Path, monkeypatch: any
-) -> None:
+def test_cli_push_race_retries_and_llm_reviewer(tmp_path: Path, monkeypatch: any) -> None:
     """Test push race retry logic and LLM reviewer pass/fail/unavailable behavior (§7.2, §8, §14)."""
     demo_dir = tmp_path / "demo_reviewer"
     info = init_demo_environment(demo_dir)
@@ -218,7 +219,11 @@ def test_archive_empty_archives_only_empty_projects_in_one_commit(
 
     def remote_status(pid: str) -> str:
         text = run_git(["show", f"origin/main:projects/{pid}/project.yaml"], cwd=laptop_data).stdout
-        return next(line.split(":", 1)[1].strip() for line in text.splitlines() if line.startswith("status:"))
+        return next(
+            line.split(":", 1)[1].strip()
+            for line in text.splitlines()
+            if line.startswith("status:")
+        )
 
     head_before = remote_head()
 
@@ -239,7 +244,9 @@ def test_archive_empty_archives_only_empty_projects_in_one_commit(
     assert remote_status("empty-keep-me") == "active"
     assert remote_status("demo-esp32-audio-dsp") == "active"
     assert remote_status("empty-manual") == "active"
-    count = run_git(["rev-list", "--count", f"{head_before}..origin/main"], cwd=laptop_data).stdout.strip()
+    count = run_git(
+        ["rev-list", "--count", f"{head_before}..origin/main"], cwd=laptop_data
+    ).stdout.strip()
     assert count == "1"
 
     # Nothing left to archive on a second run
@@ -284,7 +291,9 @@ def test_link_attaches_repo_to_umbrella_project_and_drops_empty_stub(
     assert remote_head() != head_before
     assert remote_file("projects/demo-notes-sync/project.yaml") is None
     umbrella = remote_file("projects/field-robotics/project.yaml")
-    ns_root = run_git(["rev-list", "--max-parents=0", "HEAD"], cwd=code_dir / "notes-sync").stdout.split()[0]
+    ns_root = run_git(
+        ["rev-list", "--max-parents=0", "HEAD"], cwd=code_dir / "notes-sync"
+    ).stdout.split()[0]
     assert ns_root in umbrella
     assert "demouser/notes-sync" in umbrella
 
@@ -350,19 +359,37 @@ def test_new_attach_detach_child_projects(tmp_path: Path, monkeypatch: any) -> N
     # A planned child project under a component of its parent
     created = runner.invoke(
         app,
-        ["new", "Gripper Lab", "--parent", "demo-robot-arm", "--under", "base-turntable",
-         "--status", "planned"],
+        [
+            "new",
+            "Gripper Lab",
+            "--parent",
+            "demo-robot-arm",
+            "--under",
+            "base-turntable",
+            "--status",
+            "planned",
+        ],
     )
     assert created.exit_code == 0, created.output
     child = remote_project("gripper-lab")
     assert (child["status"], child["parent"], child["under"]) == (
-        "planned", "demo-robot-arm", "base-turntable"
+        "planned",
+        "demo-robot-arm",
+        "base-turntable",
     )
 
     # attach an existing project under a phase of another
     attached = runner.invoke(
-        app, ["attach", "--id", "demo-weather-station", "--parent", "demo-robot-arm",
-              "--under", "mechanics"],
+        app,
+        [
+            "attach",
+            "--id",
+            "demo-weather-station",
+            "--parent",
+            "demo-robot-arm",
+            "--under",
+            "mechanics",
+        ],
     )
     assert attached.exit_code == 0, attached.output
     ws = remote_project("demo-weather-station")
@@ -372,8 +399,16 @@ def test_new_attach_detach_child_projects(tmp_path: Path, monkeypatch: any) -> N
     # Re-attaching to the same place is a no-op
     head_attached = remote_head()
     again = runner.invoke(
-        app, ["attach", "--id", "demo-weather-station", "--parent", "demo-robot-arm",
-              "--under", "mechanics"],
+        app,
+        [
+            "attach",
+            "--id",
+            "demo-weather-station",
+            "--parent",
+            "demo-robot-arm",
+            "--under",
+            "mechanics",
+        ],
     )
     assert again.exit_code == 0, again.output
     assert "already under" in again.output
@@ -381,19 +416,29 @@ def test_new_attach_detach_child_projects(tmp_path: Path, monkeypatch: any) -> N
 
     # A cycle (robot-arm under its own child) and unknown items are refused, nothing pushed
     cycle = runner.invoke(
-        app, ["attach", "--id", "demo-robot-arm", "--parent", "demo-weather-station",
-              "--under", "hardware"],
+        app,
+        [
+            "attach",
+            "--id",
+            "demo-robot-arm",
+            "--parent",
+            "demo-weather-station",
+            "--under",
+            "hardware",
+        ],
     )
     assert cycle.exit_code == 1
     assert "cycle" in cycle.output
     assert "demo-robot-arm -> demo-weather-station -> demo-robot-arm" in cycle.output
     self_parent = runner.invoke(
-        app, ["attach", "--id", "demo-robot-arm", "--parent", "demo-robot-arm", "--under", "mechanics"]
+        app,
+        ["attach", "--id", "demo-robot-arm", "--parent", "demo-robot-arm", "--under", "mechanics"],
     )
     assert self_parent.exit_code == 1
     assert "own parent" in self_parent.output
     bad_under = runner.invoke(
-        app, ["attach", "--id", "demo-budget-cli", "--parent", "demo-robot-arm", "--under", "nowhere"]
+        app,
+        ["attach", "--id", "demo-budget-cli", "--parent", "demo-robot-arm", "--under", "nowhere"],
     )
     assert bad_under.exit_code == 1
     assert "nowhere" in bad_under.output
@@ -459,7 +504,9 @@ def test_new_runs_full_push_pipeline(tmp_path: Path, monkeypatch: any) -> None:
     assert calls["n"] == 2
     assert "Created project 'lab-notebook'" in created.output
     assert "Warning" not in created.output
-    proj = to_plain_python(load_yaml_str_roundtrip(remote_text("projects/lab-notebook/project.yaml")))
+    proj = to_plain_python(
+        load_yaml_str_roundtrip(remote_text("projects/lab-notebook/project.yaml"))
+    )
     assert (proj["origin"], proj["status"]) == ("manual", "active")
     log = run_git(["log", "-1", "--format=%s", "origin/main"], cwd=laptop_data).stdout.strip()
     assert log == "create(lab-notebook): new project Lab Notebook"

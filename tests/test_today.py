@@ -8,7 +8,6 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
-
 from typer.testing import CliRunner
 
 from workbench.cli import app as cli_app

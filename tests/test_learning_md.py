@@ -44,8 +44,12 @@ def test_parse_learning_markdown_reads_statuses_summaries_and_links() -> None:
 
     assert data["id"] == "control-theory"
     assert data["name"] == "Control Theory"
-    assert data["description"] == "Feedback control from first principles, aimed at the field robot."
-    assert data["references"] == [{"label": "Feedback Systems", "url": "https://example.com/feedback-systems"}]
+    assert (
+        data["description"] == "Feedback control from first principles, aimed at the field robot."
+    )
+    assert data["references"] == [
+        {"label": "Feedback Systems", "url": "https://example.com/feedback-systems"}
+    ]
 
     linear, pid = data["topics"]
     assert (linear["id"], linear["status"]) == ("linear-systems", "done")
@@ -85,7 +89,9 @@ def test_merge_never_moves_status_backwards_or_drops_items() -> None:
     assert tuning["notes"] == "Ziegler-Nichols worked on the cart."
     assert tuning["summary"] == "Pick gains from step response."
     assert [s["id"] for s in pid["subtopics"]] == ["tuning", "feedforward", "anti-windup"]
-    assert any(t["id"] == "linear-systems" for t in merged["topics"])  # absent from new outline, kept
+    assert any(
+        t["id"] == "linear-systems" for t in merged["topics"]
+    )  # absent from new outline, kept
     assert merged["description"] == old["description"]  # new outline had none
 
 
@@ -94,14 +100,19 @@ def test_reimport_keeps_related_projects_and_fields_outside_the_outline() -> Non
     old["related_projects"] = ["field-robot"]
     old["status"] = "paused"
 
-    outline, _ = parse_learning_markdown("# Control Theory\n\n## [x] PID control\n", fallback_name="x")
+    outline, _ = parse_learning_markdown(
+        "# Control Theory\n\n## [x] PID control\n", fallback_name="x"
+    )
     merged = merge_learning_paths(old, outline)
     assert merged["related_projects"] == ["field-robot"]
     assert merged["status"] == "paused"
 
     # A YAML import that names related projects adds to the list and never drops existing ones
     yaml_import = dict(outline, related_projects=["drone-lab", "field-robot"])
-    assert merge_learning_paths(old, yaml_import)["related_projects"] == ["field-robot", "drone-lab"]
+    assert merge_learning_paths(old, yaml_import)["related_projects"] == [
+        "field-robot",
+        "drone-lab",
+    ]
     assert old["related_projects"] == ["field-robot"]  # input not mutated
 
 
@@ -131,7 +142,9 @@ def test_cli_import_merges_existing_path_and_export_prints_outline(
     assert first.exit_code == 0, first.output
 
     # Re-import a shorter outline that un-marks a done item: progress and missing items survive
-    outline.write_text("# Control Theory\n\n## [ ] Linear systems\n### [ ] Observers\n", encoding="utf-8")
+    outline.write_text(
+        "# Control Theory\n\n## [ ] Linear systems\n### [ ] Observers\n", encoding="utf-8"
+    )
     second = runner.invoke(app, ["learning", "import", str(outline)])
     assert second.exit_code == 0, second.output
 
@@ -155,9 +168,15 @@ def test_cli_import_merges_existing_path_and_export_prints_outline(
 
 
 def test_learning_chat_prompt_example_parses_to_a_valid_path() -> None:
-    prompt = (Path(__file__).resolve().parent.parent / "src" / "workbench" / "agents" / "assets" / "chat" / "LEARNING_PROMPT.md").read_text(
-        encoding="utf-8"
-    )
+    prompt = (
+        Path(__file__).resolve().parent.parent
+        / "src"
+        / "workbench"
+        / "agents"
+        / "assets"
+        / "chat"
+        / "LEARNING_PROMPT.md"
+    ).read_text(encoding="utf-8")
     example = re.search(r"```markdown\n(.*?)```", prompt, re.S).group(1)
     data, warnings = parse_learning_markdown(example, fallback_name="x")
     assert warnings == []

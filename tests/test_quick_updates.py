@@ -11,12 +11,12 @@ import pytest
 from typer.testing import CliRunner
 
 from workbench import commitmsg
+from workbench.agents.hooks import evaluate_hook_input, mark_repo_seen
+from workbench.agents.install import run_install
 from workbench.cli import app
 from workbench.config import load_local_config, save_local_config
 from workbench.demo import init_demo_environment
 from workbench.gitops import commit_all, get_head_commit, get_root_commit, run_git
-from workbench.agents.hooks import evaluate_hook_input, mark_repo_seen
-from workbench.agents.install import run_install
 from workbench.yamlio import load_yaml_str_roundtrip, to_plain_python
 
 runner = CliRunner()
@@ -127,7 +127,17 @@ def test_set_updates_one_item_on_quick_path(demo: dict, monkeypatch: pytest.Monk
     monkeypatch.chdir(ws_repo)
 
     t0 = time.perf_counter()
-    res = _invoke(["set", WS, "radio-tx", "--status", "done", "--notes", "Range test passed; next: duty cycle"])
+    res = _invoke(
+        [
+            "set",
+            WS,
+            "radio-tx",
+            "--status",
+            "done",
+            "--notes",
+            "Range test passed; next: duty cycle",
+        ]
+    )
     elapsed = time.perf_counter() - t0
     sha = _remote_sha(data)
     assert res.output.strip() == f"Updated {WS}/radio-tx: status done, notes ({sha[:8]})"
@@ -177,21 +187,47 @@ def test_add_component_and_new_phase(demo: dict, monkeypatch: pytest.MonkeyPatch
 
     # Under a component (creates its nested components list)
     res = _invoke(
-        ["add", WS, "--under", "radio-tx", "--name", "Fix Float timeout",
-         "--summary", "rtk_sim never drops to Float", "--notes", "Needs a sim hook"]
+        [
+            "add",
+            WS,
+            "--under",
+            "radio-tx",
+            "--name",
+            "Fix Float timeout",
+            "--summary",
+            "rtk_sim never drops to Float",
+            "--notes",
+            "Needs a sim hook",
+        ]
     )
     sha = _remote_sha(data)
     assert res.output.strip() == f"Added {WS}/fix-float-timeout under radio-tx ({sha[:8]})"
     radio = _find(_remote_project(data, WS)["phases"][1]["components"], "radio-tx")
     assert radio["components"] == [
-        {"id": "fix-float-timeout", "name": "Fix Float timeout", "status": "not_started",
-         "summary": "rtk_sim never drops to Float", "notes": "Needs a sim hook"}
+        {
+            "id": "fix-float-timeout",
+            "name": "Fix Float timeout",
+            "status": "not_started",
+            "summary": "rtk_sim never drops to Float",
+            "notes": "Needs a sim hook",
+        }
     ]
     assert _remote_subjects(data) == [f"update({WS}/radio-tx): add fix-float-timeout"]
     assert _invoke(["focus"]).output.strip() == f"Focus: {WS}/radio-tx"
 
     # Same name again gets a -2 suffix; an explicit id that is taken is refused
-    res = _invoke(["add", WS, "--under", "enclosure", "--name", "Fix Float timeout", "--status", "in_progress"])
+    res = _invoke(
+        [
+            "add",
+            WS,
+            "--under",
+            "enclosure",
+            "--name",
+            "Fix Float timeout",
+            "--status",
+            "in_progress",
+        ]
+    )
     assert f"{WS}/fix-float-timeout-2 under enclosure" in res.output
     dup = runner.invoke(app, ["add", WS, "--under", "enclosure", "--name", "X", "--id", "radio-tx"])
     assert dup.exit_code == 1 and "already used" in dup.output
@@ -211,17 +247,32 @@ def test_depends_on_on_add_and_set(demo: dict, monkeypatch: pytest.MonkeyPatch) 
     data, ws_repo = demo["data"], demo["ws_repo"]
     monkeypatch.chdir(ws_repo)
 
-    _invoke(["add", WS, "--under", "radio-tx", "--name", "Range test", "--depends-on", "sensor-board, i2c-driver"])
+    _invoke(
+        [
+            "add",
+            WS,
+            "--under",
+            "radio-tx",
+            "--name",
+            "Range test",
+            "--depends-on",
+            "sensor-board, i2c-driver",
+        ]
+    )
     node = _find(_remote_project(data, WS)["phases"][1]["components"], "range-test")
     assert node["depends_on"] == ["sensor-board", "i2c-driver"]
 
     res = _invoke(["set", WS, "range-test", "--depends-on", "sensor-board"])
     assert "depends_on" in res.output
-    assert _find(_remote_project(data, WS)["phases"][1]["components"], "range-test")["depends_on"] == ["sensor-board"]
+    assert _find(_remote_project(data, WS)["phases"][1]["components"], "range-test")[
+        "depends_on"
+    ] == ["sensor-board"]
     assert _remote_subjects(data) == [f"update({WS}/range-test): depends_on"]
 
     _invoke(["set", WS, "range-test", "--depends-on", ""])
-    assert "depends_on" not in _find(_remote_project(data, WS)["phases"][1]["components"], "range-test")
+    assert "depends_on" not in _find(
+        _remote_project(data, WS)["phases"][1]["components"], "range-test"
+    )
     assert _remote_subjects(data) == [f"update({WS}/range-test): clear depends_on"]
 
     head = _remote_sha(data)
@@ -244,7 +295,10 @@ def test_focus_command(demo: dict, tmp_path: Path, monkeypatch: pytest.MonkeyPat
 
     monkeypatch.chdir(demo["ws_repo"])
     assert _invoke(["focus"]).output.strip() == "No focus set for this repo."
-    assert _invoke(["focus", "--set", f"{WS}/enclosure"]).output.strip() == f"Focus set to {WS}/enclosure"
+    assert (
+        _invoke(["focus", "--set", f"{WS}/enclosure"]).output.strip()
+        == f"Focus set to {WS}/enclosure"
+    )
     assert _invoke(["focus"]).output.strip() == f"Focus: {WS}/enclosure"
     assert runner.invoke(app, ["focus", "--set", "Bad Id"]).exit_code == 1
     assert runner.invoke(app, ["focus", "--set", "a/b/c"]).exit_code == 1
@@ -260,7 +314,9 @@ def test_focus_command(demo: dict, tmp_path: Path, monkeypatch: pytest.MonkeyPat
 
 def test_commitmsg_helpers() -> None:
     assert commitmsg.build_message("update", "status done", "p/i") == "update(p/i): status done"
-    assert commitmsg.build_message("archive", "2 empty\nproject(s)") == "archive: 2 empty project(s)"
+    assert (
+        commitmsg.build_message("archive", "2 empty\nproject(s)") == "archive: 2 empty project(s)"
+    )
     with pytest.raises(ValueError):
         commitmsg.build_message("nope", "x")
     parsed = commitmsg.parse_message("edit(learning/dsp/aliasing): status done")
@@ -269,7 +325,10 @@ def test_commitmsg_helpers() -> None:
     assert commitmsg.parse_message("Mark x done via dashboard") is None
     assert commitmsg.parse_message("fix(p): not a workbench kind") is None
     assert commitmsg.scope_for_paths(["projects/a/project.yaml"]) == "a"
-    assert commitmsg.scope_for_paths(["learning/l/path.yaml", "learning/l/topics/t.md"]) == "learning/l"
+    assert (
+        commitmsg.scope_for_paths(["learning/l/path.yaml", "learning/l/topics/t.md"])
+        == "learning/l"
+    )
     assert commitmsg.scope_for_paths(["projects/a/project.yaml", "projects/b/project.yaml"]) is None
     assert commitmsg.review_message("Record session", "a") == "review(a): Record session"
     assert commitmsg.review_message("Record session", None) == "review: Record session"
@@ -286,13 +345,17 @@ def test_commit_kinds_and_history_filters(demo: dict, monkeypatch: pytest.Monkey
     _invoke(["new", "Lab Notebook"])
     assert _remote_subjects(data) == ["create(lab-notebook): new project Lab Notebook"]
     _invoke(["new", "Kalman Filters", "--learning"])
-    assert _remote_subjects(data) == ["create(learning/kalman-filters): new learning path Kalman Filters"]
+    assert _remote_subjects(data) == [
+        "create(learning/kalman-filters): new learning path Kalman Filters"
+    ]
     _invoke(["set", WS, "radio-tx", "--status", "done"])
 
     # push: free text gets review(<project>); a message with a known kind is kept
     wt_file = Path(_invoke(["begin"]).output.strip())
-    wt_file.write_text(wt_file.read_text(encoding="utf-8").replace(
-        "Weather Station", "Weather Station Mk2", 1), encoding="utf-8")
+    wt_file.write_text(
+        wt_file.read_text(encoding="utf-8").replace("Weather Station", "Weather Station Mk2", 1),
+        encoding="utf-8",
+    )
     _invoke(["push", str(wt_file), "-m", "Reconcile after radio work"])
     assert _remote_subjects(data) == [f"review({WS}): Reconcile after radio work"]
 
@@ -340,7 +403,9 @@ def test_commit_kinds_and_history_filters(demo: dict, monkeypatch: pytest.Monkey
 # ---------------------------------------------------------------------------
 
 
-def test_hook_decisions_review_update_no_loop_and_speed(demo: dict, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_hook_decisions_review_update_no_loop_and_speed(
+    demo: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
     home, ws_repo = demo["home"], demo["ws_repo"]
     payload = json.dumps({"session_id": "s-1", "cwd": str(ws_repo), "stop_hook_active": False})
     timings: list[float] = []
@@ -401,18 +466,28 @@ def test_hook_upgrade_from_state_without_fingerprints(demo: dict) -> None:
     (ws_repo / "README.md").write_text("dirty before upgrade\n", encoding="utf-8")
     state_path = home / ".workbench" / "state.json"
     state_path.parent.mkdir(parents=True, exist_ok=True)
-    state_path.write_text(json.dumps({
-        "repos": {root: {"last_seen_commit": head, "updated_at": 1.0}},
-        "sessions": {"old": {"prompted_at": time.time(), "prompted_head": head, "root_commit": root}},
-    }), encoding="utf-8")
+    state_path.write_text(
+        json.dumps(
+            {
+                "repos": {root: {"last_seen_commit": head, "updated_at": 1.0}},
+                "sessions": {
+                    "old": {"prompted_at": time.time(), "prompted_head": head, "root_commit": root}
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
 
     def stop(sid: str) -> str | None:
         return evaluate_hook_input(
-            json.dumps({"session_id": sid, "cwd": str(ws_repo), "stop_hook_active": False}), home_dir=home
+            json.dumps({"session_id": sid, "cwd": str(ws_repo), "stop_hook_active": False}),
+            home_dir=home,
         )
 
     assert stop("new") is None
-    assert json.loads(state_path.read_text())["repos"][root]["last_seen_fingerprint"].startswith(head)
+    assert json.loads(state_path.read_text())["repos"][root]["last_seen_fingerprint"].startswith(
+        head
+    )
     (ws_repo / "README.md").write_text("edited after upgrade\n", encoding="utf-8")
     assert "workbench-update" in json.loads(stop("new"))["reason"]
     # An old session entry (prompted_head only) at a different state is prompted normally
@@ -434,7 +509,7 @@ def test_installer_installs_both_skills_and_removes_only_our_old_ones(tmp_path: 
     )
     commands.mkdir(parents=True)
     (commands / "workbench.toml").write_text(
-        "description = \"Record this session's work and remaining tasks in Workbench\"\n\nprompt = \"x\"\n",
+        'description = "Record this session\'s work and remaining tasks in Workbench"\n\nprompt = "x"\n',
         encoding="utf-8",
     )
     run_install(home, claude=True, gemini=True)
@@ -442,9 +517,21 @@ def test_installer_installs_both_skills_and_removes_only_our_old_ones(tmp_path: 
     repo_root = Path(__file__).resolve().parent.parent
     for name in ("workbench-update", "workbench-review"):
         installed = skills / name / "SKILL.md"
-        assert installed.read_text() == (repo_root / "src" / "workbench" / "agents" / "assets" / "claude" / name / "SKILL.md").read_text()
+        assert (
+            installed.read_text()
+            == (
+                repo_root / "src" / "workbench" / "agents" / "assets" / "claude" / name / "SKILL.md"
+            ).read_text()
+        )
         assert (commands / f"{name}.toml").read_text() == (
-            repo_root / "src" / "workbench" / "agents" / "assets" / "gemini" / "commands" / f"{name}.toml"
+            repo_root
+            / "src"
+            / "workbench"
+            / "agents"
+            / "assets"
+            / "gemini"
+            / "commands"
+            / f"{name}.toml"
         ).read_text()
     assert not (skills / "workbench").exists()
     assert not (commands / "workbench.toml").exists()

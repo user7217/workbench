@@ -3,23 +3,25 @@
 from __future__ import annotations
 
 import json
-import subprocess
 from pathlib import Path
 
 import pytest
 
 from workbench.gitops import commit_all, get_root_commit, init_repo, run_git
-from workbench.identity import AmbiguousRepoIdentityError, find_project_for_repo, parse_github_slug
-from workbench.models import LearningPath, Project, generate_json_schemas
-from workbench.privacy import scan_data_structure, scan_text_value
+from workbench.identity import AmbiguousRepoIdentityError, find_project_for_repo
+from workbench.models import Project, generate_json_schemas
+from workbench.privacy import scan_data_structure
 from workbench.semantic import check_semantic_diff
 from workbench.validate import (
     validate_any_file,
     validate_changed_paths,
-    validate_learning_file,
-    validate_project_file,
 )
-from workbench.yamlio import dump_yaml_roundtrip, load_yaml_roundtrip, load_yaml_str_roundtrip, to_plain_python
+from workbench.yamlio import (
+    dump_yaml_roundtrip,
+    load_yaml_roundtrip,
+    load_yaml_str_roundtrip,
+    to_plain_python,
+)
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 INVALID_FIXTURES_DIR = REPO_ROOT / "tests" / "fixtures" / "invalid"
@@ -263,7 +265,9 @@ def test_privacy_scan_never_echoes_matched_secret_values() -> None:
         "SuperSecretPass123",
         "UltraSecretVal99",
     ]:
-        assert sensitive_val not in formatted, f"Leaked sensitive value {sensitive_val} in error output!"
+        assert sensitive_val not in formatted, (
+            f"Leaked sensitive value {sensitive_val} in error output!"
+        )
 
 
 def test_repo_identity_root_commit_multi_root_and_fork_collision(tmp_path: Path) -> None:
@@ -334,9 +338,15 @@ def test_chat_prompt_example_is_a_valid_project() -> None:
 
     from ruamel.yaml import YAML
 
-    prompt = (Path(__file__).resolve().parent.parent / "src" / "workbench" / "agents" / "assets" / "chat" / "PROMPT.md").read_text(
-        encoding="utf-8"
-    )
+    prompt = (
+        Path(__file__).resolve().parent.parent
+        / "src"
+        / "workbench"
+        / "agents"
+        / "assets"
+        / "chat"
+        / "PROMPT.md"
+    ).read_text(encoding="utf-8")
     example = re.search(r"```yaml\n(.*?)```", prompt, re.S).group(1)
     data = YAML(typ="safe").load(example)
     assert "updated" not in data and "origin" not in data  # the CLI sets these
@@ -383,11 +393,14 @@ def test_child_projects_name_an_existing_parent_and_item_with_no_cycles(tmp_path
         return validate_data_repo(repo).errors
 
     # Valid: under a phase, under a nested component, a grandchild chain, a related project
-    assert repo_errors(
-        "ok",
-        {"farm": None, "robot": ("farm", "phase-farm"), "sim": ("robot", "bolt-robot")},
-        related=["farm", "sim"],
-    ) == []
+    assert (
+        repo_errors(
+            "ok",
+            {"farm": None, "robot": ("farm", "phase-farm"), "sim": ("robot", "bolt-robot")},
+            related=["farm", "sim"],
+        )
+        == []
+    )
 
     missing = repo_errors("missing", {"robot": ("no-such-farm", "phase-x")})
     assert any("robot" in e and "no-such-farm" in e and "does not exist" in e for e in missing)
@@ -414,12 +427,19 @@ def test_child_projects_name_an_existing_parent_and_item_with_no_cycles(tmp_path
 
 def test_semantic_diff_sees_nested_components() -> None:
     """Removing a nested component is caught without --allow-removals; moving one is not a removal."""
+
     def project(children: list[dict]) -> dict:
         return {
             "id": "farm",
-            "phases": [{"id": "build", "name": "Build", "components": [
-                {"id": "chassis", "name": "Chassis", "components": children},
-            ]}],
+            "phases": [
+                {
+                    "id": "build",
+                    "name": "Build",
+                    "components": [
+                        {"id": "chassis", "name": "Chassis", "components": children},
+                    ],
+                }
+            ],
         }
 
     wheel = {"id": "wheel", "name": "Wheel", "components": [{"id": "hub", "name": "Hub"}]}
@@ -430,7 +450,9 @@ def test_semantic_diff_sees_nested_components() -> None:
     assert any("'hub'" in e and "--allow-removals" in e for e in res.errors)
     assert check_semantic_diff(old, removed, allow_removals=True).ok
 
-    renamed = project([{"id": "wheel", "name": "Wheel", "components": [{"id": "hub-2", "name": "Hub"}]}])
+    renamed = project(
+        [{"id": "wheel", "name": "Wheel", "components": [{"id": "hub-2", "name": "Hub"}]}]
+    )
     assert any("renamed" in e for e in check_semantic_diff(old, renamed).errors)
 
     moved = project([{"id": "wheel", "name": "Wheel"}, {"id": "hub", "name": "Hub"}])
@@ -448,15 +470,30 @@ def test_privacy_scan_reaches_nested_components() -> None:
     secret_path = "/Users/someone/private/keys.txt"
     data = {
         "id": "farm",
-        "phases": [{"id": "build", "name": "Build", "components": [
-            {"id": "chassis", "name": "Chassis", "components": [
-                {"id": "wheel", "name": "Wheel", "notes": f"calibration in {secret_path}"},
-            ]},
-        ]}],
+        "phases": [
+            {
+                "id": "build",
+                "name": "Build",
+                "components": [
+                    {
+                        "id": "chassis",
+                        "name": "Chassis",
+                        "components": [
+                            {
+                                "id": "wheel",
+                                "name": "Wheel",
+                                "notes": f"calibration in {secret_path}",
+                            },
+                        ],
+                    },
+                ],
+            }
+        ],
     }
     issues = scan_data_structure(data)
     assert any(
-        i.field_path == "phases[0].components[0].components[0].notes" and i.pattern_type.startswith("local_path")
+        i.field_path == "phases[0].components[0].components[0].notes"
+        and i.pattern_type.startswith("local_path")
         for i in issues
     ), [(i.field_path, i.pattern_type) for i in issues]
 

@@ -11,11 +11,11 @@ import pytest
 from typer.testing import CliRunner
 
 from workbench.agents import updater
+from workbench.agents.hooks import evaluate_hook_input
 from workbench.cli import app
 from workbench.config import load_local_config, save_local_config
 from workbench.demo import init_demo_environment
 from workbench.gitops import run_git
-from workbench.agents.hooks import evaluate_hook_input
 from workbench.yamlio import load_yaml_str_roundtrip, to_plain_python
 
 runner = CliRunner()
@@ -32,13 +32,20 @@ def _user(text, **extra) -> str:
 
 def _assistant(text: str, **extra) -> str:
     return _line(
-        {"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": text}]}, **extra}
+        {
+            "type": "assistant",
+            "message": {"role": "assistant", "content": [{"type": "text", "text": text}]},
+            **extra,
+        }
     )
 
 
 def _tool_result() -> str:
     return _line(
-        {"type": "user", "message": {"role": "user", "content": [{"type": "tool_result", "content": "ok"}]}}
+        {
+            "type": "user",
+            "message": {"role": "user", "content": [{"type": "tool_result", "content": "ok"}]},
+        }
     )
 
 
@@ -73,7 +80,9 @@ def test_transcript_size_pins_the_turn_the_hook_fired_for(tmp_path: Path) -> Non
     path.write_text(_user("message one") + _assistant("reply one"), encoding="utf-8")
     size_at_hook = path.stat().st_size
     with path.open("a", encoding="utf-8") as fh:
-        fh.write(_assistant("reply one, flushed late") + _user("message two") + _assistant("reply two"))
+        fh.write(
+            _assistant("reply one, flushed late") + _user("message two") + _assistant("reply two")
+        )
     ex = updater.exchange_from_hook({"transcript_path": str(path)}, transcript_size=size_at_hook)
     assert ex is not None
     assert ex.user == "message one"
@@ -100,7 +109,9 @@ def test_cut_keeps_both_ends() -> None:
 
 
 def test_parse_reply_tolerates_fences_and_rejects_garbage() -> None:
-    plan = updater.parse_reply('```json\n{"summary": "radio done", "ops": [{"op": "set"}], "suggestions": []}\n```')
+    plan = updater.parse_reply(
+        '```json\n{"summary": "radio done", "ops": [{"op": "set"}], "suggestions": []}\n```'
+    )
     assert plan.summary == "radio done" and len(plan.ops) == 1
     with pytest.raises(updater.UpdaterError):
         updater.parse_reply("no json here")
@@ -135,7 +146,12 @@ def test_apply_plan_sets_adds_and_files_suggestions() -> None:
         summary="radio done, retry logic next",
         ops=[
             {"op": "set", "item": "radio", "status": "done", "notes": "Range test passed."},
-            {"op": "add", "under": "radio", "name": "Retry logic", "summary": "Resend lost packets"},
+            {
+                "op": "add",
+                "under": "radio",
+                "name": "Retry logic",
+                "summary": "Resend lost packets",
+            },
             {"op": "add", "under": "retry-logic", "name": "Backoff timer", "depends_on": ["radio"]},
         ],
         suggestions=[
@@ -151,7 +167,13 @@ def test_apply_plan_sets_adds_and_files_suggestions() -> None:
     assert (retry["id"], retry["status"]) == ("retry-logic", "not_started")
     assert retry["components"][0]["depends_on"] == ["radio"]
     assert plain["suggestions"] == [
-        {"id": "solar-charging", "name": "Solar charging", "summary": "Run without mains", "under": "build", "added": "2026-10-29"}
+        {
+            "id": "solar-charging",
+            "name": "Solar charging",
+            "summary": "Run without mains",
+            "under": "build",
+            "added": "2026-10-29",
+        }
     ]
     assert applied.changes == [
         "radio: done, notes updated",
@@ -160,7 +182,10 @@ def test_apply_plan_sets_adds_and_files_suggestions() -> None:
         "suggest solar-charging",
     ]
     assert len(applied.skipped) == 1 and "already on the dashboard" in applied.skipped[0]
-    assert updater.commit_scope_and_summary("demo", plan, applied) == ("demo", "radio done, retry logic next")
+    assert updater.commit_scope_and_summary("demo", plan, applied) == (
+        "demo",
+        "radio done, retry logic next",
+    )
 
 
 def test_apply_plan_skips_anything_but_set_and_add_on_existing_items() -> None:
@@ -186,7 +211,10 @@ def test_apply_plan_skips_anything_but_set_and_add_on_existing_items() -> None:
     assert "suggestions" not in plain
     assert len(applied.skipped) == 7
     assert applied.changes == ["radio: notes updated"]
-    assert updater.commit_scope_and_summary("demo", plan, applied) == ("demo/radio", "radio: notes updated")
+    assert updater.commit_scope_and_summary("demo", plan, applied) == (
+        "demo/radio",
+        "radio: notes updated",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -216,18 +244,27 @@ def _set_mode(home: Path, mode: str, command: str | None = None) -> None:
     save_local_config(cfg, home_dir=home)
 
 
-def test_headless_hook_starts_one_job_per_change_and_never_blocks(demo: dict, tmp_path: Path) -> None:
+def test_headless_hook_starts_one_job_per_change_and_never_blocks(
+    demo: dict, tmp_path: Path
+) -> None:
     home, repo = demo["home"], demo["ws_repo"]
     _set_mode(home, "headless", f"{sys.executable} -c pass")
     transcript = tmp_path / "t.jsonl"
     transcript.write_text(_user("hi") + _assistant("hello"), encoding="utf-8")
     payload = json.dumps(
-        {"session_id": "s1", "cwd": str(repo), "transcript_path": str(transcript), "stop_hook_active": False}
+        {
+            "session_id": "s1",
+            "cwd": str(repo),
+            "transcript_path": str(transcript),
+            "stop_hook_active": False,
+        }
     )
     jobs: list[dict] = []
 
     def hook() -> str | None:
-        return evaluate_hook_input(payload, home_dir=home, launcher=lambda job, h, e: jobs.append(job))
+        return evaluate_hook_input(
+            payload, home_dir=home, launcher=lambda job, h, e: jobs.append(job)
+        )
 
     # Never seen: a job starts, the session is not blocked
     assert hook() is None
@@ -317,19 +354,36 @@ def test_auto_update_job_records_the_message_in_one_commit(
     home, repo, data = demo["home"], demo["ws_repo"], demo["data"]
     reply = {
         "summary": "radio range test passed",
-        "ops": [{"op": "set", "item": "radio-tx", "status": "done", "notes": "Range test passed; next: duty cycle"}],
-        "suggestions": [{"name": "Solar charging", "summary": "Run without mains", "under": "enclosure"}],
+        "ops": [
+            {
+                "op": "set",
+                "item": "radio-tx",
+                "status": "done",
+                "notes": "Range test passed; next: duty cycle",
+            }
+        ],
+        "suggestions": [
+            {"name": "Solar charging", "summary": "Run without mains", "under": "enclosure"}
+        ],
     }
     _set_mode(home, "headless", _fake_agent(tmp_path, reply))
     transcript = tmp_path / "t.jsonl"
-    transcript.write_text(_user("run the range test") + _assistant("Range test passed."), encoding="utf-8")
+    transcript.write_text(
+        _user("run the range test") + _assistant("Range test passed."), encoding="utf-8"
+    )
     (repo / "radio.c").write_text("// tx\n", encoding="utf-8")
 
     job = home / ".workbench" / "jobs" / "1.json"
     job.parent.mkdir(parents=True, exist_ok=True)
     job.write_text(
-        json.dumps({"payload": {"transcript_path": str(transcript)}, "repo_top": str(repo), "focus": None,
-                    "previous_commit": None}),
+        json.dumps(
+            {
+                "payload": {"transcript_path": str(transcript)},
+                "repo_top": str(repo),
+                "focus": None,
+                "previous_commit": None,
+            }
+        ),
         encoding="utf-8",
     )
     monkeypatch.chdir(tmp_path)  # the job must not depend on the cwd
@@ -346,7 +400,11 @@ def test_auto_update_job_records_the_message_in_one_commit(
     assert "radio.c" in prompt  # repo changes
 
     proj = _remote_project(data, WS)
-    radio = _find(proj["phases"][0]["components"] + [c for p in proj["phases"] for c in p.get("components", [])], "radio-tx")
+    radio = _find(
+        proj["phases"][0]["components"]
+        + [c for p in proj["phases"] for c in p.get("components", [])],
+        "radio-tx",
+    )
     assert radio is not None and radio["status"] == "done"
     assert [s["id"] for s in proj["suggestions"]] == ["solar-charging"]
     subject = run_git(["log", "-n1", "--format=%s", "origin/main"], cwd=data).stdout.strip()
@@ -362,12 +420,20 @@ def test_auto_update_dry_run_and_nothing_to_record(
     transcript.write_text(_user("rename a variable") + _assistant("Renamed."), encoding="utf-8")
     monkeypatch.chdir(repo)
 
-    _set_mode(home, "headless", _fake_agent(tmp_path, {"summary": "x", "ops": [{"op": "set", "item": "radio-tx", "status": "done"}]}))
+    _set_mode(
+        home,
+        "headless",
+        _fake_agent(
+            tmp_path, {"summary": "x", "ops": [{"op": "set", "item": "radio-tx", "status": "done"}]}
+        ),
+    )
     res = runner.invoke(app, ["auto-update", "--transcript", str(transcript), "--dry-run"])
     assert res.exit_code == 0, res.output
     assert "--- prompt" in res.output and "would record: radio-tx: done" in res.output
 
-    _set_mode(home, "headless", _fake_agent(tmp_path, {"summary": "", "ops": [], "suggestions": []}))
+    _set_mode(
+        home, "headless", _fake_agent(tmp_path, {"summary": "", "ops": [], "suggestions": []})
+    )
     res = runner.invoke(app, ["auto-update", "--transcript", str(transcript)])
     assert res.exit_code == 0, res.output
     assert "Workbench: no update needed" in res.output

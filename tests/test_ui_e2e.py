@@ -16,10 +16,16 @@ from fastapi.testclient import TestClient
 from playwright.sync_api import Page, Route, expect, sync_playwright
 from typer.testing import CliRunner
 
+from workbench.agents.hooks import evaluate_hook_input
 from workbench.cli import app as cli_app
 from workbench.demo import init_demo_environment
-from workbench.gitops import commit_all, create_worktree, push_head_to_branch, remove_worktree, run_git
-from workbench.agents.hooks import evaluate_hook_input
+from workbench.gitops import (
+    commit_all,
+    create_worktree,
+    push_head_to_branch,
+    remove_worktree,
+    run_git,
+)
 from workbench.server.app import create_app
 from workbench.server.sync import ServerState
 from workbench.yamlio import dump_yaml_roundtrip, load_yaml_roundtrip
@@ -200,8 +206,12 @@ def test_ui_end_to_end_playwright(page: Page, demo_live_server: LiveServerHandle
     # 2. Check that the page contains NO percentage or count text (§13, §14)
     body_text = page.locator("body").inner_text()
     assert "%" not in body_text, f"Found forbidden percentage symbol in body text: {body_text}"
-    assert not re.search(r"\(\d+\)", body_text), f"Found forbidden item count in body text: {body_text}"
-    assert not re.search(r"\d+\s*/\s*\d+", body_text), f"Found forbidden progress fraction in body text: {body_text}"
+    assert not re.search(r"\(\d+\)", body_text), (
+        f"Found forbidden item count in body text: {body_text}"
+    )
+    assert not re.search(r"\d+\s*/\s*\d+", body_text), (
+        f"Found forbidden progress fraction in body text: {body_text}"
+    )
 
     # 3. Verify collapsible sidebar works
     sidebar = page.get_by_test_id("left-sidebar")
@@ -309,7 +319,9 @@ def test_ui_end_to_end_playwright(page: Page, demo_live_server: LiveServerHandle
     inspector = page.get_by_test_id("inspector-panel")
     expect(inspector).to_be_visible()
     expect(page.get_by_test_id("inspector-title")).to_have_text("Radio transmitter")
-    expect(page.get_by_test_id("inspector-summary")).to_contain_text("Framed LoRa packet transmission")
+    expect(page.get_by_test_id("inspector-summary")).to_contain_text(
+        "Framed LoRa packet transmission"
+    )
     expect(page.get_by_test_id("nav-tree-comp-radio-tx")).to_have_class(re.compile(r"active"))
 
     # Click dependency link `I2C sensor driver` in Panel B and verify synchronized navigation across all panels
@@ -341,8 +353,10 @@ def test_ui_end_to_end_playwright(page: Page, demo_live_server: LiveServerHandle
     expect(page.get_by_test_id("inspector-markdown")).to_contain_text("Nyquist frequency")
 
     with page.expect_response(
-        lambda r: "/api/learning/demo-signal-processing/items/aliasing/status" in r.url
-        and r.request.method == "POST"
+        lambda r: (
+            "/api/learning/demo-signal-processing/items/aliasing/status" in r.url
+            and r.request.method == "POST"
+        )
     ) as resp_info:
         page.get_by_test_id("status-btn-done").click()
     assert resp_info.value.status == 200
@@ -382,7 +396,9 @@ def test_full_demo_walkthrough_scripted(page: Page, demo_live_server: LiveServer
     ws_repo = Path(info["code_dir"]) / "weather-station"
 
     # 1. Simulate agent working in weather-station repo and making a commit
-    (ws_repo / "firmware" / "enclosure_sensor.c").write_text("// new telemetry code\n", encoding="utf-8")
+    (ws_repo / "firmware" / "enclosure_sensor.c").write_text(
+        "// new telemetry code\n", encoding="utf-8"
+    )
     commit_all(ws_repo, "Implement radiation shield telemetry")
 
     # 2. Agent session ends -> Stop hook fires and blocks with reminder to run workbench skill
@@ -456,13 +472,17 @@ def test_ui_editing_flow(page: Page, demo_live_server: LiveServerHandle) -> None
     expect(page.get_by_test_id("project-page-demo-robot-arm")).to_be_visible()
 
     # 1. Inline edit of a component summary (textarea: Cmd/Ctrl+Enter saves)
-    page.get_by_test_id("component-row-shoulder-actuator").locator(".tier-2-subtopic-header").click()
+    page.get_by_test_id("component-row-shoulder-actuator").locator(
+        ".tier-2-subtopic-header"
+    ).click()
     expect(page.get_by_test_id("inspector-title")).to_have_text("Shoulder actuator")
     page.get_by_test_id("edit-summary-shoulder-actuator").click()
     editor = page.get_by_test_id("edit-input-summary-shoulder-actuator")
     editor.fill("Edited inline from the dashboard.")
     editor.press("Control+Enter")
-    expect(page.get_by_test_id("inspector-summary")).to_have_text("Edited inline from the dashboard.")
+    expect(page.get_by_test_id("inspector-summary")).to_have_text(
+        "Edited inline from the dashboard."
+    )
     expect(page.get_by_test_id("edit-summary-shoulder-actuator")).to_be_enabled()  # write finished
     comp = _robot_arm_component(base_url, page, "shoulder-actuator")
     assert comp is not None and comp["summary"] == "Edited inline from the dashboard."
@@ -471,7 +491,9 @@ def test_ui_editing_flow(page: Page, demo_live_server: LiveServerHandle) -> None
     page.get_by_test_id("edit-summary-shoulder-actuator").click()
     page.get_by_test_id("edit-input-summary-shoulder-actuator").fill("Not saved")
     page.get_by_test_id("edit-input-summary-shoulder-actuator").press("Escape")
-    expect(page.get_by_test_id("inspector-summary")).to_have_text("Edited inline from the dashboard.")
+    expect(page.get_by_test_id("inspector-summary")).to_have_text(
+        "Edited inline from the dashboard."
+    )
 
     # 2. Add a component to the Mechanics phase; the new component is selected
     page.get_by_test_id("add-component-mechanics").click()

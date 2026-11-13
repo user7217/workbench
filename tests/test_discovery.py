@@ -68,7 +68,9 @@ def test_github_discovery_skips_forks_archived_paginates_and_handles_rate_limits
     respx.get(f"{api_base}/user/repos?affiliation=owner,organization_member&per_page=100").mock(
         return_value=httpx.Response(
             200,
-            headers={"Link": f'<{api_base}/user/repos?affiliation=owner,organization_member&per_page=100&page=2>; rel="next"'},
+            headers={
+                "Link": f'<{api_base}/user/repos?affiliation=owner,organization_member&per_page=100&page=2>; rel="next"'
+            },
             json=[
                 {
                     "name": "forked-repo",
@@ -105,7 +107,9 @@ def test_github_discovery_skips_forks_archived_paginates_and_handles_rate_limits
     )
 
     # Page 2 has a repo whose description contains a local path (/Users/...) which must be blanked
-    respx.get(f"{api_base}/user/repos?affiliation=owner,organization_member&per_page=100&page=2").mock(
+    respx.get(
+        f"{api_base}/user/repos?affiliation=owner,organization_member&per_page=100&page=2"
+    ).mock(
         return_value=httpx.Response(
             200,
             json=[
@@ -157,11 +161,15 @@ def test_github_discovery_skips_forks_archived_paginates_and_handles_rate_limits
     # Verify description privacy sanitization and root commit
     run_git(["fetch", "origin", "main"], cwd=data_dir)
     run_git(["reset", "--hard", "origin/main"], cwd=data_dir)
-    cb_yaml = (data_dir / "projects" / "demo-cloud-backup" / "project.yaml").read_text(encoding="utf-8")
+    cb_yaml = (data_dir / "projects" / "demo-cloud-backup" / "project.yaml").read_text(
+        encoding="utf-8"
+    )
     assert "1111111111111111111111111111111111111111" in cb_yaml
     assert "Encrypted backup tool." in cb_yaml
 
-    sd_yaml = (data_dir / "projects" / "demo-secret-desc" / "project.yaml").read_text(encoding="utf-8")
+    sd_yaml = (data_dir / "projects" / "demo-secret-desc" / "project.yaml").read_text(
+        encoding="utf-8"
+    )
     assert "/Users/alice" not in sd_yaml
     assert "description: ''" in sd_yaml or 'description: ""' in sd_yaml
 

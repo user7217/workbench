@@ -9,12 +9,11 @@ from pathlib import Path
 
 from typer.testing import CliRunner
 
+from workbench.agents.hooks import evaluate_hook_input, mark_repo_seen
 from workbench.cli import app
 from workbench.config import load_local_config
 from workbench.demo import init_demo_environment
 from workbench.gitops import commit_all
-from workbench.agents.hooks import evaluate_hook_input, mark_repo_seen
-from workbench.agents.install import run_install
 
 runner = CliRunner()
 
@@ -93,7 +92,9 @@ def test_hook_blocks_once_per_session_allows_active_outside_mark_seen_and_fast(
     assert out_seen is None
 
     # 6. Any uncommitted change blocks with the quick-update reason
-    (ws_repo / "big_change.c").write_text("\n".join(f"// line {i}" for i in range(60)) + "\n", encoding="utf-8")
+    (ws_repo / "big_change.c").write_text(
+        "\n".join(f"// line {i}" for i in range(60)) + "\n", encoding="utf-8"
+    )
     out_uncommitted = evaluate_hook_input(
         json.dumps(
             {
@@ -205,11 +206,7 @@ def test_installer_merges_existing_hooks_is_idempotent_and_touches_only_target_h
     assert len(merged["hooks"]["PreToolUse"]) == 1
     stop_groups = merged["hooks"]["Stop"]
     assert len(stop_groups) == 2
-    commands = [
-        h["command"]
-        for g in stop_groups
-        for h in g.get("hooks", [])
-    ]
+    commands = [h["command"] for g in stop_groups for h in g.get("hooks", [])]
     assert commands == ["echo existing-stop-hook", "workbench hook-check"]
 
     # Verify Claude skill, Gemini files, and launchd plist exist inside target_home
@@ -238,16 +235,19 @@ def test_setup_wizard_against_fakes(tmp_path: Path, monkeypatch: any) -> None:
     setup_home.mkdir(parents=True)
     monkeypatch.setenv("HOME", str(setup_home))
 
-    user_input = "\n".join(
-        [
-            remote_bare,
-            "demouser",
-            "demo@example.invalid",
-            str(info["code_dir"]),
-            "",  # LLM privacy review: take the default (no)
-            "yes",
-        ]
-    ) + "\n"
+    user_input = (
+        "\n".join(
+            [
+                remote_bare,
+                "demouser",
+                "demo@example.invalid",
+                str(info["code_dir"]),
+                "",  # LLM privacy review: take the default (no)
+                "yes",
+            ]
+        )
+        + "\n"
+    )
 
     res = runner.invoke(app, ["setup", "--home", str(setup_home)], input=user_input)
     assert res.exit_code == 0, res.output
