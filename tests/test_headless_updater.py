@@ -162,7 +162,8 @@ def test_apply_plan_sets_adds_and_files_suggestions() -> None:
     applied = updater.apply_plan(doc, "demo", plan, "2026-10-29")
     plain = to_plain_python(doc)
     radio = plain["phases"][0]["components"][0]
-    assert radio["status"] == "done" and radio["notes"] == "Range test passed."
+    # Done first, then reopened by the unfinished part added under it (edits.roll_up_project)
+    assert radio["status"] == "in_progress" and radio["notes"] == "Range test passed."
     retry = radio["components"][0]
     assert (retry["id"], retry["status"]) == ("retry-logic", "not_started")
     assert retry["components"][0]["depends_on"] == ["radio"]

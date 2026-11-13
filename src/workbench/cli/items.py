@@ -56,10 +56,12 @@ def cmd_set(
     if deps is not None:
         described["depends_on"] = deps
     what = commitmsg.describe_item_change(status=status, fields=described)
+    # Parents that followed their parts (edits.roll_up_project), named in the commit and the output
+    rolled: edits.RollUp = []
 
     def mutate(doc: Any) -> None:
         if status is not None:
-            edits.set_project_item_status(doc, project_id, item_id, status)
+            rolled[:] = edits.set_project_item_status(doc, project_id, item_id, status)
         if fields:
             edits.set_project_item_fields(doc, project_id, item_id, fields)
         if deps is not None:
@@ -69,13 +71,17 @@ def cmd_set(
         "set",
         project_id,
         mutate,
-        lambda _r: commitmsg.build_message("update", what, f"{project_id}/{item_id}"),
+        lambda _r: commitmsg.build_message(
+            "update", what + edits.describe_roll_up(rolled), f"{project_id}/{item_id}"
+        ),
     )
     set_repo_focus(Path.cwd(), f"{project_id}/{item_id}")
     if sha is None:
         typer.echo(f"Unchanged {project_id}/{item_id}: {what} (already recorded)")
     else:
-        typer.echo(f"Updated {project_id}/{item_id}: {what} ({sha[:8]})")
+        typer.echo(
+            f"Updated {project_id}/{item_id}: {what}{edits.describe_roll_up(rolled)} ({sha[:8]})"
+        )
 
 
 @app.command("add")

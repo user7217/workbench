@@ -35,16 +35,16 @@ def update_project_item_status(
     _require_slug(item_id, "item id")
     status = _require_status(new_status, _PHASE_STATUSES)
 
-    def mutate(doc: Any) -> None:
-        edits.set_project_item_status(doc, project_id, item_id, status)
+    rolled: edits.RollUp = []
 
-    return _commit_edit(
-        state,
-        "project",
-        project_id,
-        mutate,
-        _edit_message(describe_item_change(status=status), f"{project_id}/{item_id}"),
-    )
+    def mutate(doc: Any) -> None:
+        rolled[:] = edits.set_project_item_status(doc, project_id, item_id, status)
+
+    def message() -> str:
+        summary = describe_item_change(status=status) + edits.describe_roll_up(rolled)
+        return _edit_message(summary, f"{project_id}/{item_id}")
+
+    return _commit_edit(state, "project", project_id, mutate, message)
 
 
 def update_project_status(state: ServerState, project_id: str, new_status: str) -> dict[str, Any]:
@@ -83,16 +83,16 @@ def update_learning_item_status(
     _require_slug(item_id, "item id")
     status = _require_status(new_status, _LEARNING_ITEM_STATUSES)
 
-    def mutate(doc: Any) -> None:
-        edits.set_learning_item_status(doc, path_id, item_id, status)
+    rolled: edits.RollUp = []
 
-    return _commit_edit(
-        state,
-        "learning",
-        path_id,
-        mutate,
-        _edit_message(f"status {status}", f"learning/{path_id}/{item_id}"),
-    )
+    def mutate(doc: Any) -> None:
+        rolled[:] = edits.set_learning_item_status(doc, path_id, item_id, status)
+
+    def message() -> str:
+        summary = f"status {status}" + edits.describe_roll_up(rolled)
+        return _edit_message(summary, f"learning/{path_id}/{item_id}")
+
+    return _commit_edit(state, "learning", path_id, mutate, message)
 
 
 # ---------------------------------------------------------------------------

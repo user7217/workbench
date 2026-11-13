@@ -189,6 +189,109 @@ def iter_component_nodes(doc: Any) -> Iterator[Any]:
 
 
 # ---------------------------------------------------------------------------
+# Status roll-up: a parent's status follows its parts
+# ---------------------------------------------------------------------------
+#
+# An item with parts (a phase/topic, a component with nested components, a learning topic with
+# subtopics) is done exactly when every part is done. Finishing the last open part marks the parent
+# done; reopening a part, or adding an unfinished one, under a done parent sets the parent back to
+# in_progress. Only "done" counts, so a parked part keeps its parent open. Otherwise the parent's
+# status is left as it is.
+#
+# Only the ancestors of the item that changed are brought in line, nearest first, so a parent whose
+# status was set by hand somewhere else in the file is never changed by an unrelated edit, and an
+# item's own status, as set, is never overridden. A learning import (learning_md) sets every
+# level's status explicitly and so does not roll up. Child
+# projects attached under an item live in their own files and do not count, and the project's or
+# learning path's own status is never changed.
+
+RollUp = list[tuple[str, str]]
+"""Statuses a roll-up changed: (item id, new status), nearest parent first."""
+
+_Step = tuple[Any, tuple[str, ...], type]
+"""One ancestor on the way down to an item: its node, the keys of its parts, its model."""
+
+
+def _follow_parts(node: Any, part_keys: tuple[str, ...], model: type) -> str | None:
+    """Bring one parent's status in line with its parts; the new status, or None if unchanged."""
+    parts = children(node, part_keys)
+    if not parts:
+        return None
+    all_done = all(part.get("status") == "done" for part in parts)
+    current = node.get("status")
+    if all_done and current != "done":
+        new = "done"
+    elif not all_done and current == "done":
+        new = "in_progress"
+    else:
+        return None
+    set_key(node, "status", new, field_order(model))
+    return new
+
+
+def _path_to(node: Any, part_keys: tuple[str, ...], item_id: str) -> list[_Step] | None:
+    """The ancestors of `item_id` below `node` (outermost first), or None when it is not there."""
+    for part in children(node, part_keys):
+        if part.get("id") == item_id:
+            return []
+        below = _path_to(part, ("components",), item_id)
+        if below is not None:
+            return [(part, ("components",), Component), *below]
+    return None
+
+
+def _project_ancestors(doc: Any, item_id: str) -> list[_Step]:
+    for group in children(doc, GROUP_KEYS):
+        if group.get("id") == item_id:
+            return []
+        below = _path_to(group, GROUP_CHILD_KEYS, item_id)
+        if below is not None:
+            return [(group, GROUP_CHILD_KEYS, Phase), *below]
+    return []
+
+
+def _roll_up(steps: list[_Step]) -> RollUp:
+    changes: RollUp = []
+    for node, part_keys, model in reversed(steps):
+        new = _follow_parts(node, part_keys, model)
+        if new is not None:
+            changes.append((str(node.get("id")), new))
+    return changes
+
+
+def roll_up_project(doc: Any, item_id: str) -> RollUp:
+    """Bring the statuses of `item_id`'s ancestors in line with their parts (not the item's own)."""
+    return _roll_up(_project_ancestors(doc, item_id))
+
+
+def roll_up_project_from(doc: Any, item_id: str) -> RollUp:
+    """Like roll_up_project, but starting with `item_id` itself: for an item that just lost a part
+    (moved elsewhere or deleted). Does nothing when the item no longer exists."""
+    loc = locate_project_item(doc, item_id)
+    if loc is None:
+        return []
+    part_keys = GROUP_CHILD_KEYS if loc.is_group else ("components",)
+    step: _Step = (loc.node, part_keys, Phase if loc.is_group else Component)
+    return _roll_up([*_project_ancestors(doc, item_id), step])
+
+
+def roll_up_learning(doc: Any, item_id: str) -> RollUp:
+    """Bring a subtopic's topic in line with its subtopics (topics have no parent to update)."""
+    for topic in children(doc, ("topics",)):
+        if any(sub.get("id") == item_id for sub in children(topic, ("subtopics",))):
+            return _roll_up([(topic, ("subtopics",), Topic)])
+    return []
+
+
+def describe_roll_up(changes: RollUp) -> str:
+    """Commit-subject suffix naming what a roll-up changed, e.g. "; mechanics done"."""
+    if not changes:
+        return ""
+    words = {"done": "done", "in_progress": "in progress"}
+    return "; " + ", ".join(f"{item} {words.get(st, st)}" for item, st in changes)
+
+
+# ---------------------------------------------------------------------------
 # Field writes
 # ---------------------------------------------------------------------------
 
@@ -264,10 +367,14 @@ def slug_for_item(name: str) -> str:
 # ---------------------------------------------------------------------------
 
 
-def set_project_item_status(doc: Any, project_id: str, item_id: str, status: str) -> None:
-    """Set the status of a phase/topic or a component at any depth."""
+def set_project_item_status(doc: Any, project_id: str, item_id: str, status: str) -> RollUp:
+    """Set the status of a phase/topic or a component at any depth.
+
+    The item's ancestors then follow their parts (see roll_up_project); returns what that changed.
+    """
     status = require_status(status, PHASE_STATUSES)
     require_project_item(doc, project_id, item_id).node["status"] = status
+    return roll_up_project(doc, item_id)
 
 
 def set_project_item_fields(
@@ -384,6 +491,8 @@ def add_project_item(
         deps.fa.set_flow_style()
         node["depends_on"] = deps
     seq.insert(pos, node)
+    # An unfinished part reopens a done parent; a done part may finish it
+    roll_up_project(doc, new_id)
     return new_id, label
 
 
@@ -487,9 +596,11 @@ def require_learning_item(doc: Any, path_id: str, item_id: str) -> Any:
     return item
 
 
-def set_learning_item_status(doc: Any, path_id: str, item_id: str, status: str) -> None:
+def set_learning_item_status(doc: Any, path_id: str, item_id: str, status: str) -> RollUp:
+    """Set a topic's or subtopic's status; a subtopic's topic then follows its subtopics."""
     status = require_status(status, LEARNING_ITEM_STATUSES)
     require_learning_item(doc, path_id, item_id)["status"] = status
+    return roll_up_learning(doc, item_id)
 
 
 def set_learning_item_fields(doc: Any, path_id: str, item_id: str, fields: dict[str, Any]) -> None:
