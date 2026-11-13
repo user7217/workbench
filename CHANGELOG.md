@@ -6,6 +6,11 @@ Each release on [GitHub Releases](https://github.com/user7217/workbench/releases
 
 ## [Unreleased]
 
+### Fixed
+
+- **Phone and tablet workspace:** below 1080px the open panel (Navigation, Contents or Visual Map) was as tall as the whole workspace and sat under the panel tabs, so its last rows could not be scrolled into view. It now ends at the bottom of the screen.
+- **Phone layout:** each workspace tab takes the whole screen. The map fills the Visual Map tab (the selected item's details are in Contents, which scrolls to it), the panels' title rows, the phase strip above Contents and the sync line at the bottom are gone (a failed sync still shows its banner), titles are a step smaller, the Contents list is less indented, and the map fits at a smaller zoom. Phone browsers no longer enlarge text on their own.
+
 ## [0.2.1] - 2026-11-12
 
 ### Fixed

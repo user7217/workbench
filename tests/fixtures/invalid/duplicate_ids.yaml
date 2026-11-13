@@ -1,0 +1,32 @@
+schema_version: 1
+id: demo-dup-ids
+name: Duplicate IDs
+description: Two components share the same ID.
+status: active
+origin: manual
+updated: 2026-10-20
+repos: []
+links: []
+phases:
+  - id: phase-one
+    name: Phase One
+    status: in_progress
+    summary: First phase.
+    notes: ""
+    components:
+      - id: comp-dup
+        name: First Component
+        status: done
+        summary: ""
+        notes: ""
+        depends_on: []
+        links: []
+        refs: []
+      - id: comp-dup
+        name: Second Component With Same ID
+        status: not_started
+        summary: ""
+        notes: ""
+        depends_on: []
+        links: []
+        refs: []

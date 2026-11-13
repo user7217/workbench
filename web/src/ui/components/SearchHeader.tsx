@@ -1,9 +1,25 @@
 /** The top header with the project / learning-path filter box ("/" focuses it, see App). */
 import type React from "react";
+import { useEffect, useState } from "react";
 import { useWorkbench } from "@workbench-core";
+
+// The phone layout's breakpoint (styles/phone.css): no keyboard there, so no "/" hint
+const PHONE_QUERY = "(max-width: 720px)";
+
+function usePhoneLayout(): boolean {
+  const [phone, setPhone] = useState(() => window.matchMedia(PHONE_QUERY).matches);
+  useEffect(() => {
+    const query = window.matchMedia(PHONE_QUERY);
+    const onChange = () => setPhone(query.matches);
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+  return phone;
+}
 
 export function SearchHeader({ inputRef }: { inputRef: React.RefObject<HTMLInputElement> }) {
   const { filterText, setFilter } = useWorkbench();
+  const phone = usePhoneLayout();
   return (
     <header className="top-search-header">
       <div className="search-box-wrapper">
@@ -24,7 +40,11 @@ export function SearchHeader({ inputRef }: { inputRef: React.RefObject<HTMLInput
           ref={inputRef}
           type="text"
           className="filter-input"
-          placeholder="Filter projects and learning paths... (press /)"
+          placeholder={
+            phone
+              ? "Filter projects and learning paths"
+              : "Filter projects and learning paths... (press /)"
+          }
           value={filterText}
           onChange={(e) => setFilter(e.target.value)}
           data-testid="filter-input"

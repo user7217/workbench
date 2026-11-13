@@ -59,7 +59,7 @@ Click any status icon to update it, click the pencil (`✎`) on any title, summa
 ## Key Features
 
 - **Today's Work, a working-memory view:** Put a phase, a topic or any part on today's list with one click; it arrives with everything nested under it and the unfinished things it depends on, in the order it can be worked through. Each project gets its own card with its step to do **Now** in one colour and the one **Next** in another; finishing a step moves the next one into place, and no project is ranked above another. It can be turned off entirely from the dashboard's Settings menu, on every device at once. No deadlines, counts or streaks. See **[docs/today.md](docs/today.md)**.
-- **Works on a phone:** Below 720px the sidebar becomes a tab bar, the three workspace panels become tabs, and the dependency map lays its phases out in as many columns as the screen holds.
+- **Works on a phone:** Below 720px the sidebar becomes a tab bar and the three workspace panels become tabs that each fill the screen, with the dependency map taking the whole Visual Map tab.
 - **Unified Projects & Learning Workspace:** View active, paused, planned, and completed projects alongside self-directed learning paths on a single dark-mode Home grid ordered by most recent activity.
 - **Flexible Project Hierarchies:**
   - **Optional phases (`uses_phases: true | false`):** Organize multi-stage builds into sequential **Phases** (`uses_phases: true`), or list **Topics** directly (`uses_phases: false`) without artificial phase wrappers.

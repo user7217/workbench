@@ -104,6 +104,15 @@ function MapStatus({
 // if it is taller than the panel it starts at the top and scrolls vertically. Below
 // MIN_READABLE_ZOOM it stops shrinking and the user pans instead.
 const MIN_READABLE_ZOOM = 0.85;
+// In the phone layout (the same 720px breakpoint as styles/phone.css) the map shows more at a
+// smaller zoom, where its text is still legible, and is never blown up past the phone's own text
+const PHONE_MAX_WIDTH = 720;
+const MIN_READABLE_ZOOM_PHONE = 0.72;
+const MAX_FIT_ZOOM_PHONE = 0.9;
+const isPhoneLayout = () =>
+  typeof window !== "undefined" && window.matchMedia(`(max-width: ${PHONE_MAX_WIDTH}px)`).matches;
+const readableZoom = () => (isPhoneLayout() ? MIN_READABLE_ZOOM_PHONE : MIN_READABLE_ZOOM);
+const maxFitZoom = () => (isPhoneLayout() ? MAX_FIT_ZOOM_PHONE : MAX_FIT_ZOOM);
 const MAX_FIT_ZOOM = 1.05;
 const FIT_PADDING = 24;
 // Space kept clear at the top for the floating toolbar (Expand all / Collapse all / Fit to view)
@@ -754,7 +763,7 @@ function columnsFor(
   nesting: number,
 ): { cols: number; colW: number } {
   const colW = PHASE_W + INDENT * nesting;
-  const usable = (panelWidth - 2 * FIT_PADDING) / MIN_READABLE_ZOOM;
+  const usable = (panelWidth - 2 * FIT_PADDING) / readableZoom();
   const fit = Math.floor((usable + COL_GAP) / (colW + COL_GAP));
   return { cols: Math.max(1, Math.min(groupCount, fit)), colW };
 }
@@ -1184,7 +1193,7 @@ function VisualGraphInner({
       const h = el.clientHeight;
       // Fit the width: the vertical layout already chose how many columns this width holds
       const widthZoom = (w - 2 * FIT_PADDING) / bounds.width;
-      const zoom = Math.min(Math.max(widthZoom, MIN_READABLE_ZOOM), MAX_FIT_ZOOM);
+      const zoom = Math.min(Math.max(widthZoom, readableZoom()), maxFitZoom());
       const contentW = bounds.width * zoom;
       const contentH = bounds.height * zoom;
       const x =

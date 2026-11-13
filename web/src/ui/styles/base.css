@@ -28,6 +28,9 @@ body,
   font-size: 13px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  /* Phone browsers may otherwise enlarge text they judge too small; the phone layout sets its own sizes */
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }

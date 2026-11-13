@@ -1,0 +1,43 @@
+schema_version: 1
+id: demo-cycle
+name: Dependency Cycle
+description: Three components form a dependency cycle.
+status: active
+origin: manual
+updated: 2026-10-20
+repos: []
+links: []
+phases:
+  - id: phase-one
+    name: Phase One
+    status: in_progress
+    summary: ""
+    notes: ""
+    components:
+      - id: comp-a
+        name: Component A
+        status: in_progress
+        summary: ""
+        notes: ""
+        depends_on:
+          - comp-b
+        links: []
+        refs: []
+      - id: comp-b
+        name: Component B
+        status: in_progress
+        summary: ""
+        notes: ""
+        depends_on:
+          - comp-c
+        links: []
+        refs: []
+      - id: comp-c
+        name: Component C
+        status: in_progress
+        summary: ""
+        notes: ""
+        depends_on:
+          - comp-a
+        links: []
+        refs: []
