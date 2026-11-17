@@ -11,7 +11,14 @@
  * - Colour never carries meaning alone: NOW and NEXT also differ by label, size and position.
  * - Time on the current step is shown, without deadlines, counters, percentages or streaks.
  */
-import { useEffect, useMemo, useState } from "react";
+import {
+  type MouseEvent as ReactMouseEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   entryKey,
   entryLabel,
@@ -27,6 +34,7 @@ import {
 } from "@workbench-core";
 import { KindBadge, StatusNodeGlyph } from "../components/status";
 import { TodayIcon } from "../components/TodayToggle";
+import { TodayMapPreview } from "../components/TodayMapPreview";
 
 const SEEN_KEY = "workbench.today.seen";
 const SINCE_KEY = "workbench.today.since";
@@ -113,10 +121,19 @@ function formatDay(iso: string): string {
   });
 }
 
-/** Where a step sits inside its card's project: the items it is nested under. */
+/**
+ * Where a step sits inside its card's project: the items it is nested under, with the number of
+ * its phase or topic when the order is numbered ("2. Sampling › Aliasing", or "Topic 2" for the
+ * topic itself).
+ */
 function stepContext(step: TodayStep, group: TodayGroup): string {
   const owner = step.ownerId === group.id && step.kind === group.kind ? [] : [step.ownerName];
-  return [...owner, ...step.trail].join(" › ");
+  const trail = [...step.trail];
+  if (step.place !== undefined) {
+    if (trail.length > 0) trail[0] = `${step.place}. ${trail[0]}`;
+    else trail.push(`${step.kind === "learning" ? "Topic" : "Phase"} ${step.place}`);
+  }
+  return [...owner, ...trail].join(" › ");
 }
 
 export function TodayPage() {
@@ -215,12 +232,75 @@ export function TodayPage() {
 }
 
 /** One project or learning path: its current step, the one after it, and the rest on demand. */
+/**
+ * When a card's map preview shows: while the card (or the preview) is hovered, on devices that
+ * hover, or pinned by a click on the card outside its buttons, until it is clicked again, the
+ * preview's × is pressed, Escape is pressed or something else is clicked.
+ */
+function useCardMap() {
+  const cardRef = useRef<HTMLElement | null>(null);
+  const [hovered, setHovered] = useState(false);
+  const [pinned, setPinned] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const canHover = useMemo(() => window.matchMedia("(hover: hover)").matches, []);
+
+  const later = useCallback((fn: () => void, ms: number) => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(fn, ms);
+  }, []);
+  const enter = useCallback(() => {
+    if (canHover) later(() => setHovered(true), 300);
+  }, [canHover, later]);
+  // A short grace period lets the pointer travel from the card to the preview beside it
+  const leave = useCallback(() => later(() => setHovered(false), 200), [later]);
+  const close = useCallback(() => {
+    setPinned(false);
+    setHovered(false);
+  }, []);
+
+  const toggleFromCard = useCallback((e: ReactMouseEvent) => {
+    // Buttons, links and menus on the card keep their own meaning, and the preview (rendered in a
+    // portal, but still inside the card for React's events) does not toggle itself
+    const target = e.target as HTMLElement;
+    if (target.closest("button, a, input, textarea, [role='menu'], .today-map-preview")) return;
+    setPinned((p) => !p);
+  }, []);
+
+  useEffect(() => {
+    if (!pinned) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") close();
+    };
+    const onDown = (e: MouseEvent) => {
+      const target = e.target as Element;
+      if (cardRef.current?.contains(target) || target.closest(".today-map-preview")) return;
+      close();
+    };
+    window.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onDown);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onDown);
+    };
+  }, [pinned, close]);
+
+  useEffect(
+    () => () => {
+      if (timer.current) clearTimeout(timer.current);
+    },
+    [],
+  );
+
+  return { cardRef, open: hovered || pinned, pinned, enter, leave, close, toggleFromCard };
+}
+
 function GroupCard({ group, minutes }: { group: TodayGroup; minutes: number | null }) {
   const wb = useWorkbench();
   const { today, snapshot } = wb;
   const [showAll, setShowAll] = useState(false);
   const { now, next } = group;
   const allDone = group.total > 0 && group.done === group.total;
+  const map = useCardMap();
 
   const setStatus = (step: TodayStep, status: ItemStatus) => {
     if (step.kind === "project") wb.setItemStatus(step.ownerId, step.itemId, status);
@@ -260,9 +340,23 @@ function GroupCard({ group, minutes }: { group: TodayGroup; minutes: number | nu
 
   return (
     <article
-      className={`today-group${allDone ? " is-done" : ""}`}
+      ref={map.cardRef}
+      className={`today-group${allDone ? " is-done" : ""}${map.pinned ? " is-map-open" : ""}`}
       data-testid={`today-group-${group.id}`}
+      onPointerEnter={map.enter}
+      onPointerLeave={map.leave}
+      onClick={map.toggleFromCard}
     >
+      {map.open && (
+        <TodayMapPreview
+          group={group}
+          anchor={map.cardRef.current}
+          pinned={map.pinned}
+          onClose={map.close}
+          onPointerEnter={map.enter}
+          onPointerLeave={map.leave}
+        />
+      )}
       <header className="today-group-header">
         <button
           type="button"

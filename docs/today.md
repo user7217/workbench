@@ -26,13 +26,17 @@ Only the chosen item is stored. Its parts are worked out from the current data e
 
 Every card has its own Now and Next, so several steps are current at once, one per project. Finishing a step in one card changes nothing in the others.
 
+Where a step sits is shown with the number of its phase or topic, for learning paths and for projects that use phases: `2. Sampling › Aliasing`, or `Topic 2` for the topic itself.
+
+**Seeing it on the map.** Hovering over a card (with a mouse) or clicking the card anywhere outside its buttons opens a small map of that project or learning path beside it. The card's steps are in colour, its current step is highlighted, and the rest of the map is greyed out, so it is clear which part of the project today's work is. The whole map is shown when it fits at a readable size; a larger one is framed on today's part. A hovered map closes when the pointer leaves the card and the map; a clicked one stays until the card is clicked again, its × is pressed, Escape is pressed or something else is clicked. On a phone it opens as a sheet above the tab bar.
+
 **Done** sets the item's status to done in its project, exactly like the status menu does, so nothing is tracked twice. **Clear finished** removes chosen items whose steps are all done; **Clear list** empties the tab. Neither changes any project.
 
 **A new day.** On the first visit of a new day, if items with open steps are left over, the page asks which of them stay. Items that were finished are dropped without asking. Nothing is called overdue, and there are no streaks.
 
 ## 2. How the Order Is Worked Out
 
-1. The chosen items are grouped by the project or learning path they belong to; groups keep the order their first item was added in. Within a group, each chosen item is expanded depth-first: a step comes **after** the parts nested under it and **after** everything it depends on, so a card's list can be worked from top to bottom.
+1. The chosen items are grouped by the project or learning path they belong to; groups keep the order their first item was added in. Within a group, the chosen items are taken in the project's or path's own order (phase or topic 1 first, then the order of the parts), not in the order they were added, and each is expanded depth-first: a step comes **after** the parts nested under it and **after** everything it depends on, so a card's list can be worked from top to bottom.
 2. A prerequisite outside the chosen item is pulled in just before the step that needs it and is labelled *needed before …*. A prerequisite that is already done is left out.
 3. A step can be worked on when it is not done or parked, every part nested under it is finished, and everything it depends on is done. Other open steps are shown as **Waiting**.
 4. In each group, **Now** is the first workable step that is already *in progress*; if none is, the first workable step. That is why **Start** and **Do this first** work by setting a status: the choice is saved with the project, is the same on every device, and a coding agent that marks an item in progress moves that project's Now step too.

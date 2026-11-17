@@ -109,6 +109,8 @@ const MIN_READABLE_ZOOM = 0.85;
 const PHONE_MAX_WIDTH = 720;
 const MIN_READABLE_ZOOM_PHONE = 0.72;
 const MAX_FIT_ZOOM_PHONE = 0.9;
+// A preview (the Today card map) never shrinks the map below this to fit it whole
+const PREVIEW_MIN_ZOOM = 0.45;
 const isPhoneLayout = () =>
   typeof window !== "undefined" && window.matchMedia(`(max-width: ${PHONE_MAX_WIDTH}px)`).matches;
 const readableZoom = () => (isPhoneLayout() ? MIN_READABLE_ZOOM_PHONE : MIN_READABLE_ZOOM);
@@ -637,6 +639,13 @@ interface VisualGraphProps {
   childProjects?: Map<string, Project[]>;
   /** Open a child project, optionally focused on one of its phases or components */
   onOpenProject?: (projectId: string, itemId?: string) => void;
+  /** Items to show in colour (and unfolded); everything else on the map is greyed out. */
+  focusIds?: ReadonlySet<string>;
+  /**
+   * A small read-only map (the Today card preview): no toolbar, zoom buttons, status menus or
+   * selection on click, and fitted to the focused items rather than to the panel's width.
+   */
+  preview?: boolean;
 }
 
 // Layout: the project is a header across the top, linked to its phases by one rail per column
@@ -761,9 +770,11 @@ function columnsFor(
   panelWidth: number,
   groupCount: number,
   nesting: number,
+  preview = false,
 ): { cols: number; colW: number } {
   const colW = PHASE_W + INDENT * nesting;
-  const usable = (panelWidth - 2 * FIT_PADDING) / readableZoom();
+  // A preview is laid out for its smallest zoom, so more columns fit and the whole map shows
+  const usable = (panelWidth - 2 * FIT_PADDING) / (preview ? PREVIEW_MIN_ZOOM : readableZoom());
   const fit = Math.floor((usable + COL_GAP) / (colW + COL_GAP));
   return { cols: Math.max(1, Math.min(groupCount, fit)), colW };
 }
@@ -792,6 +803,8 @@ interface MapInput {
   onToggle: (key: string, open: boolean) => void;
   panelWidth: number;
   onOpenProject?: (projectId: string, itemId?: string) => void;
+  focusIds?: ReadonlySet<string>;
+  preview: boolean;
 }
 
 interface MapResult {
@@ -811,6 +824,14 @@ function mapBuilder(input: MapInput, layout: MapLayout) {
   const edges: Edge[] = [];
   const openIds = new Set<string>();
   const selectedPath = pathTo(groups, selectedId);
+  // Everything a focused item is nested in stays open, so every focused item is on the map
+  const focusOpen = new Set<string>();
+  for (const id of input.focusIds ?? []) {
+    for (const ancestor of pathTo(groups, id)) if (ancestor !== id) focusOpen.add(ancestor);
+  }
+  /** Greyed out: there is a focus and this item is not in it. */
+  const dimmed = (id: string) => input.focusIds !== undefined && !input.focusIds.has(id);
+  const DIMMED = "is-dimmed";
   const partEdgeType = horizontal ? "default" : "elbow";
 
   /** Whose status an item's node changes; items inside a child project belong to that project. */
@@ -827,6 +848,7 @@ function mapBuilder(input: MapInput, layout: MapLayout) {
     if (!item.children?.length) return false;
     // Ancestors of the selection stay open so the selected node is always on the map
     if (selectedPath.has(item.id) && item.id !== selectedId) return true;
+    if (focusOpen.has(item.id)) return true;
     if (item.id in toggled) return toggled[item.id];
     if (item.isProject) return false; // child projects start collapsed; click to unfold them here
     if (isComplete(item)) return false; // finished work starts folded
@@ -840,6 +862,7 @@ function mapBuilder(input: MapInput, layout: MapLayout) {
     const open =
       (grp.children?.length ?? 0) > 0 &&
       ((selectedPath.has(grp.id) && selectedId !== grp.id) ||
+        focusOpen.has(grp.id) ||
         (toggled[pNodeId] ?? !isComplete(grp)));
     if (open) openIds.add(pNodeId);
     return open;
@@ -866,9 +889,11 @@ function mapBuilder(input: MapInput, layout: MapLayout) {
     const kids = item.children || [];
     if (item.isProject) {
       const projectId = item.id.slice(PROJECT_NODE_PREFIX.length);
+      const dimProject = dimmed(projectId);
       nodes.push({
         id: item.id,
         type: "childProject",
+        className: dimProject ? DIMMED : undefined,
         position,
         data: {
           label: item.name,
@@ -886,14 +911,17 @@ function mapBuilder(input: MapInput, layout: MapLayout) {
         source: sourceId,
         target: item.id,
         type: partEdgeType,
+        className: dimProject ? DIMMED : undefined,
         style: CHILD_PROJECT_EDGE_STYLE,
       });
       return;
     }
     const isSelected = selectedId === item.id;
+    const dim = dimmed(item.foreign?.itemId ?? item.id);
     nodes.push({
       id: item.id,
       type: "componentNode",
+      className: dim ? DIMMED : undefined,
       position,
       data: {
         label: item.name,
@@ -904,7 +932,7 @@ function mapBuilder(input: MapInput, layout: MapLayout) {
         expanded: open,
         onToggle: () => onToggle(item.id, !open),
         horizontal,
-        statusTarget: statusTarget(item),
+        statusTarget: input.preview ? undefined : statusTarget(item),
       },
     });
     edges.push({
@@ -912,6 +940,7 @@ function mapBuilder(input: MapInput, layout: MapLayout) {
       source: sourceId,
       target: item.id,
       type: partEdgeType,
+      className: dim ? DIMMED : undefined,
       style: EDGE_STYLE(isSelected || selectedPath.has(item.id) || phaseHighlighted, isSelected),
     });
   };
@@ -926,9 +955,11 @@ function mapBuilder(input: MapInput, layout: MapLayout) {
   ) => {
     const pNodeId = `phase:${grp.id}`;
     const selected = isPhaseSelected(grp);
+    const dim = dimmed(grp.id);
     nodes.push({
       id: pNodeId,
       type: "phaseGroup",
+      className: dim ? DIMMED : undefined,
       position,
       data: {
         label: grp.name,
@@ -941,7 +972,7 @@ function mapBuilder(input: MapInput, layout: MapLayout) {
         expanded: open,
         onToggle: () => onToggle(pNodeId, !open),
         horizontal,
-        statusTarget: statusTarget(grp),
+        statusTarget: input.preview ? undefined : statusTarget(grp),
       },
     });
     edges.push({
@@ -949,6 +980,7 @@ function mapBuilder(input: MapInput, layout: MapLayout) {
       source: "root:node",
       target: pNodeId,
       ...rootEdge,
+      className: dim ? DIMMED : undefined,
       style: EDGE_STYLE(selected, selected),
     });
   };
@@ -976,7 +1008,7 @@ function mapBuilder(input: MapInput, layout: MapLayout) {
 function buildVerticalMap(input: MapInput): MapResult {
   const { groups, panelWidth } = input;
   const map = mapBuilder(input, "vertical");
-  const { cols, colW } = columnsFor(panelWidth, groups.length, maxNesting(groups));
+  const { cols, colW } = columnsFor(panelWidth, groups.length, maxNesting(groups), input.preview);
 
   /** Places an item at row `topY` of column `colX` and its open parts below it; returns the rows used. */
   const place = (
@@ -1112,6 +1144,8 @@ function VisualGraphInner({
   onSelectLearningItem,
   childProjects,
   onOpenProject,
+  focusIds,
+  preview = false,
 }: VisualGraphProps) {
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -1121,6 +1155,8 @@ function VisualGraphInner({
   // expand all / collapse all. Folding one node keeps the view where it is.
   const fitNextLayout = useRef(true);
   const layoutBounds = useRef<LayoutBounds | null>(null);
+  // In a preview, the part of the map in colour, which the fit frames
+  const focusBounds = useRef<LayoutBounds | null>(null);
   // The panel's width decides how many phase columns fit per row
   const [panelWidth, setPanelWidth] = useState(0);
   // Nested levels the user opened or closed by clicking a node (reset per project)
@@ -1159,9 +1195,14 @@ function VisualGraphInner({
       onToggle: setFold,
       panelWidth,
       onOpenProject: project ? onOpenProject : undefined,
+      focusIds,
+      preview,
     });
     openIdsRef.current = built.openIds;
     layoutBounds.current = boundsOf(built.nodes);
+    focusBounds.current = focusIds
+      ? boundsOf(built.nodes.filter((n) => n.type !== "rootNode" && !n.className))
+      : null;
     setNodes(built.nodes);
     setEdges(built.edges);
   }, [
@@ -1175,6 +1216,8 @@ function VisualGraphInner({
     panelWidth,
     onOpenProject,
     mapLayout,
+    focusIds,
+    preview,
   ]);
 
   /**
@@ -1192,6 +1235,25 @@ function VisualGraphInner({
 
       const w = el.clientWidth;
       const h = el.clientHeight;
+      // A preview shows the whole map when it fits at a readable size, so the greyed-out rest is
+      // there for context; a larger map is framed on the part in colour instead
+      const focus = preview ? focusBounds.current : null;
+      if (focus && focus.width > 0 && focus.height > 0) {
+        const fitZoom = (b: LayoutBounds) =>
+          Math.min((w - 2 * FIT_PADDING) / b.width, (h - 2 * FIT_PADDING) / b.height);
+        const whole = fitZoom(bounds);
+        const frame = whole >= PREVIEW_MIN_ZOOM ? bounds : focus;
+        const z = Math.min(Math.max(fitZoom(frame), PREVIEW_MIN_ZOOM), 1);
+        setViewport(
+          {
+            x: (w - frame.width * z) / 2 - frame.x * z,
+            y: (h - frame.height * z) / 2 - frame.y * z,
+            zoom: z,
+          },
+          { duration: animate ? 160 : 0 },
+        );
+        return true;
+      }
       // Fit the width: the vertical layout already chose how many columns this width holds
       const widthZoom = (w - 2 * FIT_PADDING) / bounds.width;
       const zoom = Math.min(Math.max(widthZoom, readableZoom()), maxFitZoom());
@@ -1211,7 +1273,7 @@ function VisualGraphInner({
       setViewport({ x, y, zoom }, { duration: animate ? 160 : 0 });
       return true;
     },
-    [setViewport],
+    [setViewport, preview],
   );
 
   // A different project or learning path starts with its default folds and a fresh fit
@@ -1384,40 +1446,46 @@ function VisualGraphInner({
   );
 
   return (
-    <div ref={wrapperRef} className="visual-graph-wrapper" data-testid="visual-graph-canvas">
-      <div className="visual-toolbar">
-        {foldable.length > 0 && (
-          <>
-            <button
-              type="button"
-              className="canvas-tool-btn"
-              onClick={() => setAllFolds(true)}
-              data-testid="map-expand-all"
-              title="Open every phase and nested part (child projects stay folded)"
-            >
-              Expand all
-            </button>
-            <button
-              type="button"
-              className="canvas-tool-btn"
-              onClick={() => setAllFolds(false)}
-              data-testid="map-collapse-all"
-              title="Fold every phase and nested part"
-            >
-              Collapse all
-            </button>
-          </>
-        )}
-        <button
-          type="button"
-          className="canvas-tool-btn"
-          onClick={() => fitReadable(true)}
-          data-testid="fit-view-button"
-        >
-          Fit to view
-        </button>
-        <MapLayoutButton layout={mapLayout} onChange={setMapLayout} />
-      </div>
+    <div
+      ref={wrapperRef}
+      className={preview ? "visual-graph-wrapper is-preview" : "visual-graph-wrapper"}
+      data-testid={preview ? "visual-graph-preview" : "visual-graph-canvas"}
+    >
+      {!preview && (
+        <div className="visual-toolbar">
+          {foldable.length > 0 && (
+            <>
+              <button
+                type="button"
+                className="canvas-tool-btn"
+                onClick={() => setAllFolds(true)}
+                data-testid="map-expand-all"
+                title="Open every phase and nested part (child projects stay folded)"
+              >
+                Expand all
+              </button>
+              <button
+                type="button"
+                className="canvas-tool-btn"
+                onClick={() => setAllFolds(false)}
+                data-testid="map-collapse-all"
+                title="Fold every phase and nested part"
+              >
+                Collapse all
+              </button>
+            </>
+          )}
+          <button
+            type="button"
+            className="canvas-tool-btn"
+            onClick={() => fitReadable(true)}
+            data-testid="fit-view-button"
+          >
+            Fit to view
+          </button>
+          <MapLayoutButton layout={mapLayout} onChange={setMapLayout} />
+        </div>
+      )}
       {/* React Flow sets up its zoom when it mounts and cannot do that in a hidden panel (a tab on
           small screens), so it mounts once the panel has a width and then stays mounted */}
       {panelWidth > 0 && (
@@ -1430,7 +1498,9 @@ function VisualGraphInner({
             if (fitNextLayout.current && fitReadable()) fitNextLayout.current = false;
           }}
           edgeTypes={edgeTypes}
-          onNodeClick={handleNodeClick}
+          onNodeClick={preview ? undefined : handleNodeClick}
+          nodesDraggable={!preview}
+          elementsSelectable={!preview}
           // Wheel/trackpad scrolls the map (it may be taller than the panel); pinch or the controls zoom
           panOnScroll
           zoomOnScroll={false}
@@ -1440,7 +1510,7 @@ function VisualGraphInner({
           proOptions={{ hideAttribution: true }}
         >
           <Background variant={BackgroundVariant.Dots} gap={20} size={1.2} color="var(--border)" />
-          <Controls showInteractive={false} position="bottom-right" />
+          {!preview && <Controls showInteractive={false} position="bottom-right" />}
         </ReactFlow>
       )}
     </div>
