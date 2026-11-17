@@ -142,13 +142,14 @@ Biome reports the accessibility rules as warnings for now (clickable elements wi
 `.github/workflows/ci.yml` runs on every push to `main` and every pull request:
 
 - **Lint and format:** `make lint` must pass, and `scripts/version.py check` (every copy of the version agrees, `CHANGELOG.md` has an Unreleased section).
+- **Tests:** builds the web UI, installs Chromium for Playwright and runs the whole Python and Playwright suite in `tests/` (`uv run pytest`).
 - **Web UI and generated files:** regenerates `schema/` and `web/src/types/` and fails if they differ from what is committed, then type-checks both looks and builds the UI.
 - **Package (Linux, macOS, Windows):** builds the wheel, checks that it contains the UI and the agent files, installs it in a clean environment and smoke-tests `workbench --help` and `workbench install`; on Linux it also starts `workbench serve` against a demo and loads the dashboard.
 - **Docker image:** builds the image without pushing it.
 
 CI does not build the desktop app; the release workflow does, for every version tag.
 
-Pull requests into `main` can only be merged once all of these checks pass (see [docs/releasing.md](docs/releasing.md) §9). CI lints the Python tests but does not run them yet; run `make test` locally before opening a pull request.
+Pull requests into `main` can only be merged once all of these checks pass (see [docs/releasing.md](docs/releasing.md) §9). Running `make test` locally before opening a pull request is still quicker than waiting for CI. The Vitest tests in `web/src/core/__tests__/` are not in the repository, so CI does not run them.
 
 ### Changelog and Releases
 

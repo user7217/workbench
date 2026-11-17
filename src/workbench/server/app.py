@@ -23,6 +23,7 @@ from workbench.server.writes import (
     delete_project_item,
     dismiss_suggestion,
     keep_suggestion,
+    move_learning_item,
     move_project_item,
     set_project_parent,
     set_today,
@@ -304,6 +305,11 @@ def create_app(
         project_id: str, item_id: str, request: Request
     ) -> JSONResponse:
         return await _run_body_write(request, state, move_project_item, project_id, item_id)
+
+    # Learning structure: reorder topics (the study order) and subtopics within a topic
+    @app.post("/api/learning/{path_id}/items/{item_id}/move")
+    async def post_learning_item_move(path_id: str, item_id: str, request: Request) -> JSONResponse:
+        return await _run_body_write(request, state, move_learning_item, path_id, item_id)
 
     @app.post("/api/projects/{project_id}/items/{item_id}/delete")
     async def post_project_item_delete(

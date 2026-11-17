@@ -12,7 +12,13 @@
  * sits outside the chosen topic is pulled in just before the part that needs it.
  */
 import type { SnapshotData } from "./api";
-import { type ChildIndex, childProjectsAt, getGroupChildren, getProjectGroups } from "./derive";
+import {
+  type ChildIndex,
+  childProjectsAt,
+  getGroupChildren,
+  getProjectGroups,
+  projectUsesPhases,
+} from "./derive";
 import type { LearningPath, Subtopic, Topic } from "../types/learning";
 import type { Component, Phase, Project } from "../types/project";
 
@@ -69,6 +75,11 @@ export interface TodayStep {
   neededBy?: string;
   /** Key of the stored entry that brought the step in. */
   entryKey: string;
+  /**
+   * 1-based place of the phase or topic the step is in (or is), in its project's or path's order.
+   * Set for learning paths and for projects that use phases, the ones whose order is numbered.
+   */
+  place?: number;
   state: TodayStepState;
 }
 
@@ -372,6 +383,47 @@ function markSteps(drafts: Draft[]): TodayStep[] {
   }));
 }
 
+/**
+ * The order of an owner's items: `order` is each item's position in a depth-first walk (phases or
+ * topics in their order, each followed by its parts), `place` the 1-based number of the phase or
+ * topic each item is in, when the owner numbers them (learning paths, projects using phases).
+ */
+interface Outline {
+  order: Map<string, number>;
+  place: Map<string, number> | null;
+}
+
+function outlineOf(snapshot: SnapshotData, kind: TodayKind, ownerId: string): Outline {
+  const order = new Map<string, number>();
+  const place = new Map<string, number>();
+  let numbered = true;
+  if (kind === "project") {
+    const project = snapshot.projects.find((p) => p.id === ownerId);
+    numbered = project ? projectUsesPhases(project) : false;
+    const walk = (node: ProjectNode, n: number) => {
+      order.set(node.id, order.size);
+      place.set(node.id, n);
+      for (const part of partsOf(node)) walk(part, n);
+    };
+    if (project) {
+      getProjectGroups(project).forEach((group, i) => {
+        walk(group, i + 1);
+      });
+    }
+  } else {
+    const path = snapshot.learning.find((lp) => lp.id === ownerId);
+    (path?.topics ?? []).forEach((topic, i) => {
+      order.set(topic.id, order.size);
+      place.set(topic.id, i + 1);
+      for (const sub of topic.subtopics ?? []) {
+        order.set(sub.id, order.size);
+        place.set(sub.id, i + 1);
+      }
+    });
+  }
+  return { order, place: numbered ? place : null };
+}
+
 function ownerOf(
   snapshot: SnapshotData,
   entry: TodayEntry,
@@ -410,16 +462,36 @@ export function buildTodayPlan(
       missing.push(...entries);
       continue;
     }
-    // Each group collects on its own: a part reached from two projects shows up under both
+    // Each group collects on its own: a part reached from two projects shows up under both.
+    // Chosen items are expanded in the owner's own order (phase or topic 1 first), not in the
+    // order they were added, so a card's steps follow the project's or path's order.
+    const outline = outlineOf(snapshot, entries[0].kind, entries[0].id);
+    const position = (entry: TodayEntry) =>
+      entry.item ? (outline.order.get(entry.item) ?? Number.MAX_SAFE_INTEGER) : -1;
+    const inOrder = [...entries].sort((a, b) => position(a) - position(b));
     const c: Collector = { drafts: [], seen: new Set(), keepDone, childIndex };
-    const found = entries.filter((entry) => {
-      const ok = collectEntry(c, entry, snapshot);
-      if (!ok) missing.push(entry);
-      return ok;
-    });
+    const collected = new Set(
+      inOrder.filter((entry) => {
+        const ok = collectEntry(c, entry, snapshot);
+        if (!ok) missing.push(entry);
+        return ok;
+      }),
+    );
+    const found = entries.filter((entry) => collected.has(entry));
     if (found.length === 0) continue;
 
-    const steps = markSteps(c.drafts);
+    // Steps of child projects are numbered by their own project's order
+    const outlines = new Map([[key, outline]]);
+    const steps = markSteps(c.drafts).map((step) => {
+      const ownerKey = `${step.kind}:${step.ownerId}`;
+      let stepOutline = outlines.get(ownerKey);
+      if (!stepOutline) {
+        stepOutline = outlineOf(snapshot, step.kind, step.ownerId);
+        outlines.set(ownerKey, stepOutline);
+      }
+      const place = stepOutline.place?.get(step.itemId);
+      return place === undefined ? step : { ...step, place };
+    });
     const counted = steps.filter((s) => s.state !== "parked");
     groups.push({
       key,

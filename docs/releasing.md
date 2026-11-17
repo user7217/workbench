@@ -149,7 +149,7 @@ A repository ruleset (Settings → Rules → Rulesets, named `main`, targeting t
 | Restrict deletions | On |
 | Block force pushes | On |
 | Require a pull request before merging | On, with 0 required approvals: one maintainer cannot approve their own pull request |
-| Require status checks to pass | `Lint and format`, `Web UI and generated files`, `Package on ubuntu-latest`, `Package on macos-latest`, `Package on windows-latest`, `Docker image` |
+| Require status checks to pass | `Lint and format`, `Tests`, `Web UI and generated files`, `Package on ubuntu-latest`, `Package on macos-latest`, `Package on windows-latest`, `Docker image` |
 
 Linear history is not required, since pull requests are merged with merge commits. Tags are not covered, so a release tag can still be pushed, and moved after a failed release (section 4).
 

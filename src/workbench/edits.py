@@ -603,6 +603,31 @@ def set_learning_item_status(doc: Any, path_id: str, item_id: str, status: str) 
     return roll_up_learning(doc, item_id)
 
 
+def move_learning_item(doc: Any, path_id: str, item_id: str, position: int) -> None:
+    """Reorder a topic among the path's topics, or a subtopic among its topic's subtopics.
+
+    The order of topics is the order they are studied in (the dashboard numbers them).
+    """
+    position = require_position(position)
+    seq: Any = doc.get("topics")
+    if not any(hasattr(t, "get") and t.get("id") == item_id for t in seq or []):
+        seq = next(
+            (
+                topic.get("subtopics")
+                for topic in children(doc, ("topics",))
+                if any(sub.get("id") == item_id for sub in children(topic, ("subtopics",)))
+            ),
+            None,
+        )
+    if not isinstance(seq, list):
+        raise EditError(f"Item '{item_id}' not found in learning path '{path_id}'", status_code=404)
+    index = next(
+        i for i, node in enumerate(seq) if hasattr(node, "get") and node.get("id") == item_id
+    )
+    check_position(position, len(seq) - 1)
+    seq.insert(position, seq.pop(index))
+
+
 def set_learning_item_fields(doc: Any, path_id: str, item_id: str, fields: dict[str, Any]) -> None:
     is_topic = any(t.get("id") == item_id for t in children(doc, ("topics",)))
     item = require_learning_item(doc, path_id, item_id)

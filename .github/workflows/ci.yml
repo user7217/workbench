@@ -1,5 +1,5 @@
-# Checks every push and pull request. The test suites are kept out of the repository, so CI
-# lints, type-checks, builds, and smoke-tests the installed package on each OS instead.
+# Checks every push and pull request: lint, type checks and the build, the Python and Playwright
+# test suite (tests/), and a smoke test of the installed package on each OS.
 name: CI
 
 on:
@@ -35,6 +35,29 @@ jobs:
         working-directory: web
       - run: npm run lint
         working-directory: web
+
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    env:
+      # Where `playwright install` puts Chromium and where tests/conftest.py looks for it
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright-browsers
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.3
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: uv sync --locked
+      # The server and end-to-end tests load the built UI from web/dist
+      - run: npm ci
+        working-directory: web
+      - run: npm run build
+        working-directory: web
+      - run: uv run playwright install --with-deps chromium
+      - run: uv run pytest -q
 
   web:
     name: Web UI and generated files

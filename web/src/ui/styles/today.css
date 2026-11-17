@@ -658,3 +658,86 @@ button.today-done-btn:hover {
   height: 16px;
   accent-color: var(--today-now);
 }
+
+/* --- Map preview of a card: today's part in colour, the rest greyed out --- */
+.today-group {
+  cursor: default;
+}
+
+.today-group.is-map-open {
+  border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+}
+
+.today-map-preview {
+  position: fixed;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.today-map-preview-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px 8px 14px;
+  border-bottom: 1px solid var(--border);
+  min-height: 36px;
+  box-sizing: border-box;
+}
+
+.today-map-preview-title {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.today-map-preview-hint {
+  font-size: 11px;
+  color: var(--text-quiet);
+  margin-right: auto;
+  white-space: nowrap;
+}
+
+.today-map-preview-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  line-height: 1;
+  padding: 2px 6px;
+  cursor: pointer;
+}
+
+.today-map-preview-body {
+  flex: 1;
+  min-height: 0;
+}
+
+/* Map items outside the focus (used by the preview) */
+.react-flow__node.is-dimmed {
+  opacity: 0.28;
+  filter: grayscale(1);
+}
+
+.react-flow__edge.is-dimmed {
+  opacity: 0.2;
+}
+
+@media (max-width: 720px) {
+  .today-map-preview {
+    left: 8px !important;
+    right: 8px;
+    top: auto !important;
+    bottom: calc(var(--tabbar-h) + 8px);
+    width: auto !important;
+    height: 55dvh !important;
+  }
+}

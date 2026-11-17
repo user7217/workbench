@@ -314,3 +314,27 @@ def set_project_parent(state: ServerState, project_id: str, body: object) -> dic
         return _edit_message("clear parent", project_id)
 
     return _commit_edit(state, "project", project_id, mutate, message, check_repo=check_link)
+
+
+def move_learning_item(
+    state: ServerState, path_id: str, item_id: str, body: object
+) -> dict[str, Any]:
+    """Reorder a topic among its path's topics, or a subtopic within its topic."""
+    _require_slug(path_id, "learning path id")
+    _require_slug(item_id, "item id")
+    data = _require_body(body)
+    _reject_unknown_keys(data, ("position",))
+    if "position" not in data:
+        raise WriteError("'position' is required", status_code=400)
+    position = _require_position(data["position"])
+
+    def mutate(doc: Any) -> None:
+        edits.move_learning_item(doc, path_id, item_id, position)
+
+    return _commit_edit(
+        state,
+        "learning",
+        path_id,
+        mutate,
+        _edit_message(f"move to position {position}", f"learning/{path_id}/{item_id}"),
+    )

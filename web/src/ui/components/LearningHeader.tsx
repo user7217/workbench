@@ -93,7 +93,7 @@ export function LearningHeader({ learningPath: activeLp }: { learningPath: Learn
 
       {topics.length > 0 && (
         <div className="phase-selector-strip">
-          {topics.map((top) => {
+          {topics.map((top, idx) => {
             const isCurr = activeTopic?.id === top.id;
             return (
               <button
@@ -103,7 +103,7 @@ export function LearningHeader({ learningPath: activeLp }: { learningPath: Learn
                 onClick={() => selectLearningPath(activeLp.id, top.id, null)}
               >
                 <StatusNodeGlyph status={top.status} />
-                <span>{top.name}</span>
+                <span>{`${idx + 1}. ${top.name}`}</span>
               </button>
             );
           })}

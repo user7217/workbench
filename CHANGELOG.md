@@ -6,6 +6,13 @@ Each release on [GitHub Releases](https://github.com/user7217/workbench/releases
 
 ## [Unreleased]
 
+### Added
+
+- **Learning topics are numbered:** a learning path's topics show their place in the study order (1, 2, 3, ...) in the navigation tree, the contents list, the header's topic strip and the map, like the phases of a phased project. There is no switch for it. See docs/reference.md §2.
+- **Today's Work follows the study order:** a card's steps are taken in the project's or learning path's own order (phase or topic 1 first), not in the order items were added, so Now and Next follow it too; each step shows the number of its phase or topic (`2. Sampling › Aliasing`).
+- **Today's part on the map:** hovering over a Today card, or clicking it, opens a small map of its project or learning path with the card's steps in colour, the current step highlighted and the rest greyed out (a sheet above the tab bar on a phone).
+- **Reorder learning topics on the site:** each topic in a learning path's Contents panel has ↑ / ↓ buttons, as phases do, to change the study order (`POST /api/learning/{id}/items/{item_id}/move`, which also reorders subtopics within a topic).
+
 ## [0.2.3] - 2026-11-13
 
 ### Added

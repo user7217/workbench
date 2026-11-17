@@ -1235,3 +1235,50 @@ def test_moving_parts_updates_both_parents(write_env) -> None:
     assert _rover_item_status(laptop_data, "testing") == "in_progress"
     # ekf lost its only part: no parts left, so its status stays as it was
     assert _rover_item_status(laptop_data, "ekf") == "in_progress"
+
+
+def test_learning_topics_and_subtopics_reorder(write_env) -> None:
+    """POST /api/learning/{id}/items/{item}/move reorders within the item's own list."""
+    client, laptop_data = write_env
+    path = "learning/demo-signal-processing/path.yaml"
+
+    resp = client.post(
+        "/api/learning/demo-signal-processing/items/filters/move",
+        headers=WRITE_HEADERS,
+        json={"position": 0},
+    )
+    assert resp.status_code == 200, resp.text
+    assert _remote_head(laptop_data)[0] == (
+        "edit(learning/demo-signal-processing/filters): move to position 0"
+    )
+    topics = _remote_yaml(laptop_data, path)["topics"]
+    assert [t["id"] for t in topics] == ["filters", "sampling", "dft-fft", "spectral-estimation"]
+    lp = next(p for p in resp.json()["snapshot"]["learning"] if p["id"] == "demo-signal-processing")
+    assert lp["topics"][0]["id"] == "filters"
+
+    # A subtopic moves within its topic, and its subtopics keep their statuses
+    resp = client.post(
+        "/api/learning/demo-signal-processing/items/zero-order-hold/move",
+        headers=WRITE_HEADERS,
+        json={"position": 0},
+    )
+    assert resp.status_code == 200, resp.text
+    sampling = next(t for t in _remote_yaml(laptop_data, path)["topics"] if t["id"] == "sampling")
+    assert [s["id"] for s in sampling["subtopics"]] == [
+        "zero-order-hold",
+        "aliasing",
+        "quantization",
+    ]
+
+    for item, body, code in [
+        ("filters", {"position": 4}, 400),  # past the last place
+        ("filters", {}, 400),
+        ("filters", {"position": 0, "parent_id": "x"}, 400),  # no reparenting for learning
+        ("no-such-topic", {"position": 0}, 404),
+    ]:
+        resp = client.post(
+            f"/api/learning/demo-signal-processing/items/{item}/move",
+            headers=WRITE_HEADERS,
+            json=body,
+        )
+        assert resp.status_code == code, (item, body, resp.text)

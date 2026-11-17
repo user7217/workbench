@@ -3,18 +3,23 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 
 import pytest
 
 from workbench.gitops import make_isolated_git_env
 
-# Capture Playwright browser cache location before HOME is overridden in each test
-_REAL_HOME = os.environ.get("HOME", str(Path.home()))
-_PW_CACHE = os.environ.get(
-    "PLAYWRIGHT_BROWSERS_PATH",
-    str(Path(_REAL_HOME) / "Library" / "Caches" / "ms-playwright"),
-)
+# Capture Playwright browser cache location before HOME is overridden in each test: where
+# `playwright install` put the browsers, unless PLAYWRIGHT_BROWSERS_PATH says otherwise (as in CI)
+_REAL_HOME = Path(os.environ.get("HOME", str(Path.home())))
+if sys.platform == "darwin":
+    _PW_DEFAULT = _REAL_HOME / "Library" / "Caches" / "ms-playwright"
+elif sys.platform == "win32":
+    _PW_DEFAULT = Path(os.environ.get("LOCALAPPDATA", str(_REAL_HOME))) / "ms-playwright"
+else:
+    _PW_DEFAULT = _REAL_HOME / ".cache" / "ms-playwright"
+_PW_CACHE = os.environ.get("PLAYWRIGHT_BROWSERS_PATH", str(_PW_DEFAULT))
 
 
 _SERVER_ENV_VARS = (

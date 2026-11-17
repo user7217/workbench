@@ -21,6 +21,7 @@ import {
   fieldUrls,
   statusUrls,
   structureUrls,
+  learningStructureUrls,
   suggestionUrls,
   todayBody,
   todayEnabledUrl,
@@ -159,6 +160,8 @@ export const pendingKeys = {
     `learning-item-fields:${pathId}:${itemId}`,
   /** Any structure edit (add/move/delete/parent) of a project; one at a time per project. */
   structure: (projectId: string) => `structure:${projectId}`,
+  /** A reorder of a learning path's topics or subtopics; one at a time per path. */
+  learningStructure: (pathId: string) => `learning-structure:${pathId}`,
   /** Keep or dismiss of one inbox suggestion. */
   suggestion: (projectId: string, suggestionId: string) =>
     `suggestion:${projectId}:${suggestionId}`,
@@ -529,6 +532,8 @@ export interface WorkbenchActions {
   addItem: (projectId: string, input: AddItemInput) => Promise<string | null>;
   /** Reorder an item, or move a component under another phase/component (not optimistic). */
   moveItem: (projectId: string, itemId: string, target: MoveTarget) => Promise<boolean>;
+  /** Reorder a learning topic among the path's topics, or a subtopic within its topic (not optimistic). */
+  moveLearningItem: (pathId: string, itemId: string, position: number) => Promise<boolean>;
   /** Permanently delete a phase/component and everything under it (not optimistic). */
   deleteItem: (projectId: string, itemId: string) => Promise<boolean>;
   /** Attach a project under a parent project's phase/component, or detach it with null (not optimistic). */
@@ -934,13 +939,16 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
 
   // --- Structure (server-authoritative) ---
 
-  /** Mark the project's structure key, POST, adopt the server snapshot; null on failure (lastError set). */
+  /**
+   * Mark a structure key (a project's, by default), POST, adopt the server snapshot; null on
+   * failure (lastError set).
+   */
   const structureWrite = async (
     projectId: string,
     request: (a: WorkbenchApi) => Promise<WriteResult>,
     failureMessage: string,
+    key: string = pendingKeys.structure(projectId),
   ): Promise<WriteResult | null> => {
-    const key = pendingKeys.structure(projectId);
     if (state.pending[key]) return null;
     setPending(key, true);
     try {
@@ -977,6 +985,20 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
       projectId,
       (a) => a.postJson(structureUrls.move(projectId, itemId), body),
       "Could not move item.",
+    );
+    return result !== null;
+  };
+
+  const moveLearningItem: WorkbenchActions["moveLearningItem"] = async (
+    pathId,
+    itemId,
+    position,
+  ) => {
+    const result = await structureWrite(
+      pathId,
+      (a) => a.postJson(learningStructureUrls.move(pathId, itemId), { position }),
+      "Could not move item.",
+      pendingKeys.learningStructure(pathId),
     );
     return result !== null;
   };
@@ -1225,6 +1247,7 @@ export function createWorkbench(options: CreateWorkbenchOptions = {}): Workbench
     updateLearningItemFields,
     addItem,
     moveItem,
+    moveLearningItem,
     deleteItem,
     setParent,
     keepSuggestion,

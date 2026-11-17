@@ -162,6 +162,8 @@ topics:
         summary: Spectral folding above Fs/2 and oversampling trade-offs.
 ```
 
+Topics are listed in study order. The dashboard numbers them (1, 2, 3, ...) in the navigation tree, the contents list (`TOPIC 01`), the topic strip in the header and the map, the way a phased project numbers its phases; unlike `uses_phases` for projects, there is no switch, since a learning path is always worked through in order. To change the order, use the ↑ / ↓ buttons under each topic in the Contents panel (`POST /api/learning/{id}/items/{item_id}/move`, section 5), edit the file, or re-import the path with its topics in the new order: `workbench learning import` follows the order of the imported file and keeps any topic the file leaves out, after the others.
+
 Optional Markdown notes for any topic or subtopic live at `learning/<path-id>/topics/<topic-or-subtopic-id>.md` (maximum 20 KB per file).
 
 ---
@@ -243,6 +245,7 @@ Every `POST` endpoint requires `Content-Type: application/json` and the custom h
 | `POST /api/projects/{id}/items/{item_id}/status` | `{"status": "..."}` | Update a phase, topic, or component status (`not_started`, `in_progress`, `done`, `parked`). |
 | `POST /api/projects/{id}/items/{item_id}/fields` | `{"name"?, "summary"?, "description"?, "notes"?, "items"?}` | Edit an item's text fields or bullet list in place. |
 | `POST /api/projects/{id}/items/{item_id}/move` | `{"position": <int>, "parent_id"?: "<id>"}` | Move an item to index `position` among its siblings. With `parent_id`, a component moves under another phase or component (not under itself or its own descendants); phases can only be reordered. |
+| `POST /api/learning/{id}/items/{item_id}/move` | `{"position": <int>}` | Reorder a topic among the path's topics (the study order), or a subtopic among its topic's subtopics. Commits `edit(learning/<id>/<item>): move to position <n>`. |
 | `POST /api/projects/{id}/items/{item_id}/delete` | `{"confirm": true}` | Delete a phase, topic, or component and everything under it. Refused while another component still lists a removed id in `depends_on`, or a child project sits under a removed item. |
 | `POST /api/projects/{id}/suggestions/{sug_id}/keep` | `{}` | Move a suggestion from the inbox into the tree as a `not_started` item under its `under` (a new phase/topic when it has none). `422` if that item no longer exists. Returns `item_id`. |
 | `POST /api/projects/{id}/suggestions/{sug_id}/dismiss` | `{}` | Dismiss and remove a suggestion from the inbox. |
