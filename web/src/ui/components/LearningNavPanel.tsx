@@ -2,7 +2,7 @@
 import { useWorkbench } from "@workbench-core";
 import { MAX_NAV_WIDTH, MIN_NAV_WIDTH } from "../layoutPrefs";
 import { useLook } from "../lookState";
-import { KindBadge, StatusNodeGlyph } from "./status";
+import { KindBadge, PhaseNumberBadge, StatusNodeGlyph } from "./status";
 import { revealId } from "../revealSelection";
 
 // PANEL A: Learning Navigation (Left)
@@ -65,7 +65,7 @@ export function LearningNavPanel() {
 
               {isExpanded && lpTopics.length > 0 && (
                 <div className="tree-phases-children">
-                  {lpTopics.map((top) => {
+                  {lpTopics.map((top, idx) => {
                     const isTopActive = isSelected && activeTopic?.id === top.id;
                     const isTopExpanded = expandedIn("topics", top.id, isTopActive);
                     const subs = top.subtopics || [];
@@ -92,6 +92,8 @@ export function LearningNavPanel() {
                           >
                             {subs.length > 0 ? (isTopExpanded ? "⌄" : "›") : "·"}
                           </button>
+                          {/* A learning path is always worked through in order, like a phased project */}
+                          <PhaseNumberBadge index={idx} status={top.status} size={18} />
                           <span className="tree-phase-name" title={top.name}>
                             {top.name}
                           </span>

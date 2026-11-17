@@ -1150,7 +1150,8 @@ function VisualGraphInner({
       rootTitle: project ? project.name : learningPath!.name,
       isLearning: !project,
       ownerId: project ? project.id : learningPath!.id,
-      numbered: project ? projectUsesPhases(project) : false,
+      // Learning topics are always in order; a project numbers its phases only when it uses phases
+      numbered: project ? projectUsesPhases(project) : true,
       groups,
       selectedId,
       selectedPhaseId,

@@ -143,6 +143,12 @@ export const structureUrls = {
   parent: (projectId: string) => `/api/projects/${enc(projectId)}/parent`,
 };
 
+/** Learning path structure: reorder a topic (the study order) or a subtopic within its topic. */
+export const learningStructureUrls = {
+  move: (pathId: string, itemId: string) =>
+    `/api/learning/${enc(pathId)}/items/${enc(itemId)}/move`,
+};
+
 /** Suggestions inbox endpoints (keep adds the suggestion to the tree; dismiss drops it). Projects only. */
 export const suggestionUrls = {
   keep: (projectId: string, suggestionId: string) =>

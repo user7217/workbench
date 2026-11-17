@@ -28,6 +28,7 @@ from workbench.server.writes.fields import (
 from workbench.server.writes.structure import (
     add_project_item,
     delete_project_item,
+    move_learning_item,
     move_project_item,
     set_project_parent,
 )
@@ -42,6 +43,7 @@ __all__ = [
     "delete_project_item",
     "dismiss_suggestion",
     "keep_suggestion",
+    "move_learning_item",
     "move_project_item",
     "set_project_parent",
     "set_today",

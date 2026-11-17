@@ -1,5 +1,10 @@
 /** The centre list of a learning path: each topic with its subtopic cards and items on demand. */
-import { useWorkbench, getItemShortDescription, type LearningPath } from "@workbench-core";
+import {
+  useWorkbench,
+  getItemShortDescription,
+  pendingKeys,
+  type LearningPath,
+} from "@workbench-core";
 import { useLook } from "../lookState";
 import { LearningItemStatusMenu } from "./ItemStatusMenu";
 import { StatusNodeGlyph } from "./status";
@@ -13,10 +18,13 @@ export function LearningTopicList({ learningPath: activeLp }: { learningPath: Le
   const selectedSubtopicId = selection.subtopicId;
   const activePathId = activeLp.id;
   const topics = activeLp.topics || [];
+  const orderBusy = wb.isPending(pendingKeys.learningStructure(activePathId));
+  const moveTopic = (topicId: string, to: number) =>
+    void wb.moveLearningItem(activePathId, topicId, to);
 
   return (
     <div className="centre-phases-stack">
-      {topics.map((top) => {
+      {topics.map((top, idx) => {
         const isActiveTop = activeTopic?.id === top.id;
         const subs = top.subtopics || [];
         const topDesc = getItemShortDescription(top);
@@ -34,7 +42,9 @@ export function LearningTopicList({ learningPath: activeLp }: { learningPath: Le
             >
               <div className="tier-1-header-main">
                 <div className="tier-1-kicker-row">
-                  <span className="tier-1-kicker-badge">TOPIC</span>
+                  <span className="tier-1-kicker-badge">
+                    TOPIC {String(idx + 1).padStart(2, "0")}
+                  </span>
                   <LearningItemStatusMenu pathId={activeLp.id} item={top} />
                   <span className="tier-1-phase-title">{top.name}</span>
                 </div>
@@ -105,6 +115,34 @@ export function LearningTopicList({ learningPath: activeLp }: { learningPath: Le
                 })}
               </div>
             )}
+
+            {/* The study order, as phases are reordered in a project */}
+            <div className="phase-footer-row">
+              <div className="item-actions" onClick={(e) => e.stopPropagation()}>
+                <button
+                  type="button"
+                  className="item-action-btn"
+                  data-testid={`move-up-${top.id}`}
+                  title="Move up"
+                  aria-label={`Move ${top.name} up`}
+                  disabled={orderBusy || idx === 0}
+                  onClick={() => moveTopic(top.id, idx - 1)}
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  className="item-action-btn"
+                  data-testid={`move-down-${top.id}`}
+                  title="Move down"
+                  aria-label={`Move ${top.name} down`}
+                  disabled={orderBusy || idx === topics.length - 1}
+                  onClick={() => moveTopic(top.id, idx + 1)}
+                >
+                  ↓
+                </button>
+              </div>
+            </div>
           </div>
         );
       })}

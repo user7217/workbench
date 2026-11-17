@@ -168,6 +168,7 @@ Writes — **structure** (projects only; *not* optimistic — they wait for the 
 |---|---|
 | `addItem(projectId, {parentId, name, id?, status?, summary?, position?})` → `Promise<string \| null>` | `parentId: null` adds a phase (a topic when the project has `uses_phases: false`); a phase id adds a component; a component id adds a nested component. Resolves to the new id (the server makes it unique) so the caller can select it. |
 | `moveItem(projectId, itemId, {parentId?, position})` → `Promise<boolean>` | Omit `parentId` to reorder in place. Components can move under any phase/component except themselves and their descendants; phases only reorder. |
+| `moveLearningItem(pathId, itemId, position)` → `Promise<boolean>` | Reorder a learning topic among the path's topics (its study order), or a subtopic within its topic. Not optimistic; pending key `learningStructure(pathId)`. |
 | `deleteItem(projectId, itemId)` → `Promise<boolean>` | Permanent; removes everything nested. Refused (422) while a `depends_on` or a child project points into it — `lastError.detail` names them. Clears a selection that pointed into it. |
 | `setParent(projectId, {parent, under} \| null)` → `Promise<boolean>` | Attach under a parent project's phase/component, or detach with `null`. |
 
@@ -278,7 +279,7 @@ A look never needs these directly — the actions above call them — but a non-
 
 Every text field has a pencil (✎): Enter saves a single-line field, Cmd/Ctrl+Enter saves a
 textarea, Esc cancels. Selected components get ↑ / ↓, **Move to…**, **Delete…** and **+ Add part**;
-each phase has **+ Add component** and its own ↑ / ↓ / Delete…; **+ Add phase** sits under the last
+each phase has **+ Add component** and its own ↑ / ↓ / Delete…, and each learning topic its own ↑ / ↓; **+ Add phase** sits under the last
 phase; **Part of…** in the project header attaches the project to a parent or detaches it. A
 project with suggestions shows an **Inbox** above its phases, with **Keep** and **Dismiss** on each
 row, and its Home card shows how many suggestions are waiting.

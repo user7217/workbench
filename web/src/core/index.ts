@@ -19,7 +19,8 @@
  *   description?}), updateLearningItemFields(pathId, itemId, {name?, summary?, notes?,
  *   description?})), structure edits — server-authoritative, pending key pendingKeys.structure —
  *   (addItem(projectId, {parentId, name, id?, status?, summary?, position?}) -> new id | null,
- *   moveItem(projectId, itemId, {parentId?, position}), deleteItem(projectId, itemId),
+ *   moveItem(projectId, itemId, {parentId?, position}), moveLearningItem(pathId, itemId, position),
+ *   deleteItem(projectId, itemId),
  *   setParent(projectId, {parent, under} | null)), suggestions inbox — the row leaves the inbox
  *   optimistically, pending key pendingKeys.suggestion — (keepSuggestion(projectId, suggestionId)
  *   -> new item id | null, dismissSuggestion(projectId, suggestionId)), dismissError, optimisticWrite.
@@ -34,7 +35,7 @@
  *   getRelatedLearning, getRelatedProjects, getComponentDetailItems, getLearningSubtopicItems,
  *   projectTree, learningTree, PROJECT_NODE_PREFIX, parseProjectNodeId, mapProjectItem,
  *   mapLearningItem, locateItemPlacement, applyTextFields, readTextFields, changedTextFields, subtreeIds.
- * - API (rarely needed by a look): api.* functions, statusUrls, fieldUrls, structureUrls,
+ * - API (rarely needed by a look): api.* functions, statusUrls, fieldUrls, structureUrls, learningStructureUrls,
  *   suggestionUrls.
  */
 export type { Project, Phase, Component, ProjectRepo, Suggestion } from "../types/project";
@@ -82,6 +83,7 @@ export {
   statusUrls,
   fieldUrls,
   structureUrls,
+  learningStructureUrls,
   suggestionUrls,
   todayUrl,
   todayEnabledUrl,

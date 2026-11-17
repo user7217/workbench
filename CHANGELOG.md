@@ -6,6 +6,11 @@ Each release on [GitHub Releases](https://github.com/user7217/workbench/releases
 
 ## [Unreleased]
 
+### Added
+
+- **Learning topics are numbered:** a learning path's topics show their place in the study order (1, 2, 3, ...) in the navigation tree, the contents list, the header's topic strip and the map, like the phases of a phased project. There is no switch for it. See docs/reference.md §2.
+- **Reorder learning topics on the site:** each topic in a learning path's Contents panel has ↑ / ↓ buttons, as phases do, to change the study order (`POST /api/learning/{id}/items/{item_id}/move`, which also reorders subtopics within a topic).
+
 ## [0.2.3] - 2026-11-13
 
 ### Added
