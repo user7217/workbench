@@ -6,6 +6,8 @@ Each release on [GitHub Releases](https://github.com/user7217/workbench/releases
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-17
+
 ### Added
 
 - **Learning topics are numbered:** a learning path's topics show their place in the study order (1, 2, 3, ...) in the navigation tree, the contents list, the header's topic strip and the map, like the phases of a phased project. There is no switch for it. See docs/reference.md §2.
@@ -103,7 +105,8 @@ The first release. Everything below is new.
 - **Security:** write endpoints require `X-Workbench: 1` and JSON; a server listening on localhost rejects other `Host` names, blocking DNS rebinding.
 - **Releases:** one version number for the Python package, web UI and desktop app (`scripts/version.py`), this changelog, and a release workflow that builds the `.dmg`, the wheel and sdist, and the Docker image for each `v*` tag.
 
-[Unreleased]: https://github.com/user7217/workbench/compare/v0.2.3...HEAD
+[Unreleased]: https://github.com/user7217/workbench/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/user7217/workbench/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/user7217/workbench/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/user7217/workbench/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/user7217/workbench/compare/v0.2.0...v0.2.1
