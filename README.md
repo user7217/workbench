@@ -256,6 +256,7 @@ Every automated or manual write to `workbench-data` uses a structured commit hea
 | `update` | `workbench set` / `add` (`workbench-update`) | `update(robot-arm/gripper): status in_progress, notes` |
 | `review` | `workbench push` (`workbench-review`) | `review(robot-arm): gripper working, wrist calibration left to do` |
 | `edit` | Web dashboard UI edits | `edit(robot-arm/wrist): name, summary` |
+| `web` | claude.ai connector edits, through the dashboard's agent socket | `web(robot-arm/wrist): status done` |
 | `import` | `workbench learning import` | `import(learning/control-theory): merge into existing learning path` |
 | `attach` / `detach` | `workbench attach` / `detach` | `attach(gripper-firmware): under robot-arm/gripper` |
 | `link` | `workbench link` | `link(robot-arm): add repo robot-arm-firmware` |
@@ -274,6 +275,7 @@ Workbench's documentation follows the [Diátaxis](https://diataxis.fr/) structur
 | **[README.md](README.md)** | **Overview & Tutorial** | Project overview, screenshots, 60-second `make demo` quickstart, and CLI cheat sheet. |
 | **[docs/setup.md](docs/setup.md)** | **Deployment How-To** | Step-by-step setup for `workbench-data`, SSH deploy keys, Docker Compose + Tailscale, `workbench serve`, and laptop hooks. |
 | **[docs/desktop.md](docs/desktop.md)** | **Desktop How-To** | Installing, setting up, using and building the macOS menu-bar app that runs the dashboard on the laptop. |
+| **[docs/web-connector.md](docs/web-connector.md)** | **Deployment How-To** | The claude.ai connector: recording progress from claude.ai chats through a locked-down remote MCP server, its layers of protection and its setup on the home server. |
 | **[docs/today.md](docs/today.md)** | **Feature Guide** | Today's Work: adding items, how the order and the Now / Next steps are worked out, where the list is stored, and the research behind the design. |
 | **[docs/releasing.md](docs/releasing.md)** | **Maintainer How-To** | Versions, the changelog, and cutting a release with the release workflow. |
 | **[CHANGELOG.md](CHANGELOG.md)** | **Release Notes** | What changed in each version. |

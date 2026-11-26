@@ -3,7 +3,12 @@
 .git
 .env
 .env.*
+# e.g. packaging/mcp/.env, the connector's secrets
+**/.env
+**/.env.*
 secrets/
+# The agent socket directory (docker-compose.yml mounts it at /agent)
+agent/
 .claude/
 .venv/
 **/__pycache__/

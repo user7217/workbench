@@ -36,6 +36,11 @@ dependencies = [
     "detect-secrets>=1.5.0",
 ]
 
+# The claude.ai connector (remote MCP server, docs/web-connector.md) runs in its own container;
+# the base install does not need it. Pinned exactly: the server builds on FastMCP's OAuth proxy.
+[project.optional-dependencies]
+mcp = ["fastmcp==4.2.2"]
+
 [project.urls]
 Homepage = "https://github.com/user7217/workbench"
 Documentation = "https://github.com/user7217/workbench#documentation-map"
@@ -53,6 +58,8 @@ dev = [
     "playwright>=1.44.0",
     "respx>=0.21.1",
     "ruff>=0.17.3",
+    # so `uv sync` (and CI) can import and test the MCP server
+    "workbench-dashboard[mcp]",
 ]
 
 # The one place the version is written; scripts/version.py sets it and the app and UI versions
