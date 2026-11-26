@@ -6,6 +6,8 @@ Each release on [GitHub Releases](https://github.com/user7217/workbench/releases
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-26
+
 ### Added
 
 - **claude.ai connector:** chats on claude.ai (web and mobile) can record progress on the dashboard through a remote MCP server: list and show projects and learning paths, set statuses and notes, add items and file suggestions to a project's inbox, committed as `web(...)`. Only one GitHub account can sign in, the connector runs in its own sandboxed container and reaches the dashboard only through a restricted socket (`WORKBENCH_AGENT_SOCKET`), and `workbench web-skill` writes the matching claude.ai skill. Optional: install with the `mcp` extra. See docs/web-connector.md.
@@ -109,7 +111,8 @@ The first release. Everything below is new.
 - **Security:** write endpoints require `X-Workbench: 1` and JSON; a server listening on localhost rejects other `Host` names, blocking DNS rebinding.
 - **Releases:** one version number for the Python package, web UI and desktop app (`scripts/version.py`), this changelog, and a release workflow that builds the `.dmg`, the wheel and sdist, and the Docker image for each `v*` tag.
 
-[Unreleased]: https://github.com/user7217/workbench/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/user7217/workbench/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/user7217/workbench/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/user7217/workbench/compare/v0.2.3...v0.3.0
 [0.2.3]: https://github.com/user7217/workbench/compare/v0.2.2...v0.2.3
 [0.2.2]: https://github.com/user7217/workbench/compare/v0.2.1...v0.2.2
