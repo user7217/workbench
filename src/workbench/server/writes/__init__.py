@@ -14,6 +14,7 @@ from workbench.server.writes._transaction import (
     AllowedLearningStatus,
     LearningWriteError,
     WriteError,
+    WriteKind,
 )
 from workbench.server.writes.fields import (
     update_learning_fields,
@@ -32,14 +33,20 @@ from workbench.server.writes.structure import (
     move_project_item,
     set_project_parent,
 )
-from workbench.server.writes.suggestions import dismiss_suggestion, keep_suggestion
+from workbench.server.writes.suggestions import (
+    add_suggestion,
+    dismiss_suggestion,
+    keep_suggestion,
+)
 from workbench.server.writes.today import set_today, set_today_enabled
 
 __all__ = [
     "AllowedLearningStatus",
     "LearningWriteError",
     "WriteError",
+    "WriteKind",
     "add_project_item",
+    "add_suggestion",
     "delete_project_item",
     "dismiss_suggestion",
     "keep_suggestion",

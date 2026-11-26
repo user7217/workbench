@@ -20,6 +20,7 @@ from workbench.cli import (
     projects,
     server,
     setup,
+    web,
 )
 
 app = typer.Typer(
@@ -42,7 +43,7 @@ def _main(
     """Workbench CLI — personal inventory of software projects and learning paths."""
 
 
-for _commands in (projects, hierarchy, items, discover, history, agents, server, setup):
+for _commands in (projects, hierarchy, items, discover, history, agents, server, setup, web):
     app.add_typer(_commands.app)
 app.add_typer(learning.learning_app, name="learning")
 app.add_typer(demo.demo_app, name="demo")

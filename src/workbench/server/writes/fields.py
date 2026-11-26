@@ -16,6 +16,7 @@ from workbench.server.writes._transaction import (
     _PHASE_STATUSES,
     _PROJECT_STATUSES,
     WriteError,
+    WriteKind,
     _commit_edit,
     _edit_message,
     _reject_unknown_keys,
@@ -28,7 +29,7 @@ from workbench.server.writes._transaction import (
 
 
 def update_project_item_status(
-    state: ServerState, project_id: str, item_id: str, new_status: str
+    state: ServerState, project_id: str, item_id: str, new_status: str, *, kind: WriteKind = "edit"
 ) -> dict[str, Any]:
     """Set the status of a phase or (nested) component in projects/<id>/project.yaml."""
     _require_slug(project_id, "project id")
@@ -42,7 +43,7 @@ def update_project_item_status(
 
     def message() -> str:
         summary = describe_item_change(status=status) + edits.describe_roll_up(rolled)
-        return _edit_message(summary, f"{project_id}/{item_id}")
+        return _edit_message(summary, f"{project_id}/{item_id}", kind)
 
     return _commit_edit(state, "project", project_id, mutate, message)
 
@@ -76,7 +77,7 @@ def update_learning_path_status(
 
 
 def update_learning_item_status(
-    state: ServerState, path_id: str, item_id: str, new_status: str
+    state: ServerState, path_id: str, item_id: str, new_status: str, *, kind: WriteKind = "edit"
 ) -> dict[str, Any]:
     """Set the status of a topic or subtopic in learning/<path_id>/path.yaml."""
     _require_slug(path_id, "learning path id")
@@ -90,7 +91,7 @@ def update_learning_item_status(
 
     def message() -> str:
         summary = f"status {status}" + edits.describe_roll_up(rolled)
-        return _edit_message(summary, f"learning/{path_id}/{item_id}")
+        return _edit_message(summary, f"learning/{path_id}/{item_id}", kind)
 
     return _commit_edit(state, "learning", path_id, mutate, message)
 
@@ -139,7 +140,7 @@ def update_project_fields(state: ServerState, project_id: str, body: object) -> 
 
 
 def update_project_item_fields(
-    state: ServerState, project_id: str, item_id: str, body: object
+    state: ServerState, project_id: str, item_id: str, body: object, *, kind: WriteKind = "edit"
 ) -> dict[str, Any]:
     """Edit text fields of a phase/topic group or a component at any depth."""
     _require_slug(project_id, "project id")
@@ -154,7 +155,7 @@ def update_project_item_fields(
         "project",
         project_id,
         mutate,
-        _edit_message(describe_item_change(fields=fields), f"{project_id}/{item_id}"),
+        _edit_message(describe_item_change(fields=fields), f"{project_id}/{item_id}", kind),
         allow_text_removal=True,
     )
 
@@ -178,7 +179,7 @@ def update_learning_fields(state: ServerState, path_id: str, body: object) -> di
 
 
 def update_learning_item_fields(
-    state: ServerState, path_id: str, item_id: str, body: object
+    state: ServerState, path_id: str, item_id: str, body: object, *, kind: WriteKind = "edit"
 ) -> dict[str, Any]:
     """Edit text fields of a learning topic or subtopic."""
     _require_slug(path_id, "learning path id")
@@ -193,6 +194,6 @@ def update_learning_item_fields(
         "learning",
         path_id,
         mutate,
-        _edit_message(describe_item_change(fields=fields), f"learning/{path_id}/{item_id}"),
+        _edit_message(describe_item_change(fields=fields), f"learning/{path_id}/{item_id}", kind),
         allow_text_removal=True,
     )

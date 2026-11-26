@@ -9,6 +9,7 @@ Kinds (who writes them):
     update   workbench set / add (quick per-message updates)
     review   workbench push (full review by an agent)
     edit     dashboard edits through the server
+    web      claude.ai connector edits through the dashboard's agent socket
     import   workbench learning import
     attach   workbench attach
     detach   workbench detach
@@ -29,6 +30,7 @@ KINDS: tuple[str, ...] = (
     "update",
     "review",
     "edit",
+    "web",
     "import",
     "attach",
     "detach",

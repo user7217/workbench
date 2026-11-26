@@ -18,6 +18,14 @@ services:
       WORKBENCH_STATE_DIR: /data
       WORKBENCH_BIND: 0.0.0.0
       WORKBENCH_PORT: 8420
+      # Optional agent API for the claude.ai connector (src/workbench/server/agent_socket.py):
+      # set WORKBENCH_AGENT_SOCKET=/agent/agent.sock in .env (a path inside this container, in
+      # the /agent mount below) to serve it on a Unix socket; empty = off. The socket is mode
+      # 0600 and chowned to these ids when set: the host uid/gid the connector's container
+      # process runs as (e.g. 1001 for a rootless container under `mcpsvc`)
+      WORKBENCH_AGENT_SOCKET: ${WORKBENCH_AGENT_SOCKET:-}
+      WORKBENCH_AGENT_SOCKET_UID: ${WORKBENCH_AGENT_SOCKET_UID:-}
+      WORKBENCH_AGENT_SOCKET_GID: ${WORKBENCH_AGENT_SOCKET_GID:-}
     ports:
       # Bind to the server's Tailscale IP in production (WORKBENCH_BIND=100.x.y.z in .env)
       - "${WORKBENCH_BIND:-127.0.0.1}:8420:8420"
@@ -27,6 +35,10 @@ services:
       # GitHub's host keys are built into the image; mount your own known_hosts at
       # /root/.ssh/known_hosts only if the data repo is on another git host.
       - ${WORKBENCH_SSH_KEY_PATH:-./secrets/deploy_key}:/root/.ssh/id_ed25519:ro
+      # Host directory holding the agent socket; mount the same directory into the connector's
+      # container. Always mounted (Docker creates it, empty, if missing) and unused while
+      # WORKBENCH_AGENT_SOCKET is empty. Keep it out of anything served or synced
+      - ${WORKBENCH_AGENT_DIR:-./agent}:/agent
 
 volumes:
   workbench-data:

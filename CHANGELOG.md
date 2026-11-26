@@ -6,6 +6,10 @@ Each release on [GitHub Releases](https://github.com/user7217/workbench/releases
 
 ## [Unreleased]
 
+### Added
+
+- **claude.ai connector:** chats on claude.ai (web and mobile) can record progress on the dashboard through a remote MCP server: list and show projects and learning paths, set statuses and notes, add items and file suggestions to a project's inbox, committed as `web(...)`. Only one GitHub account can sign in, the connector runs in its own sandboxed container and reaches the dashboard only through a restricted socket (`WORKBENCH_AGENT_SOCKET`), and `workbench web-skill` writes the matching claude.ai skill. Optional: install with the `mcp` extra. See docs/web-connector.md.
+
 ## [0.3.0] - 2026-11-17
 
 ### Added

@@ -46,6 +46,9 @@ RepoCheck = Callable[[Path], None]
 # Edits files in a worktree and returns the commit subject
 WorktreeEdit = Callable[[Path], str]
 CommitMessage = str | Callable[[], str]
+# Commit kind of a server write: "edit" for the dashboard UI, "web" for the claude.ai
+# connector writing through the agent socket (see workbench.server.agent_api)
+WriteKind = Literal["edit", "web"]
 
 # A dashboard write failed; status_code is the HTTP status to report. The shared document
 # edits (workbench.edits) raise the same type, so their 400/404/422 codes pass straight through.
@@ -55,9 +58,9 @@ WriteError = EditError
 LearningWriteError = WriteError
 
 
-def _edit_message(summary: str, scope: str) -> str:
-    """Standard commit subject for a dashboard edit: edit(<scope>): <summary>."""
-    return build_message("edit", summary, scope)
+def _edit_message(summary: str, scope: str, kind: WriteKind = "edit") -> str:
+    """Standard commit subject for a server write: <kind>(<scope>): <summary>."""
+    return build_message(kind, summary, scope)
 
 
 # ---------------------------------------------------------------------------

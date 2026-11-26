@@ -20,6 +20,7 @@ from workbench.server.sync import ServerState
 from workbench.server.writes._transaction import (
     _PHASE_STATUSES,
     WriteError,
+    WriteKind,
     _commit_edit,
     _edit_message,
     _reject_unknown_keys,
@@ -47,7 +48,7 @@ _ADD_KEYS: tuple[str, ...] = ("parent_id", "name", "id", "status", "summary", "p
 
 
 def add_project_item(
-    state: ServerState, project_id: str, body: object
+    state: ServerState, project_id: str, body: object, *, kind: WriteKind = "edit"
 ) -> tuple[dict[str, Any], str]:
     """Add a group (parent_id null) or a component under a group/component. Returns (snapshot, new id)."""
     _require_slug(project_id, "project id")
@@ -88,7 +89,7 @@ def add_project_item(
 
     def message() -> str:
         scope = f"{project_id}/{parent_id}" if parent_id else project_id
-        return _edit_message(f"add {created['label']} {created['id']}", scope)
+        return _edit_message(f"add {created['label']} {created['id']}", scope, kind)
 
     snapshot = _commit_edit(state, "project", project_id, mutate, message)
     return snapshot, created["id"]

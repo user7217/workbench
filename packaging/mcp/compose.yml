@@ -1,0 +1,65 @@
+# The Workbench claude.ai connector, for the rootless Docker of the unprivileged user `mcpsvc`
+# on the home server (docs/web-connector.md). Run as mcpsvc, from this directory:
+#
+#   docker network create workbench-web                 # once
+#   docker network connect workbench-web <cloudflared>  # once: the existing tunnel container
+#   cp .env.example .env && chmod 600 .env              # then fill it in
+#   docker compose up -d --build
+#
+# No ports are published: cloudflared reaches the server over the workbench-web network, and the
+# Cloudflare public hostname points at http://workbench-mcp:8000.
+name: workbench-web
+
+services:
+  workbench-mcp:
+    image: workbench-mcp:local
+    build:
+      context: ../..
+      dockerfile: packaging/mcp/Dockerfile
+    container_name: workbench-mcp
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Paths and port inside the container; not meant to be changed in .env
+      WORKBENCH_MCP_STATE_DIR: /state
+      WORKBENCH_AGENT_SOCKET: /agent/agent.sock
+      WORKBENCH_MCP_HOST: 0.0.0.0
+      WORKBENCH_MCP_PORT: "8000"
+    # Container root is host uid 1001 (mcpsvc) in rootless Docker; see the Dockerfile comment
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:size=16m,mode=1777,noexec,nosuid,nodev
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 128
+    # The host firewall blocks mcpsvc from private ranges (including the LAN's DNS server) and
+    # redirects its DNS to 1.1.1.1, so name the public resolvers directly
+    dns:
+      - 1.1.1.1
+      - 9.9.9.9
+    volumes:
+      # Signed-token key material stays in .env; this holds client registrations and the
+      # encrypted GitHub tokens, so logins survive restarts and image updates
+      - state:/state
+      # The host directory in which the dashboard creates agent.sock (WORKBENCH_AGENT_DIR on
+      # the dashboard side). The directory, not the socket file, is mounted: the dashboard
+      # recreates the socket when it restarts, and a file mount would keep pointing at the old
+      # one. Read-only: connecting to a socket needs no write access to the mount.
+      - ${WORKBENCH_AGENT_DIR:?Set WORKBENCH_AGENT_DIR in .env}:/agent:ro
+    networks:
+      - workbench-web
+    logging:
+      driver: json-file
+      options:
+        max-size: 5m
+        max-file: "3"
+
+networks:
+  workbench-web:
+    external: true
+
+volumes:
+  state:

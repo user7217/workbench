@@ -16,6 +16,10 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from workbench.discovery.github import run_github_discovery
+from workbench.server.agent_api import create_agent_app
+from workbench.server.agent_socket import AgentSocketServer, agent_socket_settings_from_env
+from workbench.server.http_checks import read_json_object as _read_json_object
+from workbench.server.http_checks import require_write_headers as _require_write_headers
 from workbench.server.sync import ServerState
 from workbench.server.writes import (
     WriteError,
@@ -61,26 +65,6 @@ def _allowed_hosts() -> list[str]:
     """Host names the server answers to, from WORKBENCH_ALLOWED_HOSTS (comma-separated); empty = any."""
     raw = os.environ.get("WORKBENCH_ALLOWED_HOSTS", "")
     return [h.strip() for h in raw.split(",") if h.strip()]
-
-
-def _require_write_headers(request: Request) -> None:
-    """Enforce X-Workbench: 1 and Content-Type: application/json on write endpoints."""
-    if request.headers.get("x-workbench") != "1":
-        raise HTTPException(status_code=403, detail="Missing or invalid X-Workbench header")
-    ct = request.headers.get("content-type", "")
-    if not ct.lower().startswith("application/json"):
-        raise HTTPException(status_code=415, detail="Content-Type must be application/json")
-
-
-async def _read_json_object(request: Request) -> dict[str, Any]:
-    """Return the request body as a JSON object, or raise 400."""
-    try:
-        body = await request.json()
-    except Exception:
-        raise HTTPException(status_code=400, detail="Invalid JSON body") from None
-    if not isinstance(body, dict):
-        raise HTTPException(status_code=400, detail="Body must be a JSON object")
-    return body
 
 
 async def _read_status_body(request: Request) -> Any:
@@ -165,6 +149,8 @@ def create_app(
         else float(os.environ.get("WORKBENCH_POLL_SECONDS", "600"))
     )
     dist_dir = web_dist if web_dist is not None else _default_web_dist()
+    # The restricted agent API on a Unix socket, only when WORKBENCH_AGENT_SOCKET is set
+    agent_socket = agent_socket_settings_from_env()
 
     @contextlib.asynccontextmanager
     async def lifespan(app_instance: FastAPI):
@@ -210,6 +196,12 @@ def create_app(
                 except Exception:
                     logger.exception("Workbench poll iteration failed; will retry next interval")
 
+        # Same process and ServerState as the dashboard: agent writes take the same repo lock
+        agent_server: AgentSocketServer | None = None
+        if agent_socket is not None:
+            agent_server = AgentSocketServer(create_agent_app(state), agent_socket)
+            await agent_server.start()
+
         if enable_background_loop and interval > 0:
             bg_task = asyncio.create_task(_poll_loop())
 
@@ -221,6 +213,8 @@ def create_app(
                 bg_task.cancel()
                 with contextlib.suppress(asyncio.CancelledError):
                     await bg_task
+            if agent_server is not None:
+                await agent_server.stop()
 
     # No CORSMiddleware: the API is same-origin only
     app = FastAPI(title="Workbench Server", lifespan=lifespan)
